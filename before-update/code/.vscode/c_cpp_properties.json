@@ -1,0 +1,45 @@
+{
+    "configurations": [
+        {
+            "name": "Win32",
+            "includePath": [
+                "${workspaceFolder}/**",
+                "C:\\Users\\Administrator\\OneDrive\\code\\.vscode\\include\\10.0.26100.0\\winrt",
+                "C:\\Users\\Administrator\\OneDrive\\code\\.vscode\\include\\10.0.26100.0\\um",
+                "C:\\Users\\Administrator\\OneDrive\\code\\.vscode\\include\\10.0.26100.0\\ucrt",
+                "C:\\Users\\Administrator\\OneDrive\\code\\.vscode\\include\\10.0.26100.0\\shared",
+                "C:\\Users\\Administrator\\OneDrive\\code\\.vscode\\include\\CL",
+                "C:\\Users\\Administrator\\OneDrive\\code\\.vscode\\include\\CodeAnalysis",
+                "C:\\Users\\Administrator\\OneDrive\\code\\.vscode\\include\\cooperative_groups",
+                "C:\\Users\\Administrator\\OneDrive\\code\\.vscode\\include\\crt",
+                "C:\\Users\\Administrator\\OneDrive\\code\\.vscode\\include\\nvtx3",
+                "C:\\Users\\Administrator\\OneDrive\\code\\.vscode\\include",
+                "C:\\Users\\Administrator\\OneDrive\\code\\.vscode\\include\\cuda\\__memory_resource",
+                "C:\\Users\\Administrator\\OneDrive\\code\\.vscode\\include\\cuda\\__ptx",
+                "C:\\Users\\Administrator\\OneDrive\\code\\.vscode\\include\\msclr",
+                "C:\\Users\\Administrator\\OneDrive\\code\\.vscode\\include\\thrust",
+                "C:\\Users\\Administrator\\OneDrive\\code\\.vscode\\include\\MH_include"
+            ],
+            "defines": [
+                "_DEBUG",
+                "UNICODE",
+                "_UNICODE"
+            ],
+            "windowsSdkVersion": "10.0.26100.0",
+            "compilerPath": "C:/Program Files/LLVM/bin/clang-cl.exe",
+            "cStandard": "c17",
+            "cppStandard": "c++20",
+            "intelliSenseMode": "windows-clang-x64",
+            "compilerArgs": [
+                "-m64 ",
+                "-g3 ",
+                "-v  ",
+                "-finput-charset=UTF-8 ",
+                "-fexec-charset=UTF-8 ",
+                "-fms-compatibility-version=19.29.30133 ",
+                "-ferror-limit=100"
+            ]
+        }
+    ],
+    "version": 4
+}
