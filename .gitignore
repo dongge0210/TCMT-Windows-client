@@ -30,3 +30,13 @@
 *.exe
 *.out
 *.app
+
+.vs/
+*/.vs/
+*.vsidx
+*.suo
+*.user
+Debug/
+Release/
+x64/
+x86/

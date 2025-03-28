@@ -1,0 +1,11 @@
+cmake_minimum_required(VERSION 3.10)
+project(FLTKExample)
+
+# ����FLTK��
+find_package(FLTK REQUIRED)
+
+# ���ӿ�ִ���ļ�
+add_executable(FLTKExample main.cpp)
+
+# ����FLTK��
+target_link_libraries(FLTKExample ${FLTK_LIBRARIES})

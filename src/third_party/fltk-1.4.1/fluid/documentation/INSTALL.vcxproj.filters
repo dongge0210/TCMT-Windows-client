@@ -1,0 +1,13 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="17.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <CustomBuild Include="C:\Users\Administrator\OneDrive\code\.vscode\fltk-1.4.1\CMakeFiles\8b16c64b84df42a7da342819968f3ff4\INSTALL_force.rule">
+      <Filter>CMake Rules</Filter>
+    </CustomBuild>
+  </ItemGroup>
+  <ItemGroup>
+    <Filter Include="CMake Rules">
+      <UniqueIdentifier>{E2C49541-D70E-3563-A396-7EAF48262E97}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+</Project>
