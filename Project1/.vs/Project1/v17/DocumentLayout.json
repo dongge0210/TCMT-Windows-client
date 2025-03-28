@@ -1,41 +1,7 @@
 {
   "Version": 1,
   "WorkspaceRootPath": "F:\\Win_x64-sysMonitor\\Project1\\",
-  "Documents": [
-    {
-      "AbsoluteMoniker": "D:0:0:{2330EAC9-9CA4-479E-AB9D-CED8A25081A9}|Project1.vcxproj|F:\\Win_x64-sysMonitor\\src\\core\\cpu\\CpuInfo.h||{D0E1A5C6-B359-4E41-9B60-3365922C2A22}"
-    },
-    {
-      "AbsoluteMoniker": "D:0:0:{2330EAC9-9CA4-479E-AB9D-CED8A25081A9}|Project1.vcxproj|F:\\Win_x64-sysMonitor\\src\\core\\cpu\\CpuInfo.cpp||{D0E1A5C6-B359-4E41-9B60-3365922C2A22}"
-    },
-    {
-      "AbsoluteMoniker": "D:0:0:{2330EAC9-9CA4-479E-AB9D-CED8A25081A9}|Project1.vcxproj|F:\\Win_x64-sysMonitor\\src\\core\\gpu\\GpuInfo.cpp||{D0E1A5C6-B359-4E41-9B60-3365922C2A22}"
-    },
-    {
-      "AbsoluteMoniker": "D:0:0:{2330EAC9-9CA4-479E-AB9D-CED8A25081A9}|Project1.vcxproj|F:\\Win_x64-sysMonitor\\src\\core\\memory\\MemoryInfo.cpp||{D0E1A5C6-B359-4E41-9B60-3365922C2A22}"
-    },
-    {
-      "AbsoluteMoniker": "D:0:0:{2330EAC9-9CA4-479E-AB9D-CED8A25081A9}|Project1.vcxproj|F:\\Win_x64-sysMonitor\\src\\core\\temperature\\LibreHardwareMonitorBridge.cpp||{D0E1A5C6-B359-4E41-9B60-3365922C2A22}"
-    },
-    {
-      "AbsoluteMoniker": "D:0:0:{2330EAC9-9CA4-479E-AB9D-CED8A25081A9}|Project1.vcxproj|F:\\Win_x64-sysMonitor\\src\\core\\memory\\MemoryInfo.h||{D0E1A5C6-B359-4E41-9B60-3365922C2A22}"
-    },
-    {
-      "AbsoluteMoniker": "D:0:0:{2330EAC9-9CA4-479E-AB9D-CED8A25081A9}|Project1.vcxproj|F:\\Win_x64-sysMonitor\\src\\core\\network\\NetworkAdapter.cpp||{D0E1A5C6-B359-4E41-9B60-3365922C2A22}"
-    },
-    {
-      "AbsoluteMoniker": "D:0:0:{2330EAC9-9CA4-479E-AB9D-CED8A25081A9}|Project1.vcxproj|F:\\Win_x64-sysMonitor\\src\\main.cpp||{D0E1A5C6-B359-4E41-9B60-3365922C2A22}"
-    },
-    {
-      "AbsoluteMoniker": "D:0:0:{2330EAC9-9CA4-479E-AB9D-CED8A25081A9}|Project1.vcxproj|F:\\Win_x64-sysMonitor\\src\\core\\network\\NetworkAdapter.h||{D0E1A5C6-B359-4E41-9B60-3365922C2A22}"
-    },
-    {
-      "AbsoluteMoniker": "D:0:0:{2330EAC9-9CA4-479E-AB9D-CED8A25081A9}|Project1.vcxproj|F:\\Win_x64-sysMonitor\\src\\core\\Utils\\WMIManager.cpp||{D0E1A5C6-B359-4E41-9B60-3365922C2A22}"
-    },
-    {
-      "AbsoluteMoniker": "D:0:0:{2330EAC9-9CA4-479E-AB9D-CED8A25081A9}|Project1.vcxproj|F:\\Win_x64-sysMonitor\\src\\core\\Utils\\TimeUtils.h||{D0E1A5C6-B359-4E41-9B60-3365922C2A22}"
-    }
-  ],
+  "Documents": [],
   "DocumentGroupContainers": [
     {
       "Orientation": 0,
@@ -43,148 +9,31 @@
       "DocumentGroups": [
         {
           "DockedWidth": 200,
-          "SelectedChildIndex": 3,
+          "SelectedChildIndex": -1,
           "Children": [
             {
-              "$type": "Document",
-              "DocumentIndex": 5,
-              "Title": "MemoryInfo.h",
-              "DocumentMoniker": "F:\\Win_x64-sysMonitor\\src\\core\\memory\\MemoryInfo.h",
-              "RelativeDocumentMoniker": "..\\src\\core\\memory\\MemoryInfo.h",
-              "ToolTip": "F:\\Win_x64-sysMonitor\\src\\core\\memory\\MemoryInfo.h",
-              "RelativeToolTip": "..\\src\\core\\memory\\MemoryInfo.h",
-              "ViewState": "AgIAABAAAAAAAAAAAAAuwCQAAAACAAAAAAAAAA==",
-              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000680|",
-              "WhenOpened": "2025-03-23T01:34:06.541Z",
-              "EditorCaption": ""
+              "$type": "Bookmark",
+              "Name": "ST:128:0:{1fc202d4-d401-403c-9834-5b218574bb67}"
             },
             {
-              "$type": "Document",
-              "DocumentIndex": 3,
-              "Title": "MemoryInfo.cpp",
-              "DocumentMoniker": "F:\\Win_x64-sysMonitor\\src\\core\\memory\\MemoryInfo.cpp",
-              "RelativeDocumentMoniker": "..\\src\\core\\memory\\MemoryInfo.cpp",
-              "ToolTip": "F:\\Win_x64-sysMonitor\\src\\core\\memory\\MemoryInfo.cpp",
-              "RelativeToolTip": "..\\src\\core\\memory\\MemoryInfo.cpp",
-              "ViewState": "AgIAAAMAAAAAAAAAAAAuwCMAAAAAAAAAAAAAAA==",
-              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000677|",
-              "WhenOpened": "2025-03-23T01:33:01.869Z",
-              "EditorCaption": ""
+              "$type": "Bookmark",
+              "Name": "ST:129:0:{1fc202d4-d401-403c-9834-5b218574bb67}"
             },
             {
-              "$type": "Document",
-              "DocumentIndex": 4,
-              "Title": "LibreHardwareMonitorBridge.cpp",
-              "DocumentMoniker": "F:\\Win_x64-sysMonitor\\src\\core\\temperature\\LibreHardwareMonitorBridge.cpp",
-              "RelativeDocumentMoniker": "..\\src\\core\\temperature\\LibreHardwareMonitorBridge.cpp",
-              "ToolTip": "F:\\Win_x64-sysMonitor\\src\\core\\temperature\\LibreHardwareMonitorBridge.cpp",
-              "RelativeToolTip": "..\\src\\core\\temperature\\LibreHardwareMonitorBridge.cpp",
-              "ViewState": "AgIAAAAAAAAAAAAAAAAAABYAAABCAAAAAAAAAA==",
-              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000677|",
-              "WhenOpened": "2025-03-23T01:26:06.158Z",
-              "EditorCaption": ""
+              "$type": "Bookmark",
+              "Name": "ST:130:0:{75188d03-9892-4ae2-abf1-207126247ce5}"
             },
             {
-              "$type": "Document",
-              "DocumentIndex": 0,
-              "Title": "CpuInfo.h",
-              "DocumentMoniker": "F:\\Win_x64-sysMonitor\\src\\core\\cpu\\CpuInfo.h",
-              "RelativeDocumentMoniker": "..\\src\\core\\cpu\\CpuInfo.h",
-              "ToolTip": "F:\\Win_x64-sysMonitor\\src\\core\\cpu\\CpuInfo.h",
-              "RelativeToolTip": "..\\src\\core\\cpu\\CpuInfo.h",
-              "ViewState": "AgIAABIAAAAAAAAAAAAAAB4AAAAbAAAAAAAAAA==",
-              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000680|",
-              "WhenOpened": "2025-03-22T15:30:34.719Z",
-              "EditorCaption": ""
+              "$type": "Bookmark",
+              "Name": "ST:131:0:{1fc202d4-d401-403c-9834-5b218574bb67}"
             },
             {
-              "$type": "Document",
-              "DocumentIndex": 8,
-              "Title": "NetworkAdapter.h",
-              "DocumentMoniker": "F:\\Win_x64-sysMonitor\\src\\core\\network\\NetworkAdapter.h",
-              "RelativeDocumentMoniker": "..\\src\\core\\network\\NetworkAdapter.h",
-              "ToolTip": "F:\\Win_x64-sysMonitor\\src\\core\\network\\NetworkAdapter.h",
-              "RelativeToolTip": "..\\src\\core\\network\\NetworkAdapter.h",
-              "ViewState": "AgIAAAAAAAAAAAAAAAArwBEAAAAbAAAAAAAAAA==",
-              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000680|",
-              "WhenOpened": "2025-03-22T15:05:33.438Z",
-              "EditorCaption": ""
+              "$type": "Bookmark",
+              "Name": "ST:132:0:{75188d03-9892-4ae2-abf1-207126247ce5}"
             },
             {
-              "$type": "Document",
-              "DocumentIndex": 2,
-              "Title": "GpuInfo.cpp",
-              "DocumentMoniker": "F:\\Win_x64-sysMonitor\\src\\core\\gpu\\GpuInfo.cpp",
-              "RelativeDocumentMoniker": "..\\src\\core\\gpu\\GpuInfo.cpp",
-              "ToolTip": "F:\\Win_x64-sysMonitor\\src\\core\\gpu\\GpuInfo.cpp",
-              "RelativeToolTip": "..\\src\\core\\gpu\\GpuInfo.cpp",
-              "ViewState": "AgIAAFEAAAAAAAAAAAAAAJcAAAAFAAAAAAAAAA==",
-              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000677|",
-              "WhenOpened": "2025-03-22T15:02:33.773Z",
-              "EditorCaption": ""
-            },
-            {
-              "$type": "Document",
-              "DocumentIndex": 1,
-              "Title": "CpuInfo.cpp",
-              "DocumentMoniker": "F:\\Win_x64-sysMonitor\\src\\core\\cpu\\CpuInfo.cpp",
-              "RelativeDocumentMoniker": "..\\src\\core\\cpu\\CpuInfo.cpp",
-              "ToolTip": "F:\\Win_x64-sysMonitor\\src\\core\\cpu\\CpuInfo.cpp",
-              "RelativeToolTip": "..\\src\\core\\cpu\\CpuInfo.cpp",
-              "ViewState": "AgIAAIQAAAAAAAAAAAAuwLkAAAAAAAAAAAAAAA==",
-              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000677|",
-              "WhenOpened": "2025-03-22T15:02:09.788Z",
-              "EditorCaption": ""
-            },
-            {
-              "$type": "Document",
-              "DocumentIndex": 6,
-              "Title": "NetworkAdapter.cpp",
-              "DocumentMoniker": "F:\\Win_x64-sysMonitor\\src\\core\\network\\NetworkAdapter.cpp",
-              "RelativeDocumentMoniker": "..\\src\\core\\network\\NetworkAdapter.cpp",
-              "ToolTip": "F:\\Win_x64-sysMonitor\\src\\core\\network\\NetworkAdapter.cpp",
-              "RelativeToolTip": "..\\src\\core\\network\\NetworkAdapter.cpp",
-              "ViewState": "AgIAAAAAAAAAAAAAAAAAAE4AAAAAAAAAAAAAAA==",
-              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000677|",
-              "WhenOpened": "2025-03-22T14:34:46.012Z",
-              "EditorCaption": ""
-            },
-            {
-              "$type": "Document",
-              "DocumentIndex": 7,
-              "Title": "main.cpp",
-              "DocumentMoniker": "F:\\Win_x64-sysMonitor\\src\\main.cpp",
-              "RelativeDocumentMoniker": "..\\src\\main.cpp",
-              "ToolTip": "F:\\Win_x64-sysMonitor\\src\\main.cpp",
-              "RelativeToolTip": "..\\src\\main.cpp",
-              "ViewState": "AgIAADMAAAAAAAAAAADwv0IAAAAJAAAAAAAAAA==",
-              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000677|",
-              "WhenOpened": "2025-03-22T13:36:40.162Z",
-              "EditorCaption": ""
-            },
-            {
-              "$type": "Document",
-              "DocumentIndex": 9,
-              "Title": "WMIManager.cpp",
-              "DocumentMoniker": "F:\\Win_x64-sysMonitor\\src\\core\\Utils\\WMIManager.cpp",
-              "RelativeDocumentMoniker": "..\\src\\core\\Utils\\WMIManager.cpp",
-              "ToolTip": "F:\\Win_x64-sysMonitor\\src\\core\\Utils\\WMIManager.cpp",
-              "RelativeToolTip": "..\\src\\core\\Utils\\WMIManager.cpp",
-              "ViewState": "AgIAAAAAAAAAAAAAAADwvxMAAAAiAAAAAAAAAA==",
-              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000677|",
-              "WhenOpened": "2025-03-22T13:35:24.169Z"
-            },
-            {
-              "$type": "Document",
-              "DocumentIndex": 10,
-              "Title": "TimeUtils.h",
-              "DocumentMoniker": "F:\\Win_x64-sysMonitor\\src\\core\\Utils\\TimeUtils.h",
-              "RelativeDocumentMoniker": "..\\src\\core\\Utils\\TimeUtils.h",
-              "ToolTip": "F:\\Win_x64-sysMonitor\\src\\core\\Utils\\TimeUtils.h",
-              "RelativeToolTip": "..\\src\\core\\Utils\\TimeUtils.h",
-              "ViewState": "AgIAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==",
-              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000680|",
-              "WhenOpened": "2025-03-22T12:25:10.4Z"
+              "$type": "Bookmark",
+              "Name": "ST:128:0:{116d2292-e37d-41cd-a077-ebacac4c8cc4}"
             }
           ]
         }
