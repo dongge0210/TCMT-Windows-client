@@ -164,6 +164,7 @@
     <ClCompile Include="..\src\core\Utils\TimeUtils.cpp" />
     <ClCompile Include="..\src\core\Utils\WinUtils.cpp" />
     <ClCompile Include="..\src\core\Utils\WMIManager.cpp" />
+    <ClCompile Include="..\src\main.cpp" />
   </ItemGroup>
   <ItemGroup>
     <Reference Include="HidSharp">
