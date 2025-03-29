@@ -45,6 +45,9 @@
     <ClInclude Include="..\src\core\Utils\WMIManager.h">
       <Filter>头文件</Filter>
     </ClInclude>
+    <ClInclude Include="..\src\core\disk\DiskInfo.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="..\src\core\Utils\Logger.cpp">
@@ -78,6 +81,9 @@
       <Filter>源文件</Filter>
     </ClCompile>
     <ClCompile Include="..\src\main.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\core\disk\DiskInfo.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
   </ItemGroup>

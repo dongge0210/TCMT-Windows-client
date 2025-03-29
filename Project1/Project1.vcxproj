@@ -154,7 +154,7 @@ vcruntimed.lib
     </Link>
     <PostBuildEvent>
       <Command>
-</Command>
+      </Command>
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
@@ -175,6 +175,7 @@ vcruntimed.lib
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClInclude Include="..\src\core\cpu\CpuInfo.h" />
+    <ClInclude Include="..\src\core\disk\DiskInfo.h" />
     <ClInclude Include="..\src\core\gpu\GpuInfo.h" />
     <ClInclude Include="..\src\core\memory\MemoryInfo.h" />
     <ClInclude Include="..\src\core\network\NetworkAdapter.h" />
@@ -187,6 +188,7 @@ vcruntimed.lib
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="..\src\core\cpu\CpuInfo.cpp" />
+    <ClCompile Include="..\src\core\disk\DiskInfo.cpp" />
     <ClCompile Include="..\src\core\gpu\GpuInfo.cpp" />
     <ClCompile Include="..\src\core\memory\MemoryInfo.cpp" />
     <ClCompile Include="..\src\core\network\NetworkAdapter.cpp" />

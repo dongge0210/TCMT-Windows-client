@@ -8,11 +8,13 @@
 #include "core/utils/WinUtils.h"
 #include "core/temperature/LibreHardwareMonitorBridge.h"
 #include "core/utils/WmiManager.h"
+#include "core/disk/DiskInfo.h"
 #include <chrono>
 #include <iostream>
 #include <sstream>
 #include <iomanip>
 #include <windows.h>
+#include <utility>
 
 #pragma comment(lib, "kernel32.lib")
 #pragma comment(lib, "user32.lib")
@@ -105,6 +107,14 @@ std::string FormatSize(uint64_t bytes, bool useBinary = true) {
     else if (bytes >= kb) ss << (bytes / kb) << " KB";
     else ss << bytes << " B";
 
+    return ss.str();
+}
+
+std::string FormatDiskUsage(uint64_t used, uint64_t total) {
+    if (total == 0) return "0%";
+    double percentage = (static_cast<double>(used) / total) * 100.0;
+    std::stringstream ss;
+    ss << std::fixed << std::setprecision(1) << percentage << "%";
     return ss.str();
 }
 
@@ -224,8 +234,9 @@ int main() {
         auto now = std::chrono::system_clock::now();
         auto custom_now = std::chrono::time_point_cast<std::chrono::duration<int64_t, std::ratio<1, 10000000>>>(now);
         PrintInfoItem("当前本机UTC时间", TimeUtils::FormatTimePoint(custom_now));
+        PrintInfoItem("系统启动时间", TimeUtils::GetBootTimeUtc());
+        PrintInfoItem("系统运行时间", TimeUtils::GetUptime());
 
-        // 温度信息
         // 温度信息
         PrintSectionHeader("硬件温度信息");
         LibreHardwareMonitorBridge::Initialize();
@@ -237,6 +248,32 @@ int main() {
                 PrintInfoItem(TranslateHardwareName(temp.first),
                     FormatTemperature(temp.second));
             }
+        }
+
+        // 硬盘信息显示部分
+        PrintSectionHeader("磁盘信息");
+        DiskInfo diskInfo;
+        const auto& drives = diskInfo.GetDrives();
+
+        for (const auto& drive : drives) {
+            std::cout << "\n  " << drive.letter << ": 驱动器" << std::endl;
+
+            // 显示卷标（如果有）
+            if (!drive.label.empty()) {
+                PrintInfoItem("卷标", WinUtils::WstringToString(drive.label));
+            }
+
+            // 显示文件系统
+            PrintInfoItem("文件系统", WinUtils::WstringToString(drive.fileSystem));
+
+            // 显示容量信息
+            PrintInfoItem("总容量", FormatSize(drive.totalSize));
+            PrintInfoItem("已用空间", FormatSize(drive.usedSpace));
+            PrintInfoItem("可用空间", FormatSize(drive.freeSpace));
+
+            // 计算并显示使用率
+            double usagePercent = (static_cast<double>(drive.usedSpace) / drive.totalSize) * 100.0;
+            PrintInfoItem("使用率", FormatPercentage(usagePercent));
         }
 
         Logger::Info("系统信息收集完成");
