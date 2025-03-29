@@ -1,4 +1,4 @@
-#include "GpuInfo.h"
+﻿#include "GpuInfo.h"
 #include "Logger.h"
 #include "WmiManager.h"
 #include <comutil.h>

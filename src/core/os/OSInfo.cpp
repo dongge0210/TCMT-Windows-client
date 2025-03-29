@@ -2,6 +2,11 @@
 #include "WinUtils.h"
 #include <windows.h>
 #include <winternl.h>
+#include <ntstatus.h>
+#ifndef STATUS_SUCCESS
+#define STATUS_SUCCESS ((NTSTATUS)0x00000000L)
+#endif
+
 
 #pragma comment(lib, "ntdll.lib")
 

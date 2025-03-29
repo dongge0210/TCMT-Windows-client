@@ -1,4 +1,4 @@
-#include "core/cpu/CpuInfo.h"
+﻿#include "core/cpu/CpuInfo.h"
 #include "core/gpu/GpuInfo.h"
 #include "core/memory/MemoryInfo.h"
 #include "core/network/NetworkAdapter.h"
