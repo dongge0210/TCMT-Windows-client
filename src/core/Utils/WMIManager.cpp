@@ -1,4 +1,4 @@
-#include "WmiManager.h"
+﻿#include "WmiManager.h"
 #include "Logger.h"
 #include <comdef.h>
 

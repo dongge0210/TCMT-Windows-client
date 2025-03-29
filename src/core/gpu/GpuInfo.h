@@ -2,8 +2,14 @@
 #include <vector>
 #include <string>
 #include <d3d11.h>
-#include <dxgi.h>
+
+#if defined(SUPPORT_NVIDIA_GPU)
 #include <nvml.h>
+#endif
+
+#if defined(SUPPORT_DIRECTX)
+#include <dxgi.h>
+#endif
 #include <wbemidl.h>
 
 class WmiManager;
