@@ -33,11 +33,41 @@ std::string TimeUtils::GetBootTimeUtc() {
 
     std::stringstream ss;
     ss << std::setfill('0')
-       << stBootTime.wYear << "-"
-       << std::setw(2) << stBootTime.wMonth << "-"
-       << std::setw(2) << stBootTime.wDay << " "
-       << std::setw(2) << stBootTime.wHour << ":"
-       << std::setw(2) << stBootTime.wMinute << ":"
-       << std::setw(2) << stBootTime.wSecond;
+        << stBootTime.wYear << "-"
+        << std::setw(2) << stBootTime.wMonth << "-"
+        << std::setw(2) << stBootTime.wDay << " "
+        << std::setw(2) << stBootTime.wHour << ":"
+        << std::setw(2) << stBootTime.wMinute << ":"
+        << std::setw(2) << stBootTime.wSecond;
     return ss.str();
-}                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              
+}
+
+uint64_t TimeUtils::GetUptimeMilliseconds() {
+    return GetTickCount64();
+}
+
+std::string TimeUtils::GetUptime() {
+    ULONGLONG uptime = GetTickCount64();
+
+    // 转换为天、小时、分钟
+    ULONGLONG days = uptime / (1000 * 60 * 60 * 24);
+    ULONGLONG hours = (uptime % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60);
+    ULONGLONG minutes = (uptime % (1000 * 60 * 60)) / (1000 * 60);
+    ULONGLONG seconds = (uptime % (1000 * 60)) / 1000;
+
+    std::stringstream ss;
+
+    // 格式化输出
+    if (days > 0) {
+        ss << days << "天 ";
+    }
+    if (hours > 0 || days > 0) {
+        ss << hours << "小时 ";
+    }
+    if (minutes > 0 || hours > 0 || days > 0) {
+        ss << minutes << "分钟 ";
+    }
+    ss << seconds << "秒";
+
+    return ss.str();
+}
