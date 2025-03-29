@@ -111,25 +111,36 @@ void GpuInfo::QueryNvidiaGpuInfo(int index) {
     }
 
     nvmlDevice_t device;
-    nvmlReturn_t result = nvmlDeviceGetHandleByIndex(0, &device); // 假设只有一个NVIDIA GPU
+    nvmlReturn_t result = nvmlDeviceGetHandleByIndex(0, &device);
     if (NVML_SUCCESS != result) {
         Logger::Error("获取设备句柄失败: " + std::string(nvmlErrorString(result)));
         nvmlShutdown();
         return;
     }
 
-    int major, minor;
-    result = nvmlDeviceGetCudaComputeCapability(device, &major, &minor);
-    if (NVML_SUCCESS != result) {
-        Logger::Error("获取计算能力失败: " + std::string(nvmlErrorString(result)));
-        nvmlShutdown();
-        return;
+    // 获取显存信息
+    nvmlMemory_t memory;
+    result = nvmlDeviceGetMemoryInfo(device, &memory);
+    if (NVML_SUCCESS == result) {
+        gpuList[index].dedicatedMemory = memory.total;
     }
 
-    gpuList[index].computeCapabilityMajor = major;
-    gpuList[index].computeCapabilityMinor = minor;
+    // 获取核心频率，保持 MHz 单位
+    unsigned int clockMHz = 0;
+    result = nvmlDeviceGetClockInfo(device, NVML_CLOCK_GRAPHICS, &clockMHz);
+    if (NVML_SUCCESS == result) {
+        gpuList[index].coreClock = static_cast<double>(clockMHz); // 直接使用 MHz
+    }
 
-    nvmlShutdown(); // 关闭NVML
+    // 获取计算能力
+    int major, minor;
+    result = nvmlDeviceGetCudaComputeCapability(device, &major, &minor);
+    if (NVML_SUCCESS == result) {
+        gpuList[index].computeCapabilityMajor = major;
+        gpuList[index].computeCapabilityMinor = minor;
+    }
+
+    nvmlShutdown();
 }
 
 const std::vector<GpuInfo::GpuData>& GpuInfo::GetGpuData() const {

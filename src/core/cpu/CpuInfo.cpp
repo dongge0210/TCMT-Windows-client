@@ -3,24 +3,69 @@
 #include <intrin.h>
 #include <windows.h>
 #include <vector>
+#include <pdh.h>
+
+#pragma comment(lib, "pdh.lib")
 
 CpuInfo::CpuInfo() :
     totalCores(0),
     largeCores(0),
     smallCores(0),
     cpuUsage(0.0),
-    lastTotalSysTime(0),
-    lastTotalIdleTime(0) {
+    counterInitialized(false) {
+
     try {
         DetectCores();
         cpuName = GetNameFromRegistry();
-        updateUsage();
+        InitializeCounter();
     }
     catch (const std::exception& e) {
         Logger::Error("CPU信息初始化失败: " + std::string(e.what()));
     }
 }
 
+CpuInfo::~CpuInfo() {
+    CleanupCounter();
+}
+
+void CpuInfo::InitializeCounter() {
+    PDH_STATUS status = PdhOpenQuery(NULL, 0, &queryHandle);
+    if (status != ERROR_SUCCESS) {
+        Logger::Error("无法打开性能计数器查询");
+        return;
+    }
+
+    // 使用英文计数器名称以避免本地化问题
+    status = PdhAddEnglishCounter(queryHandle,
+        L"\\Processor(_Total)\\% Processor Time",
+        0,
+        &counterHandle);
+
+    if (status != ERROR_SUCCESS) {
+        Logger::Error("无法添加CPU使用率计数器");
+        PdhCloseQuery(queryHandle);
+        return;
+    }
+
+    // 首次查询以初始化计数器
+    status = PdhCollectQueryData(queryHandle);
+    if (status != ERROR_SUCCESS) {
+        Logger::Error("无法收集性能计数器数据");
+        PdhCloseQuery(queryHandle);
+        return;
+    }
+
+    counterInitialized = true;
+    Sleep(100); // 等待首次采样完成
+    updateUsage(); // 初始化采样
+}
+
+void CpuInfo::CleanupCounter() {
+    if (counterInitialized) {
+        PdhCloseQuery(queryHandle);
+        counterInitialized = false;
+    }
+}
 
 void CpuInfo::DetectCores() {
     SYSTEM_INFO sysInfo;
@@ -41,34 +86,28 @@ void CpuInfo::DetectCores() {
 }
 
 double CpuInfo::updateUsage() {
-    FILETIME idleTime, kernelTime, userTime;
-    if (!GetSystemTimes(&idleTime, &kernelTime, &userTime)) {
-        throw std::runtime_error("无法获取系统时间");
+    if (!counterInitialized) {
+        return cpuUsage;
     }
 
-    ULARGE_INTEGER idle, kernel, user;
-    idle.LowPart = idleTime.dwLowDateTime;
-    idle.HighPart = idleTime.dwHighDateTime;
-    kernel.LowPart = kernelTime.dwLowDateTime;
-    kernel.HighPart = kernelTime.dwHighDateTime;
-    user.LowPart = userTime.dwLowDateTime;
-    user.HighPart = userTime.dwHighDateTime;
-
-    ULONGLONG currentTotalSysTime = kernel.QuadPart + user.QuadPart;
-    ULONGLONG currentTotalIdleTime = idle.QuadPart;
-
-    ULONGLONG sysDelta = currentTotalSysTime - lastTotalSysTime;
-    ULONGLONG idleDelta = currentTotalIdleTime - lastTotalIdleTime;
-
-    if (sysDelta > 0) {
-        cpuUsage = (sysDelta - idleDelta) * 100.0 / sysDelta;
-    } else {
-        cpuUsage = 0.0;
+    PDH_STATUS status = PdhCollectQueryData(queryHandle);
+    if (status != ERROR_SUCCESS) {
+        Logger::Error("无法收集CPU使用率数据");
+        return cpuUsage;
     }
 
-    lastTotalSysTime = currentTotalSysTime;
-    lastTotalIdleTime = currentTotalIdleTime;
+    PDH_FMT_COUNTERVALUE counterValue;
+    status = PdhGetFormattedCounterValue(counterHandle,
+        PDH_FMT_DOUBLE,
+        NULL,
+        &counterValue);
 
+    if (status != ERROR_SUCCESS) {
+        Logger::Error("无法格式化CPU使用率数据");
+        return cpuUsage;
+    }
+
+    cpuUsage = counterValue.doubleValue;
     return cpuUsage;
 }
 
@@ -88,7 +127,7 @@ std::string CpuInfo::GetNameFromRegistry() {
 }
 
 double CpuInfo::GetUsage() {
-    return cpuUsage;
+    return updateUsage();
 }
 
 int CpuInfo::GetTotalCores() const {
@@ -139,4 +178,4 @@ bool CpuInfo::IsVirtualizationEnabled() const {
     }
 
     return isVMXEnabled;
-}                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  
+}

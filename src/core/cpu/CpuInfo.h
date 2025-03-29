@@ -1,10 +1,14 @@
 #pragma once
 #include <string>
 #include <windows.h>
+#include <pdh.h>
+#include <queue>
 
 class CpuInfo {
 public:
     CpuInfo();
+    ~CpuInfo();  // 添加析构函数声明
+
     double GetUsage();
     std::string GetName();
     int GetTotalCores() const;
@@ -16,14 +20,20 @@ public:
 
 private:
     void DetectCores();
+    void InitializeCounter();    // 新增
+    void CleanupCounter();       // 新增
     std::string GetNameFromRegistry();
     double updateUsage();
-    double cpuUsage = 0.0;
+
+    // 基本信息
     std::string cpuName;
-    int totalCores = 0;
-    int smallCores = 0;
-    int largeCores = 0;
-    DWORD cpuCurrentSpeed = 0;
-    ULONGLONG lastTotalSysTime = 0;
-    ULONGLONG lastTotalIdleTime = 0;
+    int totalCores;
+    int smallCores;
+    int largeCores;
+    double cpuUsage;
+
+    // PDH 计数器相关
+    PDH_HQUERY queryHandle;
+    PDH_HCOUNTER counterHandle;
+    bool counterInitialized;
 };

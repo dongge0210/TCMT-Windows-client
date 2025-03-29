@@ -1,4 +1,4 @@
-#include "LibreHardwareMonitorBridge.h"
+ï»¿#include "LibreHardwareMonitorBridge.h"
 #include <msclr/marshal_cppstd.h>
 #include <utility>
 
@@ -31,7 +31,7 @@ public:
                     String^ key;
                     float value = safe_cast<float>(sensor->Value.Value);
 
-                    // ¸ù¾İ´«¸ĞÆ÷Ãû³Æ½øĞĞ·Ö×é
+                    // æ ¹æ®ä¼ æ„Ÿå™¨åç§°è¿›è¡Œåˆ†ç»„
                     if (sensor->Name->Contains("CPU Core")) {
                         key = "CPU Cores";
                     }
@@ -42,13 +42,13 @@ public:
                         key = sensor->Name;
                     }
                     else if (sensor->Name->Contains("Distance to TjMax")) {
-                        continue; // Ìø¹ı TjMax Ïà¹ØµÄÎÂ¶È
+                        continue; // è·³è¿‡ TjMax ç›¸å…³çš„æ¸©åº¦
                     }
                     else {
                         key = sensor->Name;
                     }
 
-                    // Ìí¼Óµ½¶ÔÓ¦µÄ×é
+                    // æ·»åŠ åˆ°å¯¹åº”çš„ç»„
                     if (!tempGroups->ContainsKey(key)) {
                         tempGroups->Add(key, gcnew List<float>());
                     }
@@ -57,7 +57,7 @@ public:
             }
         }
 
-        // ¼ÆËãÃ¿×éµÄÆ½¾ùÎÂ¶È
+        // è®¡ç®—æ¯ç»„çš„å¹³å‡æ¸©åº¦
         for each (System::Collections::Generic::KeyValuePair<String^, List<float>^> pair in tempGroups) {
             float average = 0;
             for each (float temp in pair.Value) {
