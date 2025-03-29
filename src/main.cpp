@@ -96,12 +96,19 @@ int main() {
         const auto& adapters = network.GetAdapters();
         if (adapters.empty()) {
             Logger::Warning("未检测到活动网络适配器");
-        } else {
+        }
+        else {
             for (size_t i = 0; i < adapters.size(); ++i) {
+                const auto& adapter = adapters[i];
                 std::cout << "\n  适配器 #" << i + 1 << std::endl;
-                PrintInfoItem("适配器名称", WinUtils::WstringToString(adapters[i].name));
-                PrintInfoItem("MAC地址", WinUtils::WstringToString(adapters[i].mac));
-                PrintInfoItem("IP地址", WinUtils::WstringToString(adapters[i].ip));
+                PrintInfoItem("适配器名称", WinUtils::WstringToString(adapter.name));
+                PrintInfoItem("MAC地址", WinUtils::WstringToString(adapter.mac));
+                PrintInfoItem("连接状态", adapter.isConnected ? "已连接" : "未连接");
+
+                if (adapter.isConnected) {
+                    PrintInfoItem("IP地址", WinUtils::WstringToString(adapter.ip));
+                    PrintInfoItem("连接速度", WinUtils::WstringToString(adapter.speedString));
+                }
             }
         }
 
