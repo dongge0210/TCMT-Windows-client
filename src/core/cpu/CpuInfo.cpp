@@ -12,12 +12,14 @@ CpuInfo::CpuInfo() :
     largeCores(0),
     smallCores(0),
     cpuUsage(0.0),
-    counterInitialized(false) {
+    counterInitialized(false),
+    lastUpdateTime(0) {
 
     try {
         DetectCores();
         cpuName = GetNameFromRegistry();
         InitializeCounter();
+        UpdateCoreSpeeds();  // 初始化频率信息
     }
     catch (const std::exception& e) {
         Logger::Error("CPU信息初始化失败: " + std::string(e.what()));
@@ -60,6 +62,32 @@ void CpuInfo::InitializeCounter() {
     updateUsage(); // 初始化采样
 }
 
+double CpuInfo::GetLargeCoreSpeed() const {
+    const_cast<CpuInfo*>(this)->UpdateCoreSpeeds();
+    if (largeCoresSpeeds.empty()) {
+        return GetCurrentSpeed();
+    }
+    // 计算平均频率
+    double total = 0;
+    for (DWORD speed : largeCoresSpeeds) {
+        total += speed;
+    }
+    return total / largeCoresSpeeds.size();
+}
+
+double CpuInfo::GetSmallCoreSpeed() const {
+    const_cast<CpuInfo*>(this)->UpdateCoreSpeeds();
+    if (smallCoresSpeeds.empty()) {
+        return GetCurrentSpeed();
+    }
+    // 计算平均频率
+    double total = 0;
+    for (DWORD speed : smallCoresSpeeds) {
+        total += speed;
+    }
+    return total / smallCoresSpeeds.size();
+}
+
 void CpuInfo::CleanupCounter() {
     if (counterInitialized) {
         PdhCloseQuery(queryHandle);
@@ -81,6 +109,40 @@ void CpuInfo::DetectCores() {
             if (info.Relationship == RelationProcessorCore) {
                 (info.ProcessorCore.Flags == 1) ? largeCores++ : smallCores++;
             }
+        }
+    }
+}
+
+void CpuInfo::UpdateCoreSpeeds() {
+    // 检查更新间隔
+    DWORD currentTime = GetTickCount();
+    if (currentTime - lastUpdateTime < 1000) { // 1秒更新一次
+        return;
+    }
+    lastUpdateTime = currentTime;
+
+    HKEY hKey;
+    DWORD speed;
+    DWORD size = sizeof(DWORD);
+
+    // 清空旧数据
+    largeCoresSpeeds.clear();
+    smallCoresSpeeds.clear();
+
+    // 遍历所有核心
+    for (int i = 0; i < totalCores; ++i) {
+        std::wstring keyPath = L"HARDWARE\\DESCRIPTION\\System\\CentralProcessor\\" + std::to_wstring(i);
+        if (RegOpenKeyExW(HKEY_LOCAL_MACHINE, keyPath.c_str(), 0, KEY_READ, &hKey) == ERROR_SUCCESS) {
+            if (RegQueryValueExW(hKey, L"~MHz", NULL, NULL, (LPBYTE)&speed, &size) == ERROR_SUCCESS) {
+                // 根据核心类型分类存储频率
+                if (i < largeCores * 2) { // 考虑超线程，每个物理核心有两个逻辑核心
+                    largeCoresSpeeds.push_back(speed);
+                }
+                else {
+                    smallCoresSpeeds.push_back(speed);
+                }
+            }
+            RegCloseKey(hKey);
         }
     }
 }
