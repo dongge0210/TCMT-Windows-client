@@ -13,24 +13,66 @@ std::string TimeUtils::FormatTimePoint(const SystemTimePoint& tp) {
     return ss.str();
 }
 
+std::string TimeUtils::GetCurrentLocalTime() {
+    SYSTEMTIME localTime;
+    GetLocalTime(&localTime);
+
+    std::stringstream ss;
+    ss << std::setfill('0')
+        << localTime.wYear << "-"
+        << std::setw(2) << localTime.wMonth << "-"
+        << std::setw(2) << localTime.wDay << " "
+        << std::setw(2) << localTime.wHour << ":"
+        << std::setw(2) << localTime.wMinute << ":"
+        << std::setw(2) << localTime.wSecond;
+
+    return ss.str();
+}
+
+std::string TimeUtils::GetCurrentUtcTime() {
+    SYSTEMTIME utcTime;
+    GetSystemTime(&utcTime);
+
+    std::stringstream ss;
+    ss << std::setfill('0')
+        << utcTime.wYear << "-"
+        << std::setw(2) << utcTime.wMonth << "-"
+        << std::setw(2) << utcTime.wDay << " "
+        << std::setw(2) << utcTime.wHour << ":"
+        << std::setw(2) << utcTime.wMinute << ":"
+        << std::setw(2) << utcTime.wSecond;
+
+    return ss.str();
+}
+
 std::string TimeUtils::GetBootTimeUtc() {
+    // 获取当前系统时间
+    FILETIME now;
+    GetSystemTimeAsFileTime(&now);
+
+    // 获取系统运行时间（毫秒）
     ULONGLONG uptime = GetTickCount64();
-    ULONGLONG currentTime = std::chrono::duration_cast<std::chrono::milliseconds>(
-        std::chrono::system_clock::now().time_since_epoch()
-    ).count();
-    ULONGLONG bootTime = currentTime - uptime;
 
+    // 将当前时间转换为64位整数（100纳秒为单位）
+    ULONGLONG currentTime = ((ULONGLONG)now.dwHighDateTime << 32) | now.dwLowDateTime;
+
+    // 计算启动时间（100纳秒为单位）
+    ULONGLONG bootTime = currentTime - (uptime * 10000); // 转换毫秒到100纳秒
+
+    // 转换回FILETIME结构
     FILETIME ftBootTime;
-    LARGE_INTEGER li;
-    li.QuadPart = bootTime * 10000; // 转换为100纳秒单位
-    ftBootTime.dwLowDateTime = li.LowPart;
-    ftBootTime.dwHighDateTime = li.HighPart;
+    ftBootTime.dwHighDateTime = bootTime >> 32;
+    ftBootTime.dwLowDateTime = bootTime & 0xFFFFFFFF;
 
+    // 转换为本地时间
+    FILETIME localBootTime;
+    FileTimeToLocalFileTime(&ftBootTime, &localBootTime);
+
+    // 转换为SYSTEMTIME结构
     SYSTEMTIME stBootTime;
-    if (!FileTimeToSystemTime(&ftBootTime, &stBootTime)) {
-        return "Error: Failed to convert time";
-    }
+    FileTimeToSystemTime(&localBootTime, &stBootTime);
 
+    // 格式化输出
     std::stringstream ss;
     ss << std::setfill('0')
         << stBootTime.wYear << "-"
@@ -39,6 +81,7 @@ std::string TimeUtils::GetBootTimeUtc() {
         << std::setw(2) << stBootTime.wHour << ":"
         << std::setw(2) << stBootTime.wMinute << ":"
         << std::setw(2) << stBootTime.wSecond;
+
     return ss.str();
 }
 

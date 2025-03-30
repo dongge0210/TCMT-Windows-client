@@ -88,7 +88,7 @@ std::string FormatPercentage(double value) {
 
 std::string FormatTemperature(double value) {
     std::stringstream ss;
-    ss << std::fixed << std::setprecision(1) << value << "°C";
+    ss << static_cast<int>(value) << "°C";  // 显示整数温度
     return ss.str();
 }
 
@@ -233,6 +233,7 @@ int main() {
         PrintSectionHeader("时间");
         auto now = std::chrono::system_clock::now();
         auto custom_now = std::chrono::time_point_cast<std::chrono::duration<int64_t, std::ratio<1, 10000000>>>(now);
+        PrintInfoItem("当前本地时间", TimeUtils::GetCurrentLocalTime());
         PrintInfoItem("当前本机UTC时间", TimeUtils::FormatTimePoint(custom_now));
         PrintInfoItem("系统启动时间", TimeUtils::GetBootTimeUtc());
         PrintInfoItem("系统运行时间", TimeUtils::GetUptime());
@@ -241,14 +242,42 @@ int main() {
         PrintSectionHeader("硬件温度信息");
         LibreHardwareMonitorBridge::Initialize();
         auto temps = LibreHardwareMonitorBridge::GetTemperatures();
+
+        bool cpuTempFound = false;
+        bool gpuTempFound = false;
+
+        // gpus 已在前面定义，直接使用
+        std::string gpuName;
+        if (!gpus.empty()) {
+            gpuName = WinUtils::WstringToString(gpus[0].name);
+        }
+
         for (const auto& temp : temps) {
-            // 只显示CPU Package和GPU Core温度
-            if (temp.first.find("CPU Package") != std::string::npos ||
-                temp.first.find("GPU Core") != std::string::npos) {
-                PrintInfoItem(TranslateHardwareName(temp.first),
-                    FormatTemperature(temp.second));
+            if (temp.first == "CPU Package") {
+                PrintInfoItem("CPU温度", FormatTemperature(temp.second));
+                cpuTempFound = true;
+            }
+            else if (temp.first.find("GPU Core") != std::string::npos) {
+                if (!gpuName.empty()) {
+                    PrintInfoItem("GPU温度 (" + gpuName + ")",
+                        FormatTemperature(temp.second));
+                }
+                else {
+                    PrintInfoItem("GPU温度", FormatTemperature(temp.second));
+                }
+                gpuTempFound = true;
             }
         }
+
+        // 如果没有找到温度，显示提示信息
+        if (!cpuTempFound) {
+            PrintInfoItem("CPU温度", "无法获取");
+        }
+        if (!gpuTempFound) {
+            PrintInfoItem("GPU温度", "无法获取");
+        }
+
+        LibreHardwareMonitorBridge::Cleanup();
 
         // 硬盘信息显示部分
         PrintSectionHeader("磁盘信息");
