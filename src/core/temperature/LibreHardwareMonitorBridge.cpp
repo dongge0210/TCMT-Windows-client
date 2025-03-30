@@ -1,74 +1,174 @@
 ﻿#include "LibreHardwareMonitorBridge.h"
 #include <msclr/marshal_cppstd.h>
-#include <utility>
 
-#using "F:\Win_x64-sysMonitor\src\third_party\LibreHardwareMonitor\LibreHardwareMonitorLib\obj\Debug\net8.0\LibreHardwareMonitorLib.dll"
+// 确保使用 .NET 8.0 版本
+#using "F:\Win_x64-sysMonitor\src\third_party\LibreHardwareMonitor\bin\Debug\net8.0\LibreHardwareMonitorLib.dll"
 
 using namespace LibreHardwareMonitor::Hardware;
 using namespace System;
 using namespace System::Collections::Generic;
 using namespace msclr::interop;
 
+ref class UpdateVisitor : public IVisitor {
+public:
+    virtual void VisitComputer(IComputer^ computer) {
+        computer->Traverse(this);
+    }
+    virtual void VisitHardware(IHardware^ hardware) {
+        hardware->Update();
+        hardware->Traverse(this);
+    }
+    virtual void VisitSensor(ISensor^ sensor) {}
+    virtual void VisitParameter(IParameter^ parameter) {}
+};
+
 ref class SensorMonitor {
 private:
-    static Computer^ computer = gcnew Computer();
+    static Computer^ computer = nullptr;
+    static UpdateVisitor^ visitor = nullptr;
+
+    static bool IsCpuTemperature(Tuple<String^, float>^ t) {
+        return t->Item1->StartsWith("CPU");
+    }
 
 public:
     static void Initialize() {
-        computer->IsCpuEnabled = true;
-        computer->IsGpuEnabled = true;
-        computer->Open();
+        try {
+            if (computer != nullptr) {
+                computer->Close();
+                delete computer;
+            }
+            computer = gcnew Computer();
+            if (!computer) {
+                throw gcnew Exception("Failed to create Computer instance");
+            }
+            computer->IsCpuEnabled = true;
+            computer->IsGpuEnabled = true;
+            computer->IsMotherboardEnabled = true;
+            computer->Open();
+
+            visitor = gcnew UpdateVisitor();
+            if (!visitor) {
+                throw gcnew Exception("Failed to create UpdateVisitor instance");
+            }
+            computer->Accept(visitor);
+        }
+        catch (Exception^ ex) {
+            System::Diagnostics::Debug::WriteLine(ex->Message);
+        }
+    }
+
+    static void Cleanup() {
+        if (computer != nullptr) {
+            try {
+                computer->Close();
+                delete computer;
+                computer = nullptr;
+                if (visitor != nullptr) {
+                    delete visitor;
+                    visitor = nullptr;
+                }
+            }
+            catch (Exception^ ex) {
+                System::Diagnostics::Debug::WriteLine(ex->Message);
+            }
+        }
     }
 
     static List<Tuple<String^, float>^>^ GetTemperatures() {
-        List<Tuple<String^, float>^>^ results = (gcnew List<Tuple<String^, float>^>);
-        Dictionary<String^, List<float>^>^ tempGroups = (gcnew Dictionary<String^, List<float>^>);
+        List<Tuple<String^, float>^>^ results = gcnew List<Tuple<String^, float>^>();
+        float cpuTotalTemp = 0;
+        int cpuCoreCount = 0;
 
-        for each (IHardware ^ hardware in computer->Hardware) {
-            hardware->Update();
-            for each (ISensor ^ sensor in hardware->Sensors) {
-                if (sensor->SensorType == SensorType::Temperature && sensor->Value.HasValue) {
-                    String^ key;
-                    float value = safe_cast<float>(sensor->Value.Value);
+        try {
+            if (computer == nullptr) {
+                return results;
+            }
 
-                    // 根据传感器名称进行分组
-                    if (sensor->Name->Contains("CPU Core")) {
-                        key = "CPU Cores";
-                    }
-                    else if (sensor->Name->Contains("CPU Package")) {
-                        key = "CPU Package";
-                    }
-                    else if (sensor->Name->Contains("GPU")) {
-                        key = sensor->Name;
-                    }
-                    else if (sensor->Name->Contains("Distance to TjMax")) {
-                        continue; // 跳过 TjMax 相关的温度
-                    }
-                    else {
-                        key = sensor->Name;
+            computer->Accept(visitor);
+
+            for each (IHardware ^ hardware in computer->Hardware) {
+                hardware->Update();
+
+                if (hardware->HardwareType == HardwareType::Cpu) {
+                    bool foundPackageTemp = false;
+
+                    for each (ISensor ^ sensor in hardware->Sensors) {
+                        if (sensor->SensorType == SensorType::Temperature) {
+                            // 修改 Nullable 值的处理
+                            if (sensor->Value.HasValue) {
+                                float temp = safe_cast<float>(sensor->Value.Value);
+                                String^ sensorName = sensor->Name;
+
+                                if (sensorName->Contains("Package")) {
+                                    results->Add(gcnew Tuple<String^, float>(
+                                        "CPU Package",
+                                        temp
+                                    ));
+                                    foundPackageTemp = true;
+                                    break;
+                                }
+                            }
+                        }
                     }
 
-                    // 添加到对应的组
-                    if (!tempGroups->ContainsKey(key)) {
-                        tempGroups->Add(key, gcnew List<float>());
+                    if (!foundPackageTemp) {
+                        cpuTotalTemp = 0;
+                        cpuCoreCount = 0;
+
+                        for each (ISensor ^ sensor in hardware->Sensors) {
+                            if (sensor->SensorType == SensorType::Temperature &&
+                                sensor->Value.HasValue &&
+                                sensor->Name->Contains("Core")) {
+                                cpuTotalTemp += safe_cast<float>(sensor->Value.Value);
+                                cpuCoreCount++;
+                            }
+                        }
+
+                        if (cpuCoreCount > 0) {
+                            results->Add(gcnew Tuple<String^, float>(
+                                "CPU Average Core",
+                                cpuTotalTemp / cpuCoreCount
+                            ));
+                        }
                     }
-                    tempGroups[key]->Add(value);
+                }
+                else if (hardware->HardwareType == HardwareType::GpuNvidia ||
+                    hardware->HardwareType == HardwareType::GpuAmd) {
+                    for each (ISensor ^ sensor in hardware->Sensors) {
+                        if (sensor->SensorType == SensorType::Temperature &&
+                            sensor->Value.HasValue) {
+                            results->Add(gcnew Tuple<String^, float>(
+                                "GPU Core - " + hardware->Name,
+                                safe_cast<float>(sensor->Value.Value)
+                            ));
+                            break;
+                        }
+                    }
+                }
+            }
+
+            // 使用静态方法替代 Lambda
+            if (!results->Exists(gcnew Predicate<Tuple<String^, float>^>(IsCpuTemperature))) {
+                for each (IHardware ^ hardware in computer->Hardware) {
+                    if (hardware->HardwareType == HardwareType::Motherboard) {
+                        for each (ISensor ^ sensor in hardware->Sensors) {
+                            if (sensor->SensorType == SensorType::Temperature &&
+                                sensor->Value.HasValue &&
+                                sensor->Name->Contains("CPU")) {
+                                results->Add(gcnew Tuple<String^, float>(
+                                    "CPU Temperature",
+                                    safe_cast<float>(sensor->Value.Value)
+                                ));
+                                break;
+                            }
+                        }
+                    }
                 }
             }
         }
-
-        // 计算每组的平均温度
-        for each (System::Collections::Generic::KeyValuePair<String^, List<float>^> pair in tempGroups) {
-            float average = 0;
-            for each (float temp in pair.Value) {
-                average += temp;
-            }
-            average /= pair.Value->Count;
-
-            results->Add(gcnew Tuple<String^, float>(
-                pair.Key,
-                average
-            ));
+        catch (Exception^ ex) {
+            System::Diagnostics::Debug::WriteLine("Error getting temperatures: " + ex->Message);
         }
 
         return results;
@@ -79,18 +179,38 @@ bool LibreHardwareMonitorBridge::initialized = false;
 
 void LibreHardwareMonitorBridge::Initialize() {
     if (!initialized) {
-        SensorMonitor::Initialize();
-        initialized = true;
+        try {
+            SensorMonitor::Initialize();
+            initialized = true;
+        }
+        catch (Exception^ ex) {
+            System::Diagnostics::Debug::WriteLine("Failed to initialize: " + ex->Message);
+            throw;  // 重新抛出异常以通知调用者
+        }
+    }
+}
+
+void LibreHardwareMonitorBridge::Cleanup() {
+    if (initialized) {
+        SensorMonitor::Cleanup();
+        initialized = false;
     }
 }
 
 std::vector<std::pair<std::string, float>> LibreHardwareMonitorBridge::GetTemperatures() {
     std::vector<std::pair<std::string, float>> results;
 
-    auto managedResults = SensorMonitor::GetTemperatures();
-    for each(Tuple<String^, float> ^ entry in managedResults) {
-        std::string name = marshal_as<std::string>(entry->Item1);
-        results.emplace_back(std::make_pair(name, entry->Item2));
+    try {
+        auto managedResults = SensorMonitor::GetTemperatures();
+        for each(Tuple<String^, float> ^ entry in managedResults) {
+            results.emplace_back(
+                marshal_as<std::string>(entry->Item1),
+                entry->Item2
+            );
+        }
+    }
+    catch (Exception^) {
+        // 忽略异常
     }
 
     return results;

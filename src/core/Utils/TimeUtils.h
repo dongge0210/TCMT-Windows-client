@@ -8,6 +8,9 @@ public:
 
     static std::string FormatTimePoint(const SystemTimePoint& tp);
     static std::string GetBootTimeUtc();
-    static std::string GetUptime();            // 新增：获取系统运行时间
-    static uint64_t GetUptimeMilliseconds();   // 新增：获取运行时间（毫秒）
+    static std::string GetUptime();
+    static uint64_t GetUptimeMilliseconds();
+    static std::string GetCurrentLocalTime();  // 新增：获取当前本地时间
+    static std::string GetCurrentUtcTime();    // 新增：获取当前UTC时间
 };
+

@@ -6,8 +6,9 @@
 class LibreHardwareMonitorBridge {
 public:
     static void Initialize();
-    // 改为 vector<pair> 返回类型
+    static void Cleanup();  // 添加清理方法声明
     static std::vector<std::pair<std::string, float>> GetTemperatures();
+
 private:
     static bool initialized;
 };
