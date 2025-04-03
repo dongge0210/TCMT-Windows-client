@@ -66,7 +66,6 @@ std::string FormatDateTime(const std::chrono::system_clock::time_point& tp) {
     return ss.str();
 }
 
-
 std::string FormatFrequency(double value) {
     std::stringstream ss;
     ss << std::fixed << std::setprecision(1);

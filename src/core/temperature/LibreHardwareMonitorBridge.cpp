@@ -1,7 +1,6 @@
 ﻿#include "LibreHardwareMonitorBridge.h"
 #include <msclr/marshal_cppstd.h>
 
-// 确保使用 .NET 8.0 版本
 #using "F:\Win_x64-sysMonitor\src\third_party\LibreHardwareMonitor\bin\Debug\net8.0\LibreHardwareMonitorLib.dll"
 
 using namespace LibreHardwareMonitor::Hardware;
