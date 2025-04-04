@@ -125,12 +125,13 @@ _WINSOCK_DEPRECATED_NO_WARNINGS;%(PreprocessorDefinitions)</PreprocessorDefiniti
       <CompileAsManaged>true</CompileAsManaged>
       <CompileAsWinRT>false</CompileAsWinRT>
       <MultiProcessorCompilation>false</MultiProcessorCompilation>
-      <AdditionalIncludeDirectories>$(ProjectDir)../src/core/utils;$(WindowsSDK_MetadataPath);$(ProjectDir)../src/core;$(ProjectDir)../src;$(ProjectDir)src;$(CUDA_PATH)\include;$(SolutionDir)src\third_party\LibreHardwareMonitor\LibreHardwareMonitorLib\obj\Debug\net8.0;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(ProjectDir)../src/core/utils;$(WindowsSDK_MetadataPath);$(ProjectDir)../src/core;$(ProjectDir)../src;$(ProjectDir)src;$(CUDA_PATH)\include;$(SolutionDir)src\third_party\LibreHardwareMonitor\LibreHardwareMonitorLib\obj\Debug\net8.0;E:\Qt\6.10.0\msvc2022_64\include;E:\Qt\6.10.0\msvc2022_64\include\QtWidgets;$(ProjectDir)\GeneratedFiles;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <AdditionalUsingDirectories>$(WindowsSDK_MetadataPath);%(AdditionalUsingDirectories)</AdditionalUsingDirectories>
-      <LanguageStandard>stdcpp17</LanguageStandard>
+      <LanguageStandard>stdcpp20</LanguageStandard>
       <RuntimeLibrary>MultiThreadedDebugDLL</RuntimeLibrary>
-      <AdditionalOptions>/Zc:twoPhase- %(AdditionalOptions)</AdditionalOptions>
+      <AdditionalOptions>/Zc:__cplusplus %(AdditionalOptions)</AdditionalOptions>
       <LanguageStandard_C>stdc17</LanguageStandard_C>
+      <UseStandardPreprocessor>true</UseStandardPreprocessor>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
@@ -152,6 +153,7 @@ msvcrtd.lib;
 ucrtd.lib;
 vcruntimed.lib
 ;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalOptions>/Zc:__cplusplus %(AdditionalOptions)</AdditionalOptions>
     </Link>
     <PostBuildEvent>
       <Command>
@@ -213,6 +215,9 @@ vcruntimed.lib
     <Reference Include="System.CodeDom">
       <HintPath>..\src\third_party\LibreHardwareMonitor\bin\Debug\net472\System.CodeDom.dll</HintPath>
     </Reference>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="..\Qt-Widgets-TC-monitor\QtWidgetsTCmonitor.pro" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
