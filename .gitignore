@@ -72,3 +72,4 @@ bld/
 !third_party/**/*.dll
 
 /Windows Kits
+/Project1/system_monitor.log
