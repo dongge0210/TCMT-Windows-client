@@ -15,25 +15,22 @@
 #include <sstream>
 #include <iomanip>
 
-// 使用 QtCharts 命名空间
-QT_CHARTS_USE_NAMESPACE
-
 QtWidgetsTCmonitor::QtWidgetsTCmonitor(QWidget* parent)
     : QMainWindow(parent), ui(new Ui::QtWidgetsTCmonitorClass)
 {
     ui->setupUi(this);
 
-    // 设置窗口属性
+    // Set window properties
     setWindowTitle(tr("系统硬件监视器"));
     resize(800, 600);
 
-    // 初始化UI
+    // Initialize UI
     setupUI();
 
-    // 设置更新计时器
+    // Set up update timer
     updateTimer = new QTimer(this);
     connect(updateTimer, &QTimer::timeout, this, &QtWidgetsTCmonitor::updateCharts);
-    updateTimer->start(1000); // 每秒更新一次
+    updateTimer->start(1000); // Update once per second
 }
 
 QtWidgetsTCmonitor::~QtWidgetsTCmonitor()
@@ -47,26 +44,26 @@ QtWidgetsTCmonitor::~QtWidgetsTCmonitor()
 
 void QtWidgetsTCmonitor::setupUI()
 {
-    // 创建主要滚动区域
+    // Create main scroll area
     QScrollArea* scrollArea = new QScrollArea(this);
     scrollArea->setWidgetResizable(true);
     setCentralWidget(scrollArea);
 
-    // 创建主容器
+    // Create main container
     QWidget* container = new QWidget(scrollArea);
     scrollArea->setWidget(container);
 
-    // 主布局
+    // Main layout
     QVBoxLayout* mainLayout = new QVBoxLayout(container);
 
-    // 创建各部分
+    // Create sections
     createCpuSection();
     createMemorySection();
     createGpuSection();
     createTemperatureSection();
     createDiskSection();
 
-    // 添加到主布局
+    // Add to main layout
     mainLayout->addWidget(cpuGroupBox);
     mainLayout->addWidget(memoryGroupBox);
     mainLayout->addWidget(gpuGroupBox);
@@ -80,7 +77,7 @@ void QtWidgetsTCmonitor::createCpuSection()
     cpuGroupBox = new QGroupBox(tr("处理器信息"), this);
     QGridLayout* layout = new QGridLayout(cpuGroupBox);
 
-    // 添加标签
+    // Add labels
     int row = 0;
     layout->addWidget(new QLabel(tr("名称:"), this), row, 0);
     infoLabels["cpuName"] = new QLabel(this);
@@ -166,7 +163,7 @@ void QtWidgetsTCmonitor::createTemperatureSection()
     temperatureGroupBox = new QGroupBox(tr("温度监控"), this);
     QVBoxLayout* layout = new QVBoxLayout(temperatureGroupBox);
 
-    // 温度标签
+    // Temperature labels
     QGridLayout* tempLabelsLayout = new QGridLayout();
     tempLabelsLayout->addWidget(new QLabel(tr("CPU温度:"), this), 0, 0);
     infoLabels["cpuTemp"] = new QLabel(this);
@@ -178,14 +175,14 @@ void QtWidgetsTCmonitor::createTemperatureSection()
 
     layout->addLayout(tempLabelsLayout);
 
-    // 创建图表
-    // CPU温度图表
+    // Create charts
+    // CPU temperature chart
     cpuTempChart = new QChart();
     cpuTempChart->setTitle(tr("CPU温度历史"));
     cpuTempSeries = new QLineSeries();
     cpuTempChart->addSeries(cpuTempSeries);
 
-    // 设置坐标轴
+    // Set up axes
     QValueAxis* axisX = new QValueAxis();
     axisX->setRange(0, MAX_DATA_POINTS);
     axisX->setLabelFormat("%d");
@@ -204,7 +201,7 @@ void QtWidgetsTCmonitor::createTemperatureSection()
     cpuTempChartView = new QChartView(cpuTempChart);
     cpuTempChartView->setRenderHint(QPainter::Antialiasing);
 
-    // GPU温度图表
+    // GPU temperature chart
     gpuTempChart = new QChart();
     gpuTempChart->setTitle(tr("GPU温度历史"));
     gpuTempSeries = new QLineSeries();
@@ -228,7 +225,7 @@ void QtWidgetsTCmonitor::createTemperatureSection()
     gpuTempChartView = new QChartView(gpuTempChart);
     gpuTempChartView->setRenderHint(QPainter::Antialiasing);
 
-    // 创建水平分割器
+    // Create horizontal splitter
     QSplitter* splitter = new QSplitter(Qt::Horizontal);
     splitter->addWidget(cpuTempChartView);
     splitter->addWidget(gpuTempChartView);
@@ -241,7 +238,7 @@ void QtWidgetsTCmonitor::createDiskSection()
     diskGroupBox = new QGroupBox(tr("磁盘信息"), this);
     QVBoxLayout* layout = new QVBoxLayout(diskGroupBox);
 
-    // 磁盘信息容器
+    // Disk info container
     QWidget* diskContainer = new QWidget();
     layout->addWidget(diskContainer);
 }
@@ -253,7 +250,7 @@ void QtWidgetsTCmonitor::updateTemperatureData(const std::vector<std::pair<std::
     bool cpuFound = false;
     bool gpuFound = false;
 
-    // 遍历温度数据
+    // Iterate through temperature data
     for (const auto& temp : temperatures) {
         if (temp.first == "CPU Package" || temp.first == "CPU Temperature" || temp.first == "CPU Average Core") {
             cpuTemp = temp.second;
@@ -267,7 +264,7 @@ void QtWidgetsTCmonitor::updateTemperatureData(const std::vector<std::pair<std::
         }
     }
 
-    // 如果未找到数据，更新为无数据状态
+    // If no data found, update to no data state
     if (!cpuFound) {
         infoLabels["cpuTemp"]->setText(tr("无数据"));
     }
@@ -275,7 +272,7 @@ void QtWidgetsTCmonitor::updateTemperatureData(const std::vector<std::pair<std::
         infoLabels["gpuTemp"]->setText(tr("无数据"));
     }
 
-    // 更新温度历史
+    // Update temperature history
     if (cpuFound) {
         cpuTempHistory.push(cpuTemp);
         if (cpuTempHistory.size() > MAX_DATA_POINTS) {
@@ -290,15 +287,19 @@ void QtWidgetsTCmonitor::updateTemperatureData(const std::vector<std::pair<std::
         }
     }
 
-    // 保存当前系统信息的温度数据
-    currentSysInfo.temperatures = temperatures;
+    // Save current system info temperature data
+    std::vector<std::pair<std::string, double>> tempDoubles;
+    for (const auto& temp : temperatures) {
+        tempDoubles.push_back({temp.first, static_cast<double>(temp.second)});
+    }
+    currentSysInfo.temperatures = tempDoubles;
 }
 
 void QtWidgetsTCmonitor::updateSystemInfo(const SystemInfo& sysInfo)
 {
     currentSysInfo = sysInfo;
 
-    // 更新CPU信息
+    // Update CPU info
     infoLabels["cpuName"]->setText(QString::fromStdString(sysInfo.cpuName));
     infoLabels["physicalCores"]->setText(QString::number(sysInfo.physicalCores));
     infoLabels["logicalCores"]->setText(QString::number(sysInfo.logicalCores));
@@ -308,7 +309,7 @@ void QtWidgetsTCmonitor::updateSystemInfo(const SystemInfo& sysInfo)
     infoLabels["hyperThreading"]->setText(sysInfo.hyperThreading ? tr("已启用") : tr("未启用"));
     infoLabels["virtualization"]->setText(sysInfo.virtualization ? tr("已启用") : tr("未启用"));
 
-    // 更新内存信息
+    // Update memory info
     infoLabels["totalMemory"]->setText(formatSize(sysInfo.totalMemory));
     infoLabels["usedMemory"]->setText(formatSize(sysInfo.usedMemory));
     infoLabels["availableMemory"]->setText(formatSize(sysInfo.availableMemory));
@@ -316,22 +317,28 @@ void QtWidgetsTCmonitor::updateSystemInfo(const SystemInfo& sysInfo)
     double memoryUsagePercent = static_cast<double>(sysInfo.usedMemory) / sysInfo.totalMemory * 100.0;
     infoLabels["memoryUsage"]->setText(formatPercentage(memoryUsagePercent));
 
-    // 更新GPU信息
+    // Update GPU info
     infoLabels["gpuName"]->setText(QString::fromStdString(sysInfo.gpuName));
     infoLabels["gpuBrand"]->setText(QString::fromStdString(sysInfo.gpuBrand));
     infoLabels["gpuMemory"]->setText(formatSize(sysInfo.gpuMemory));
     infoLabels["gpuCoreFreq"]->setText(formatFrequency(sysInfo.gpuCoreFreq));
 
-    // 更新温度数据
-    updateTemperatureData(sysInfo.temperatures);
+    // Convert temperature data to float for updateTemperatureData
+    std::vector<std::pair<std::string, float>> tempFloats;
+    for (const auto& temp : sysInfo.temperatures) {
+        tempFloats.push_back({temp.first, static_cast<float>(temp.second)});
+    }
+    
+    // Update temperature data
+    updateTemperatureData(tempFloats);
 
-    // 更新磁盘信息
-    // 需要先清除现有的磁盘信息布局
+    // Update disk info
+    // Need to clear existing disk info layout first
     QLayout* currentLayout = diskGroupBox->layout();
     QWidget* diskContainer = nullptr;
 
     if (currentLayout) {
-        // 获取当前布局中的磁盘容器
+        // Get disk container from current layout
         for (int i = 0; i < currentLayout->count(); ++i) {
             QWidget* widget = currentLayout->itemAt(i)->widget();
             if (widget) {
@@ -341,13 +348,13 @@ void QtWidgetsTCmonitor::updateSystemInfo(const SystemInfo& sysInfo)
         }
     }
 
-    // 如果找不到现有容器，创建一个新的
+    // If container not found, create a new one
     if (!diskContainer) {
         diskContainer = new QWidget(diskGroupBox);
         static_cast<QVBoxLayout*>(currentLayout)->addWidget(diskContainer);
     }
 
-    // 删除现有布局
+    // Delete existing layout
     if (diskContainer->layout()) {
         QLayoutItem* child;
         while ((child = diskContainer->layout()->takeAt(0)) != nullptr) {
@@ -359,12 +366,12 @@ void QtWidgetsTCmonitor::updateSystemInfo(const SystemInfo& sysInfo)
         delete diskContainer->layout();
     }
 
-    // 创建新布局
+    // Create new layout
     QVBoxLayout* diskLayout = new QVBoxLayout(diskContainer);
 
-    // 添加磁盘信息
+    // Add disk info
     for (const auto& disk : sysInfo.disks) {
-        QString diskLabel = QString("%1: %2").arg(QString::fromStdString(disk.letter)).arg(tr("驱动器"));
+        QString diskLabel = QString("%1: %2").arg(disk.letter).arg(tr("驱动器"));
         if (!disk.label.empty()) {
             diskLabel += QString(" (%1)").arg(QString::fromStdString(disk.label));
         }
@@ -399,7 +406,7 @@ void QtWidgetsTCmonitor::updateSystemInfo(const SystemInfo& sysInfo)
 
 void QtWidgetsTCmonitor::updateCharts()
 {
-    // 更新CPU温度图表
+    // Update CPU temperature chart
     cpuTempSeries->clear();
     int pointIndex = 0;
     std::queue<float> cpuTempCopy = cpuTempHistory;
@@ -409,7 +416,7 @@ void QtWidgetsTCmonitor::updateCharts()
         pointIndex++;
     }
 
-    // 更新GPU温度图表
+    // Update GPU temperature chart
     gpuTempSeries->clear();
     pointIndex = 0;
     std::queue<float> gpuTempCopy = gpuTempHistory;

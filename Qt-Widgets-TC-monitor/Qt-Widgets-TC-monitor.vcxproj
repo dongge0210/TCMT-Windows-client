@@ -127,7 +127,7 @@ Qt6Widgetsd.lib;%(AdditionalDependencies)</AdditionalDependencies>
   <ItemGroup>
     <QtRcc Include="QtWidgetsTCmonitor.qrc" />
     <QtUic Include="QtWidgetsTCmonitor.ui" />
-    <ClInclude Include="QtWidgetsTCmonitor.h" />
+    <QtMoc Include="QtWidgetsTCmonitor.h" />
     <ClCompile Include="main.cpp" />
     <ClCompile Include="QtWidgetsTCmonitor.cpp" />
     <ClInclude Include="stdafx.h" />
