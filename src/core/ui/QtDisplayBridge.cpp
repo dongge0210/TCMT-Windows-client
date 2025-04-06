@@ -58,8 +58,8 @@ private:
     void setupDiskInfo(QWidget* diskTab);
 };
 
-// 静态成员初始化
-QApplication* QtDisplayBridge::qApp = nullptr;
+// 正确定义静态成员变量
+QApplication* QtDisplayBridge::qtAppInstance = nullptr;
 SystemMonitorWindow* QtDisplayBridge::monitorWindow = nullptr;
 bool QtDisplayBridge::initialized = false;
 
@@ -346,8 +346,8 @@ bool QtDisplayBridge::Initialize(int argc, char* argv[]) {
         }
 
         // 创建Qt应用程序实例
-        QtDisplayBridge::qApp = new QApplication(argc, argv);
-        if (!QtDisplayBridge::qApp) {
+        qtAppInstance = new QApplication(argc, argv);
+        if (!qtAppInstance) {
             Logger::Error("无法创建Qt应用程序实例");
             return false;
         }
@@ -415,9 +415,9 @@ void QtDisplayBridge::Cleanup() {
         monitorWindow = nullptr;
     }
 
-    if (QtDisplayBridge::qApp) {
-        // 不需要显式删除qApp，它会在应用程序结束时自动清理
-        QtDisplayBridge::qApp = nullptr;
+    if (qtAppInstance) {
+        // 不需要显式删除qtAppInstance，它会在应用程序结束时自动清理
+        qtAppInstance = nullptr;
     }
 
     initialized = false;
