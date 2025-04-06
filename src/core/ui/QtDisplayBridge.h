@@ -99,7 +99,7 @@ public:
     static void Cleanup();
 
 private:
-    static QApplication* qApp;  // Qt应用程序实例
+    static QApplication* qtAppInstance;  // Qt应用程序实例
     static SystemMonitorWindow* monitorWindow;  // 监控窗口实例
     static bool initialized;  // 初始化标志
 };
