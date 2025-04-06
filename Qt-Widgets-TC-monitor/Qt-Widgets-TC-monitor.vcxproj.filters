@@ -29,9 +29,6 @@
     <QtUic Include="QtWidgetsTCmonitor.ui">
       <Filter>Form Files</Filter>
     </QtUic>
-    <QtMoc Include="QtWidgetsTCmonitor.h">
-      <Filter>Header Files</Filter>
-    </QtMoc>
     <ClCompile Include="QtWidgetsTCmonitor.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
@@ -46,5 +43,10 @@
     <ClCompile Include="main.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="QtWidgetsTCmonitor.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
 </Project>

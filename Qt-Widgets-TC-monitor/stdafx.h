@@ -5,6 +5,12 @@
 #include <QtWidgets/QMessageBox>
 #include <QtWidgets/QPushButton>
 
+// Add QtCharts headers here for global access
+#include <QtCharts/QChart>
+#include <QtCharts/QChartView>
+#include <QtCharts/QLineSeries>
+#include <QtCharts/QValueAxis>
+
 // C++20 specific headers if needed
 #include <concepts>
 #include <ranges>

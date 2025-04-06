@@ -5,13 +5,15 @@ VisualStudioVersion = 17.13.35913.81
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "Project1", "Project1.vcxproj", "{EB8E0379-D5D5-45E8-9F90-73216725C93A}"
 	ProjectSection(ProjectDependencies) = postProject
-		{3E83EE46-6DAF-4904-8AA6-A77AB194AA87} = {3E83EE46-6DAF-4904-8AA6-A77AB194AA87}
 		{60561339-1DBD-7E7F-6C71-88414E3D327F} = {60561339-1DBD-7E7F-6C71-88414E3D327F}
 	EndProjectSection
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "LibreHardwareMonitorLib", "..\src\third_party\LibreHardwareMonitor\LibreHardwareMonitorLib\LibreHardwareMonitorLib.csproj", "{60561339-1DBD-7E7F-6C71-88414E3D327F}"
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "Qt-Widgets-TC-monitor", "..\Qt-Widgets-TC-monitor\Qt-Widgets-TC-monitor.vcxproj", "{3E83EE46-6DAF-4904-8AA6-A77AB194AA87}"
+	ProjectSection(ProjectDependencies) = postProject
+		{EB8E0379-D5D5-45E8-9F90-73216725C93A} = {EB8E0379-D5D5-45E8-9F90-73216725C93A}
+	EndProjectSection
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution

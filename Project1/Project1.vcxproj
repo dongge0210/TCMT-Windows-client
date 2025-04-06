@@ -125,7 +125,7 @@ _WINSOCK_DEPRECATED_NO_WARNINGS;%(PreprocessorDefinitions)</PreprocessorDefiniti
       <CompileAsManaged>true</CompileAsManaged>
       <CompileAsWinRT>false</CompileAsWinRT>
       <MultiProcessorCompilation>false</MultiProcessorCompilation>
-      <AdditionalIncludeDirectories>$(ProjectDir)../src/core/utils;$(WindowsSDK_MetadataPath);$(ProjectDir)../src/core;$(ProjectDir)../src;$(ProjectDir)src;$(CUDA_PATH)\include;$(SolutionDir)src\third_party\LibreHardwareMonitor\LibreHardwareMonitorLib\obj\Debug\net8.0;E:\Qt\6.10.0\msvc2022_64\include;E:\Qt\6.10.0\msvc2022_64\include\QtWidgets;$(ProjectDir)\GeneratedFiles;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(ProjectDir)../src/core/utils;$(WindowsSDK_MetadataPath);$(ProjectDir)../src/core;$(ProjectDir)../src;$(ProjectDir)src;$(CUDA_PATH)\include;$(SolutionDir)src\third_party\LibreHardwareMonitor\LibreHardwareMonitorLib\obj\Debug\net8.0;E:\Qt\6.9.0\msvc2022_64\include;E:\Qt\6.9.0\msvc2022_64\include\QtWidgets;$(ProjectDir)\GeneratedFiles;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <AdditionalUsingDirectories>$(WindowsSDK_MetadataPath);%(AdditionalUsingDirectories)</AdditionalUsingDirectories>
       <LanguageStandard>stdcpp20</LanguageStandard>
       <RuntimeLibrary>MultiThreadedDebugDLL</RuntimeLibrary>
@@ -136,7 +136,7 @@ _WINSOCK_DEPRECATED_NO_WARNINGS;%(PreprocessorDefinitions)</PreprocessorDefiniti
     <Link>
       <SubSystem>Console</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalLibraryDirectories>F:\Win_x64-sysMonitor\Windows Kits\10\Lib\10.0.26100.0\ucrt\x64;F:\Win_x64-sysMonitor\Windows Kits\10\Lib\10.0.26100.0\um\x64;$(CUDA_PATH)/lib/x64;$(SolutionDir)src\third_party\LibreHardwareMonitor\LibreHardwareMonitorLib\obj\Debug\net8.0;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalLibraryDirectories>F:\Win_x64-sysMonitor\Windows Kits\10\Lib\10.0.26100.0\ucrt\x64;F:\Win_x64-sysMonitor\Windows Kits\10\Lib\10.0.26100.0\um\x64;$(CUDA_PATH)/lib/x64;$(SolutionDir)src\third_party\LibreHardwareMonitor\bin\Debug\net8.0;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
       <AdditionalDependencies>kernel32.lib;
 user32.lib;
 gdi32.lib;
@@ -184,6 +184,7 @@ vcruntimed.lib
     <ClInclude Include="..\src\core\network\NetworkAdapter.h" />
     <ClInclude Include="..\src\core\os\OSInfo.h" />
     <ClInclude Include="..\src\core\temperature\LibreHardwareMonitorBridge.h" />
+    <ClInclude Include="..\src\core\ui\QtDisplayBridge.h" />
     <ClInclude Include="..\src\core\Utils\Logger.h" />
     <ClInclude Include="..\src\core\Utils\TimeUtils.h" />
     <ClInclude Include="..\src\core\Utils\WinUtils.h" />
@@ -198,6 +199,9 @@ vcruntimed.lib
     <ClCompile Include="..\src\core\os\OSInfo.cpp" />
     <ClCompile Include="..\src\core\temperature\LibreHardwareMonitorBridge.cpp">
       <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</CompileAsManaged>
+    </ClCompile>
+    <ClCompile Include="..\src\core\ui\QtDisplayBridge.cpp">
+      <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">false</CompileAsManaged>
     </ClCompile>
     <ClCompile Include="..\src\core\Utils\Logger.cpp" />
     <ClCompile Include="..\src\core\Utils\TimeUtils.cpp" />

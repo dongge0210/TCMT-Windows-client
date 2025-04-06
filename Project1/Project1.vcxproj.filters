@@ -48,6 +48,9 @@
     <ClInclude Include="..\src\core\disk\DiskInfo.h">
       <Filter>头文件</Filter>
     </ClInclude>
+    <ClInclude Include="..\src\core\ui\QtDisplayBridge.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="..\src\core\Utils\Logger.cpp">
@@ -86,5 +89,11 @@
     <ClCompile Include="..\src\core\disk\DiskInfo.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
+    <ClCompile Include="..\src\core\ui\QtDisplayBridge.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="..\Qt-Widgets-TC-monitor\QtWidgetsTCmonitor.pro" />
   </ItemGroup>
 </Project>
