@@ -1,20 +1,28 @@
 // QtWidgetsTCmonitor.h
 #pragma once
-
-#include <QtWidgets/QMainWindow>
-#include <QtWidgets/QPushButton>
+#include "stdafx.h"
+#include "QtWidgetsTCmonitor.h"
+#include <QtWidgets/QScrollArea>
+#include <QtWidgets/QSplitter>
+#include <QtWidgets/QLabel>
+#include <QtWidgets/QGroupBox>
+#include <QtWidgets/QGridLayout>
+#include <QtWidgets/QVBoxLayout>
 #include <QtWidgets/QMessageBox>
-#include "ui_QtWidgetsTCmonitor.h"  // 将在项目目录下生成
+#include <QtWidgets/QPushButton>
+#include <QtCharts/QChart>
+#include <QtCharts/QChartView>
+#include <QtCharts/QLineSeries>
+#include <QtCharts/QValueAxis>
+#include <QtGui/QPainter>
+#include <QTimer>
+#include <queue>
+#include <sstream>
+#include <iomanip>
+#include "./x64/Debug/qt/uic/ui_QtWidgetsTCmonitor.h"  // 简化路径
 
-class QtWidgetsTCmonitor : public QMainWindow {
-    Q_OBJECT
-public:
-    explicit QtWidgetsTCmonitor(QWidget* parent = nullptr);
-    ~QtWidgetsTCmonitor();
+QT_CHARTS_USE_NAMESPACE
 
-private slots:
-    void on_pushButton_clicked();
+namespace Ui {
+    class QtWidgetsTC
 
-private:
-    Ui::QtWidgetsTCmonitorClass ui;
-};

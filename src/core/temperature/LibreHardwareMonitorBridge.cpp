@@ -1,12 +1,25 @@
-ï»¿#include "LibreHardwareMonitorBridge.h"
+#include <iostream> 
+#include "LibreHardwareMonitorBridge.h"
 #include <msclr/marshal_cppstd.h>
+#include <vcclr.h>
 
 #using "F:\Win_x64-sysMonitor\src\third_party\LibreHardwareMonitor\bin\Debug\net8.0\LibreHardwareMonitorLib.dll"
 
-using namespace LibreHardwareMonitor::Hardware;
 using namespace System;
 using namespace System::Collections::Generic;
 using namespace msclr::interop;
+using namespace LibreHardwareMonitor::Hardware;
+
+// Add missing TryLoadLibrary method
+static bool TryLoadLibrary() {
+    try {
+        System::Reflection::Assembly::LoadFrom("F:\\Win_x64-sysMonitor\\src\\third_party\\LibreHardwareMonitor\\bin\\Debug\\net8.0\\LibreHardwareMonitorLib.dll");
+        return true;
+    }
+    catch (Exception^) {
+        return false;
+    }
+}
 
 ref class UpdateVisitor : public IVisitor {
 public:
@@ -33,6 +46,11 @@ private:
 public:
     static void Initialize() {
         try {
+            // ³¢ÊÔ¼ÓÔØ¿â
+            if (!TryLoadLibrary()) {
+                throw gcnew System::IO::FileNotFoundException("ÎŞ·¨ÕÒµ½ LibreHardwareMonitorLib.dll£¬ÇëÈ·±£ËüÒÑÕıÈ··ÅÖÃÔÚ 'lib' Ä¿Â¼ÖĞ¡£");
+            }
+            
             if (computer != nullptr) {
                 computer->Close();
                 delete computer;
@@ -53,7 +71,8 @@ public:
             computer->Accept(visitor);
         }
         catch (Exception^ ex) {
-            System::Diagnostics::Debug::WriteLine(ex->Message);
+            System::Diagnostics::Debug::WriteLine("Failed to initialize: " + ex->Message);
+            throw; // ÖØĞÂÅ×³öÒì³£ÒÔ±ã¸ú×Ù
         }
     }
 
@@ -86,15 +105,15 @@ public:
 
             computer->Accept(visitor);
 
-            for each (IHardware ^ hardware in computer->Hardware) {
+            for each (IHardware^ hardware in computer->Hardware) {
                 hardware->Update();
 
                 if (hardware->HardwareType == HardwareType::Cpu) {
                     bool foundPackageTemp = false;
 
-                    for each (ISensor ^ sensor in hardware->Sensors) {
+                    for each (ISensor^ sensor in hardware->Sensors) {
                         if (sensor->SensorType == SensorType::Temperature) {
-                            // ä¿®æ”¹ Nullable å€¼çš„å¤„ç†
+                            // ĞŞ¸Ä Nullable ÖµµÄ´¦Àí
                             if (sensor->Value.HasValue) {
                                 float temp = safe_cast<float>(sensor->Value.Value);
                                 String^ sensorName = sensor->Name;
@@ -115,7 +134,7 @@ public:
                         cpuTotalTemp = 0;
                         cpuCoreCount = 0;
 
-                        for each (ISensor ^ sensor in hardware->Sensors) {
+                        for each (ISensor^ sensor in hardware->Sensors) {
                             if (sensor->SensorType == SensorType::Temperature &&
                                 sensor->Value.HasValue &&
                                 sensor->Name->Contains("Core")) {
@@ -132,9 +151,8 @@ public:
                         }
                     }
                 }
-                else if (hardware->HardwareType == HardwareType::GpuNvidia ||
-                    hardware->HardwareType == HardwareType::GpuAmd) {
-                    for each (ISensor ^ sensor in hardware->Sensors) {
+                else if (hardware->HardwareType == HardwareType::GpuNvidia || hardware->HardwareType == HardwareType::GpuAmd) {
+                    for each (ISensor^ sensor in hardware->Sensors) {
                         if (sensor->SensorType == SensorType::Temperature &&
                             sensor->Value.HasValue) {
                             results->Add(gcnew Tuple<String^, float>(
@@ -147,11 +165,11 @@ public:
                 }
             }
 
-            // ä½¿ç”¨é™æ€æ–¹æ³•æ›¿ä»£ Lambda
+            // Ê¹ÓÃ¾²Ì¬·½·¨Ìæ´ú Lambda
             if (!results->Exists(gcnew Predicate<Tuple<String^, float>^>(IsCpuTemperature))) {
-                for each (IHardware ^ hardware in computer->Hardware) {
+                for each (IHardware^ hardware in computer->Hardware) {
                     if (hardware->HardwareType == HardwareType::Motherboard) {
-                        for each (ISensor ^ sensor in hardware->Sensors) {
+                        for each (ISensor^ sensor in hardware->Sensors) {
                             if (sensor->SensorType == SensorType::Temperature &&
                                 sensor->Value.HasValue &&
                                 sensor->Name->Contains("CPU")) {
@@ -182,9 +200,13 @@ void LibreHardwareMonitorBridge::Initialize() {
             SensorMonitor::Initialize();
             initialized = true;
         }
+        catch (System::IO::FileNotFoundException^ ex) {
+            System::Diagnostics::Debug::WriteLine("DLL not found: " + ex->Message);
+            std::cerr << "Error: LibreHardwareMonitorLib.dll not found. Please ensure it's in the lib directory." << std::endl;
+        }
         catch (Exception^ ex) {
             System::Diagnostics::Debug::WriteLine("Failed to initialize: " + ex->Message);
-            throw;  // é‡æ–°æŠ›å‡ºå¼‚å¸¸ä»¥é€šçŸ¥è°ƒç”¨è€…
+            throw;  // ÖØĞÂÅ×³öÒì³£ÒÔÍ¨Öªµ÷ÓÃÕß
         }
     }
 }
@@ -201,7 +223,7 @@ std::vector<std::pair<std::string, float>> LibreHardwareMonitorBridge::GetTemper
 
     try {
         auto managedResults = SensorMonitor::GetTemperatures();
-        for each(Tuple<String^, float> ^ entry in managedResults) {
+        for each(Tuple<String^, float>^ entry in managedResults) {
             results.emplace_back(
                 marshal_as<std::string>(entry->Item1),
                 entry->Item2
@@ -209,7 +231,7 @@ std::vector<std::pair<std::string, float>> LibreHardwareMonitorBridge::GetTemper
         }
     }
     catch (Exception^) {
-        // å¿½ç•¥å¼‚å¸¸
+        // ºöÂÔÒì³£
     }
 
     return results;

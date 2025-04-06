@@ -36,7 +36,6 @@
     <Import Project="$(QtMsBuild)\qt_defaults.props" />
   </ImportGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'Debug|x64'" Label="QtSettings">
-    <QtInstall>QT6.10_msvc_64bit</QtInstall>
     <QtModules>core;gui;widgets</QtModules>
     <QtBuildConfig>debug</QtBuildConfig>
   </PropertyGroup>
@@ -73,11 +72,19 @@
     <ClCompile>
       <LanguageStandard_C>stdc17</LanguageStandard_C>
       <UseStandardPreprocessor>true</UseStandardPreprocessor>
-      <AdditionalOptions>/Zc:__cplusplus %(AdditionalOptions)</AdditionalOptions>
+      <AdditionalOptions>/Zc:__cplusplus /utf-8 %(AdditionalOptions)</AdditionalOptions>
+      <AdditionalIncludeDirectories>$(ProjectDir);$(IntDir);$(QTDIR)\include;$(QTDIR)\include\QtCore;$(QTDIR)\include\QtGui;$(QTDIR)\include\QtWidgets;$(ProjectDir)x64\Debug\qt\uic</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <AdditionalOptions>/Zc:__cplusplus %(AdditionalOptions)</AdditionalOptions>
+      <AdditionalLibraryDirectories>$(QTDIR)\lib</AdditionalLibraryDirectories>
+      <AdditionalDependencies>Qt6Cored.lib;
+Qt6Guid.lib;
+Qt6Widgetsd.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
+    <QtUic>
+      <Generator>cpp</Generator>
+    </QtUic>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)' == 'Debug|x64'" Label="Configuration">
     <ClCompile>
@@ -120,7 +127,7 @@
   <ItemGroup>
     <QtRcc Include="QtWidgetsTCmonitor.qrc" />
     <QtUic Include="QtWidgetsTCmonitor.ui" />
-    <QtMoc Include="QtWidgetsTCmonitor.h" />
+    <ClInclude Include="QtWidgetsTCmonitor.h" />
     <ClCompile Include="main.cpp" />
     <ClCompile Include="QtWidgetsTCmonitor.cpp" />
     <ClInclude Include="stdafx.h" />
