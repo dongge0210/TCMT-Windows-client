@@ -24,6 +24,7 @@ jobs:
       - name: Push to Gitee
         run: |
           git remote add gitee https://DonggeML:${{ secrets.GITEE_TOKEN }}@gitee.com/DonggeML/project-monitor-TC.git
+          git fetch --unshallow
           git push -u gitee T1-F-P --force
 
       - name: Push to GitLab
