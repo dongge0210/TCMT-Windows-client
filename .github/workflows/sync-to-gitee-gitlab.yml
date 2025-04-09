@@ -1,0 +1,33 @@
+name: Sync to Gitee and GitLab
+
+on:
+  push:
+    branches:
+      - T1-F-P  # 监听 main 分支的更新
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+
+    steps:
+      # Step 1: 检出代码
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      # Step 2: 配置 Git 用户信息
+      - name: Setup Git
+        run: |
+          git config --global user.name "YourGitHubUsername"
+          git config --global user.email "YourGitHubEmail"
+
+      # Step 3: 推送到 Gitee
+      - name: Push to Gitee
+        run: |
+          git remote add gitee https://<your-gitee-username>:<your-gitee-personal-access-token>@gitee.com/<your-gitee-username>/<your-gitee-repo>.git
+          git push -u gitee main --force
+
+      # Step 4: 推送到 GitLab
+      - name: Push to GitLab
+        run: |
+          git remote add gitlab https://<your-gitlab-username>:<your-gitlab-personal-access-token>@gitlab.com/<your-gitlab-username>/<your-gitlab-repo>.git
+          git push -u gitlab main --force
