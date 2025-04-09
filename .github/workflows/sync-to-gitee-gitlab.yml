@@ -17,16 +17,16 @@ jobs:
       # Step 2: 配置 Git 用户信息
       - name: Setup Git
         run: |
-          git config --global user.name "DonggeML"
+          git config --global user.name "dongge0210"
           git config --global user.email "dongge0210@163.com"
 
       # Step 3: 推送到 Gitee
       - name: Push to Gitee
         run: |
-          git remote add gitee https://DonggeML:${{ secrets.GITEE_TOKEN }}@gitee.com/<your-gitee-username>/<your-gitee-repo>.git
+          git remote add gitee https://dongge0210:${{ secrets.GITEE_TOKEN }}@gitee.com/dongge0210/project-monitor-TC.git
           git push -u gitee T1-F-P --force
 
       - name: Push to GitLab
         run: |
-          git remote add gitlab https://DonggeML:${{ secrets.GITLAB_TOKEN }}@gitlab.com/<your-gitlab-username>/<your-gitlab-repo>.git
+          git remote add gitlab https://dongge0210:${{ secrets.GITLAB_TOKEN }}@gitlab.com/dongge0210/project-monitor-TC.git
           git push -u gitlab T1-F-P --force
