@@ -23,7 +23,7 @@ jobs:
       # Step 3: 推送到 Gitee
       - name: Push to Gitee
         run: |
-          git remote add gitee https://dongge0210:${{ secrets.GITEE_TOKEN }}@gitee.com/dongge0210/project-monitor-TC.git
+          git remote add gitee https://DonggeML:${{ secrets.GITEE_TOKEN }}@gitee.com/DonggeML/project-monitor-TC.git
           git push -u gitee T1-F-P --force
 
       - name: Push to GitLab
