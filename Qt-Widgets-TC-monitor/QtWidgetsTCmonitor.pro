@@ -7,6 +7,9 @@ TEMPLATE = app
 
 CONFIG += c++20
 
+# Generate ui_*.h files
+CONFIG += uic
+
 SOURCES += \
     main.cpp \
     QtWidgetsTCmonitor.cpp \
@@ -25,9 +28,11 @@ else: unix:!android: target.path = /opt/$${TARGET}/bin
 !isEmpty(target.path): INSTALLS += target
 
 INCLUDEPATH += $$PWD
+INCLUDEPATH += ../src
 
-# Add explicit path for QtCharts
+# Add explicit paths for QtCharts
 INCLUDEPATH += $$[QT_INSTALL_HEADERS]/QtCharts
+DEPENDPATH += $$[QT_INSTALL_HEADERS]/QtCharts
 
-# Ensure necessary Qt modules are linked
-QT += core gui widgets
+# Make sure all files are saved as UTF-8
+CODECFORSRC = UTF-8

@@ -1,5 +1,102 @@
-#include <iostream> 
+ï»¿#include <iostream> 
+#include <vector>
+
+// ...existing code...
+
+// Remove duplicate ManagedBridge definition
+#pragma managed
+ref class ManagedBridge {
+public:
+    static void InitializeSensorMonitor() {
+        SensorMonitor::Initialize();
+    }
+
+    static void CleanupSensorMonitor() {
+        SensorMonitor::Cleanup();
+    }
+};
+#pragma unmanaged
+
+// Refactor Initialize to avoid direct usage of managed types
+void LibreHardwareMonitorBridge::Initialize() {
+    if (!initialized) {
+        try {
+            // Call managed code through a wrapper function
+            CallSensorMonitorInitialize();
+            initialized = true;
+        }
+        catch (...) {
+            std::cerr << "Error: Failed to initialize SensorMonitor." << std::endl;
+        }
+    }
+}
+
+// Refactor Cleanup to avoid direct usage of managed types
+void LibreHardwareMonitorBridge::Cleanup() {
+    if (initialized) {
+        try {
+            // Call managed code through a wrapper function
+            CallSensorMonitorCleanup();
+            initialized = false;
+        }
+        catch (...) {
+            std::cerr << "Error: Failed to cleanup SensorMonitor." << std::endl;
+        }
+    }
+}
+
+// Consolidate GetTemperatures logic
+std::vector<std::pair<std::string, double>> LibreHardwareMonitorBridge::GetTemperatures() {
+    std::vector<std::pair<std::string, double>> results;
+
+    try {
+        // Call managed code through a wrapper function
+        #pragma managed
+        auto managedResults = SensorMonitor::GetTemperatures();
+        #pragma unmanaged
+
+        for each (auto entry in managedResults) {
+            results.emplace_back(
+                marshal_as<std::string>(entry->Item1),
+                static_cast<double>(entry->Item2)
+            );
+        }
+    }
+    catch (...) {
+        std::cerr << "Error: Failed to get temperatures." << std::endl;
+    }
+
+    return results;
+}
+
+// Remove redundant comments and debug messages
+#pragma managed
+bool SensorMonitor::IsCpuTemperature(Tuple<String^, float>^ t) {
+    return t->Item1->StartsWith("CPU");
+}
+
+List<Tuple<String^, float>^>^ SensorMonitor::GetTemperatures() {
+    List<Tuple<String^, float>^>^ results = gcnew List<Tuple<String^, float>^>();
+
+    for each (IHardware^ hardware in computer->Hardware) {
+        hardware->Update();
+
+        for each (ISensor^ sensor in hardware->Sensors) {
+            if (sensor->SensorType == SensorType::Temperature && sensor->Value.HasValue) {
+                results->Add(gcnew Tuple<String^, float>(sensor->Name, safe_cast<float>(sensor->Value.Value)));
+            }
+        }
+    }
+
+    return results;
+}
+#pragma unmanaged
+
+// ...existing code...
 #include "LibreHardwareMonitorBridge.h"
+
+// Separate C++/CLI part into its own compilation unit
+#pragma managed
 #include <msclr/marshal_cppstd.h>
 #include <vcclr.h>
 
@@ -46,9 +143,9 @@ private:
 public:
     static void Initialize() {
         try {
-            // ³¢ÊÔ¼ÓÔØ¿â
+            // å°è¯•åŠ è½½åº“
             if (!TryLoadLibrary()) {
-                throw gcnew System::IO::FileNotFoundException("ÎÞ·¨ÕÒµ½ LibreHardwareMonitorLib.dll£¬ÇëÈ·±£ËüÒÑÕýÈ··ÅÖÃÔÚ 'lib' Ä¿Â¼ÖÐ¡£");
+                throw gcnew System::IO::FileNotFoundException("æ— æ³•æ‰¾åˆ° LibreHardwareMonitorLib.dllï¼Œè¯·ç¡®ä¿å®ƒå·²æ­£ç¡®æ”¾ç½®åœ¨ 'lib' ç›®å½•ä¸­ã€‚");
             }
             
             if (computer != nullptr) {
@@ -72,7 +169,7 @@ public:
         }
         catch (Exception^ ex) {
             System::Diagnostics::Debug::WriteLine("Failed to initialize: " + ex->Message);
-            throw; // ÖØÐÂÅ×³öÒì³£ÒÔ±ã¸ú×Ù
+            throw; // é‡æ–°æŠ›å‡ºå¼‚å¸¸ä»¥ä¾¿è·Ÿè¸ª
         }
     }
 
@@ -113,7 +210,7 @@ public:
 
                     for each (ISensor^ sensor in hardware->Sensors) {
                         if (sensor->SensorType == SensorType::Temperature) {
-                            // ÐÞ¸Ä Nullable ÖµµÄ´¦Àí
+                            // ä¿®æ”¹ Nullable å€¼çš„å¤„ç†
                             if (sensor->Value.HasValue) {
                                 float temp = safe_cast<float>(sensor->Value.Value);
                                 String^ sensorName = sensor->Name;
@@ -165,7 +262,7 @@ public:
                 }
             }
 
-            // Ê¹ÓÃ¾²Ì¬·½·¨Ìæ´ú Lambda
+            // ä½¿ç”¨é™æ€æ–¹æ³•æ›¿ä»£ Lambda
             if (!results->Exists(gcnew Predicate<Tuple<String^, float>^>(IsCpuTemperature))) {
                 for each (IHardware^ hardware in computer->Hardware) {
                     if (hardware->HardwareType == HardwareType::Motherboard) {
@@ -192,47 +289,109 @@ public:
     }
 };
 
+// Remove duplicate SensorMonitorWrapper definition
+#pragma managed
+void CallSensorMonitorInitialize() {
+    SensorMonitor::Initialize();
+}
+
+void CallSensorMonitorCleanup() {
+    SensorMonitor::Cleanup();
+}
+#pragma unmanaged
+
+// Add managed-to-native bridge functions
+#pragma managed
+ref class ManagedBridge {
+public:
+    static void InitializeSensorMonitor() {
+        SensorMonitor::Initialize();
+    }
+
+    static void CleanupSensorMonitor() {
+        SensorMonitor::Cleanup();
+    }
+};
+#pragma unmanaged
+
+// Add a gcroot-based native-to-managed bridge
+#pragma unmanaged
+#include <msclr/gcroot.h>
+msclr::gcroot<ManagedBridge^> managedBridgeInstance;
+
 bool LibreHardwareMonitorBridge::initialized = false;
 
+// Refactor Initialize to avoid direct usage of managed types
 void LibreHardwareMonitorBridge::Initialize() {
     if (!initialized) {
         try {
-            SensorMonitor::Initialize();
+            // Call managed code through a wrapper function
+            CallSensorMonitorInitialize();
             initialized = true;
         }
-        catch (System::IO::FileNotFoundException^ ex) {
-            System::Diagnostics::Debug::WriteLine("DLL not found: " + ex->Message);
-            std::cerr << "Error: LibreHardwareMonitorLib.dll not found. Please ensure it's in the lib directory." << std::endl;
-        }
-        catch (Exception^ ex) {
-            System::Diagnostics::Debug::WriteLine("Failed to initialize: " + ex->Message);
-            throw;  // ÖØÐÂÅ×³öÒì³£ÒÔÍ¨Öªµ÷ÓÃÕß
+        catch (...) {
+            std::cerr << "Error: Failed to initialize SensorMonitor." << std::endl;
         }
     }
 }
 
+// Refactor Cleanup to avoid direct usage of managed types
 void LibreHardwareMonitorBridge::Cleanup() {
     if (initialized) {
-        SensorMonitor::Cleanup();
-        initialized = false;
+        try {
+            // Call managed code through a wrapper function
+            CallSensorMonitorCleanup();
+            initialized = false;
+        }
+        catch (...) {
+            std::cerr << "Error: Failed to cleanup SensorMonitor." << std::endl;
+        }
     }
 }
 
-std::vector<std::pair<std::string, float>> LibreHardwareMonitorBridge::GetTemperatures() {
-    std::vector<std::pair<std::string, float>> results;
+// Consolidate GetTemperatures logic
+std::vector<std::pair<std::string, double>> LibreHardwareMonitorBridge::GetTemperatures() {
+    std::vector<std::pair<std::string, double>> results;
 
     try {
+        // Call managed code through a wrapper function
+        #pragma managed
         auto managedResults = SensorMonitor::GetTemperatures();
-        for each(Tuple<String^, float>^ entry in managedResults) {
+        #pragma unmanaged
+
+        for each (auto entry in managedResults) {
             results.emplace_back(
                 marshal_as<std::string>(entry->Item1),
-                entry->Item2
+                static_cast<double>(entry->Item2)
             );
         }
     }
-    catch (Exception^) {
-        // ºöÂÔÒì³£
+    catch (...) {
+        std::cerr << "Error: Failed to get temperatures." << std::endl;
     }
 
     return results;
 }
+
+// Remove redundant comments and debug messages
+#pragma managed
+bool SensorMonitor::IsCpuTemperature(Tuple<String^, float>^ t) {
+    return t->Item1->StartsWith("CPU");
+}
+
+List<Tuple<String^, float>^>^ SensorMonitor::GetTemperatures() {
+    List<Tuple<String^, float>^>^ results = gcnew List<Tuple<String^, float>^>();
+
+    for each (IHardware^ hardware in computer->Hardware) {
+        hardware->Update();
+
+        for each (ISensor^ sensor in hardware->Sensors) {
+            if (sensor->SensorType == SensorType::Temperature && sensor->Value.HasValue) {
+                results->Add(gcnew Tuple<String^, float>(sensor->Name, safe_cast<float>(sensor->Value.Value)));
+            }
+        }
+    }
+
+    return results;
+}
+#pragma unmanaged

@@ -1,4 +1,4 @@
-// QtDisplayBridge.cpp
+ï»¿// QtDisplayBridge.cpp
 #include "QtDisplayBridge.h"
 #include <QMainWindow>
 #include <QVBoxLayout>
@@ -13,14 +13,14 @@
 #include <QMessageBox>
 #include "../utils/Logger.h"
 
-// Qt¼àÊÓÆ÷´°¿ÚÀà¶¨Òå
+// Qtç›‘è§†å™¨çª—å£ç±»å®šä¹‰
 class SystemMonitorWindow : public QMainWindow {
 public:
     SystemMonitorWindow(QWidget* parent = nullptr);
     void updateSystemInfo(const SystemInfo& sysInfo);
 
 private:
-    // CPUĞÅÏ¢ÏÔÊ¾×é¼ş
+    // CPUä¿¡æ¯æ˜¾ç¤ºç»„ä»¶
     QLabel* cpuNameLabel;
     QLabel* cpuCoresLabel;
     QLabel* cpuThreadsLabel;
@@ -31,25 +31,25 @@ private:
     QLabel* cpuPCoreFreqLabel;
     QLabel* cpuECoreFreqLabel;
 
-    // ÄÚ´æĞÅÏ¢ÏÔÊ¾×é¼ş
+    // å†…å­˜ä¿¡æ¯æ˜¾ç¤ºç»„ä»¶
     QProgressBar* memoryUsageBar;
     QLabel* memoryTotalLabel;
     QLabel* memoryUsedLabel;
     QLabel* memoryAvailableLabel;
 
-    // GPUĞÅÏ¢ÏÔÊ¾×é¼ş
+    // GPUä¿¡æ¯æ˜¾ç¤ºç»„ä»¶
     QLabel* gpuNameLabel;
     QLabel* gpuBrandLabel;
     QLabel* gpuMemoryLabel;
     QLabel* gpuFreqLabel;
 
-    // ÎÂ¶ÈĞÅÏ¢ÏÔÊ¾
+    // æ¸©åº¦ä¿¡æ¯æ˜¾ç¤º
     QTreeWidget* temperatureTreeWidget;
 
-    // ´ÅÅÌĞÅÏ¢ÏÔÊ¾
+    // ç£ç›˜ä¿¡æ¯æ˜¾ç¤º
     QTreeWidget* diskTreeWidget;
 
-    // ¸üĞÂ½çÃæµÄ·½·¨
+    // æ›´æ–°ç•Œé¢çš„æ–¹æ³•
     void setupUi();
     void setupCpuInfo(QWidget* cpuTab);
     void setupMemoryInfo(QWidget* memoryTab);
@@ -58,58 +58,58 @@ private:
     void setupDiskInfo(QWidget* diskTab);
 };
 
-// ÕıÈ·¶¨Òå¾²Ì¬³ÉÔ±±äÁ¿
+// æ­£ç¡®å®šä¹‰é™æ€æˆå‘˜å˜é‡
 QApplication* QtDisplayBridge::qtAppInstance = nullptr;
 SystemMonitorWindow* QtDisplayBridge::monitorWindow = nullptr;
 bool QtDisplayBridge::initialized = false;
 
-// SystemMonitorWindowÊµÏÖ
+// SystemMonitorWindowå®ç°
 SystemMonitorWindow::SystemMonitorWindow(QWidget* parent) : QMainWindow(parent) {
-    setWindowTitle("ÏµÍ³Ó²¼ş¼à¿Ø");
+    setWindowTitle("ç³»ç»Ÿç¡¬ä»¶ç›‘æ§");
     setMinimumSize(800, 600);
     setupUi();
 }
 
 void SystemMonitorWindow::setupUi() {
-    // ´´½¨Ö÷Òª²¼¾ÖºÍÑ¡Ïî¿¨²¿¼ş
+    // åˆ›å»ºä¸»è¦å¸ƒå±€å’Œé€‰é¡¹å¡éƒ¨ä»¶
     QTabWidget* tabWidget = new QTabWidget(this);
     setCentralWidget(tabWidget);
 
-    // ´´½¨¸÷¸öÑ¡Ïî¿¨
+    // åˆ›å»ºå„ä¸ªé€‰é¡¹å¡
     QWidget* cpuTab = new QWidget();
     QWidget* memoryTab = new QWidget();
     QWidget* gpuTab = new QWidget();
     QWidget* tempTab = new QWidget();
     QWidget* diskTab = new QWidget();
 
-    // ÉèÖÃ¸÷¸öÑ¡Ïî¿¨µÄÄÚÈİ
+    // è®¾ç½®å„ä¸ªé€‰é¡¹å¡çš„å†…å®¹
     setupCpuInfo(cpuTab);
     setupMemoryInfo(memoryTab);
     setupGpuInfo(gpuTab);
     setupTemperatureInfo(tempTab);
     setupDiskInfo(diskTab);
 
-    // Ìí¼ÓÑ¡Ïî¿¨µ½Ñ¡Ïî¿¨²¿¼ş
-    tabWidget->addTab(cpuTab, "´¦ÀíÆ÷");
-    tabWidget->addTab(memoryTab, "ÄÚ´æ");
-    tabWidget->addTab(gpuTab, "ÏÔ¿¨");
-    tabWidget->addTab(tempTab, "ÎÂ¶È");
-    tabWidget->addTab(diskTab, "´ÅÅÌ");
+    // æ·»åŠ é€‰é¡¹å¡åˆ°é€‰é¡¹å¡éƒ¨ä»¶
+    tabWidget->addTab(cpuTab, "å¤„ç†å™¨");
+    tabWidget->addTab(memoryTab, "å†…å­˜");
+    tabWidget->addTab(gpuTab, "æ˜¾å¡");
+    tabWidget->addTab(tempTab, "æ¸©åº¦");
+    tabWidget->addTab(diskTab, "ç£ç›˜");
 }
 
 void SystemMonitorWindow::setupCpuInfo(QWidget* cpuTab) {
     QVBoxLayout* layout = new QVBoxLayout(cpuTab);
 
-    // CPUÃû³ÆºÍ»ù±¾ĞÅÏ¢
-    QGroupBox* infoGroup = new QGroupBox("CPUĞÅÏ¢", cpuTab);
+    // CPUåç§°å’ŒåŸºæœ¬ä¿¡æ¯
+    QGroupBox* infoGroup = new QGroupBox("CPUä¿¡æ¯", cpuTab);
     QVBoxLayout* infoLayout = new QVBoxLayout(infoGroup);
 
-    cpuNameLabel = new QLabel("Ãû³Æ: Î´Öª");
-    cpuCoresLabel = new QLabel("ÎïÀíºËĞÄÊı: 0");
-    cpuThreadsLabel = new QLabel("Âß¼­Ïß³ÌÊı: 0");
-    cpuPCoresLabel = new QLabel("ĞÔÄÜºËĞÄÊı: 0");
-    cpuECoresLabel = new QLabel("ÄÜĞ§ºËĞÄÊı: 0");
-    cpuFeaturesLabel = new QLabel("¹¦ÄÜÖ§³Ö: Î´Öª");
+    cpuNameLabel = new QLabel("åç§°: æœªçŸ¥");
+    cpuCoresLabel = new QLabel("ç‰©ç†æ ¸å¿ƒæ•°: 0");
+    cpuThreadsLabel = new QLabel("é€»è¾‘çº¿ç¨‹æ•°: 0");
+    cpuPCoresLabel = new QLabel("æ€§èƒ½æ ¸å¿ƒæ•°: 0");
+    cpuECoresLabel = new QLabel("èƒ½æ•ˆæ ¸å¿ƒæ•°: 0");
+    cpuFeaturesLabel = new QLabel("åŠŸèƒ½æ”¯æŒ: æœªçŸ¥");
 
     infoLayout->addWidget(cpuNameLabel);
     infoLayout->addWidget(cpuCoresLabel);
@@ -118,8 +118,8 @@ void SystemMonitorWindow::setupCpuInfo(QWidget* cpuTab) {
     infoLayout->addWidget(cpuECoresLabel);
     infoLayout->addWidget(cpuFeaturesLabel);
 
-    // CPUÊ¹ÓÃÂÊ
-    QGroupBox* usageGroup = new QGroupBox("CPUÊ¹ÓÃÂÊ", cpuTab);
+    // CPUä½¿ç”¨ç‡
+    QGroupBox* usageGroup = new QGroupBox("CPUä½¿ç”¨ç‡", cpuTab);
     QVBoxLayout* usageLayout = new QVBoxLayout(usageGroup);
 
     cpuUsageBar = new QProgressBar();
@@ -130,17 +130,17 @@ void SystemMonitorWindow::setupCpuInfo(QWidget* cpuTab) {
 
     usageLayout->addWidget(cpuUsageBar);
 
-    // CPUÆµÂÊ
-    QGroupBox* freqGroup = new QGroupBox("CPUÆµÂÊ", cpuTab);
+    // CPUé¢‘ç‡
+    QGroupBox* freqGroup = new QGroupBox("CPUé¢‘ç‡", cpuTab);
     QVBoxLayout* freqLayout = new QVBoxLayout(freqGroup);
 
-    cpuPCoreFreqLabel = new QLabel("ĞÔÄÜºËĞÄÆµÂÊ: 0 GHz");
-    cpuECoreFreqLabel = new QLabel("ÄÜĞ§ºËĞÄÆµÂÊ: 0 GHz");
+    cpuPCoreFreqLabel = new QLabel("æ€§èƒ½æ ¸å¿ƒé¢‘ç‡: 0 GHz");
+    cpuECoreFreqLabel = new QLabel("èƒ½æ•ˆæ ¸å¿ƒé¢‘ç‡: 0 GHz");
 
     freqLayout->addWidget(cpuPCoreFreqLabel);
     freqLayout->addWidget(cpuECoreFreqLabel);
 
-    // Ìí¼ÓËùÓĞ×éµ½Ö÷²¼¾Ö
+    // æ·»åŠ æ‰€æœ‰ç»„åˆ°ä¸»å¸ƒå±€
     layout->addWidget(infoGroup);
     layout->addWidget(usageGroup);
     layout->addWidget(freqGroup);
@@ -150,8 +150,8 @@ void SystemMonitorWindow::setupCpuInfo(QWidget* cpuTab) {
 void SystemMonitorWindow::setupMemoryInfo(QWidget* memoryTab) {
     QVBoxLayout* layout = new QVBoxLayout(memoryTab);
 
-    // ÄÚ´æÊ¹ÓÃÂÊ
-    QGroupBox* usageGroup = new QGroupBox("ÄÚ´æÊ¹ÓÃÂÊ", memoryTab);
+    // å†…å­˜ä½¿ç”¨ç‡
+    QGroupBox* usageGroup = new QGroupBox("å†…å­˜ä½¿ç”¨ç‡", memoryTab);
     QVBoxLayout* usageLayout = new QVBoxLayout(usageGroup);
 
     memoryUsageBar = new QProgressBar();
@@ -162,19 +162,19 @@ void SystemMonitorWindow::setupMemoryInfo(QWidget* memoryTab) {
 
     usageLayout->addWidget(memoryUsageBar);
 
-    // ÄÚ´æÏêÏ¸ĞÅÏ¢
-    QGroupBox* detailGroup = new QGroupBox("ÄÚ´æÏêÏ¸ĞÅÏ¢", memoryTab);
+    // å†…å­˜è¯¦ç»†ä¿¡æ¯
+    QGroupBox* detailGroup = new QGroupBox("å†…å­˜è¯¦ç»†ä¿¡æ¯", memoryTab);
     QVBoxLayout* detailLayout = new QVBoxLayout(detailGroup);
 
-    memoryTotalLabel = new QLabel("×ÜÄÚ´æ: 0 GB");
-    memoryUsedLabel = new QLabel("ÒÑÓÃÄÚ´æ: 0 GB");
-    memoryAvailableLabel = new QLabel("¿ÉÓÃÄÚ´æ: 0 GB");
+    memoryTotalLabel = new QLabel("æ€»å†…å­˜: 0 GB");
+    memoryUsedLabel = new QLabel("å·²ç”¨å†…å­˜: 0 GB");
+    memoryAvailableLabel = new QLabel("å¯ç”¨å†…å­˜: 0 GB");
 
     detailLayout->addWidget(memoryTotalLabel);
     detailLayout->addWidget(memoryUsedLabel);
     detailLayout->addWidget(memoryAvailableLabel);
 
-    // Ìí¼ÓËùÓĞ×éµ½Ö÷²¼¾Ö
+    // æ·»åŠ æ‰€æœ‰ç»„åˆ°ä¸»å¸ƒå±€
     layout->addWidget(usageGroup);
     layout->addWidget(detailGroup);
     layout->addStretch(1);
@@ -183,21 +183,21 @@ void SystemMonitorWindow::setupMemoryInfo(QWidget* memoryTab) {
 void SystemMonitorWindow::setupGpuInfo(QWidget* gpuTab) {
     QVBoxLayout* layout = new QVBoxLayout(gpuTab);
 
-    // GPU»ù±¾ĞÅÏ¢
-    QGroupBox* infoGroup = new QGroupBox("GPUĞÅÏ¢", gpuTab);
+    // GPUåŸºæœ¬ä¿¡æ¯
+    QGroupBox* infoGroup = new QGroupBox("GPUä¿¡æ¯", gpuTab);
     QVBoxLayout* infoLayout = new QVBoxLayout(infoGroup);
 
-    gpuNameLabel = new QLabel("Ãû³Æ: Î´Öª");
-    gpuBrandLabel = new QLabel("Æ·ÅÆ: Î´Öª");
-    gpuMemoryLabel = new QLabel("ÏÔ´æ: 0 GB");
-    gpuFreqLabel = new QLabel("ÆµÂÊ: 0 MHz");
+    gpuNameLabel = new QLabel("åç§°: æœªçŸ¥");
+    gpuBrandLabel = new QLabel("å“ç‰Œ: æœªçŸ¥");
+    gpuMemoryLabel = new QLabel("æ˜¾å­˜: 0 GB");
+    gpuFreqLabel = new QLabel("é¢‘ç‡: 0 MHz");
 
     infoLayout->addWidget(gpuNameLabel);
     infoLayout->addWidget(gpuBrandLabel);
     infoLayout->addWidget(gpuMemoryLabel);
     infoLayout->addWidget(gpuFreqLabel);
 
-    // Ìí¼ÓËùÓĞ×éµ½Ö÷²¼¾Ö
+    // æ·»åŠ æ‰€æœ‰ç»„åˆ°ä¸»å¸ƒå±€
     layout->addWidget(infoGroup);
     layout->addStretch(1);
 }
@@ -205,9 +205,9 @@ void SystemMonitorWindow::setupGpuInfo(QWidget* gpuTab) {
 void SystemMonitorWindow::setupTemperatureInfo(QWidget* tempTab) {
     QVBoxLayout* layout = new QVBoxLayout(tempTab);
 
-    // ÎÂ¶ÈĞÅÏ¢Ê÷ĞÎ¿Ø¼ş
+    // æ¸©åº¦ä¿¡æ¯æ ‘å½¢æ§ä»¶
     temperatureTreeWidget = new QTreeWidget(tempTab);
-    temperatureTreeWidget->setHeaderLabels(QStringList() << "×é¼ş" << "ÎÂ¶È");
+    temperatureTreeWidget->setHeaderLabels(QStringList() << "ç»„ä»¶" << "æ¸©åº¦");
     temperatureTreeWidget->setColumnWidth(0, 250);
     temperatureTreeWidget->header()->setSectionResizeMode(QHeaderView::ResizeToContents);
 
@@ -217,9 +217,9 @@ void SystemMonitorWindow::setupTemperatureInfo(QWidget* tempTab) {
 void SystemMonitorWindow::setupDiskInfo(QWidget* diskTab) {
     QVBoxLayout* layout = new QVBoxLayout(diskTab);
 
-    // ´ÅÅÌĞÅÏ¢Ê÷ĞÎ¿Ø¼ş
+    // ç£ç›˜ä¿¡æ¯æ ‘å½¢æ§ä»¶
     diskTreeWidget = new QTreeWidget(diskTab);
-    diskTreeWidget->setHeaderLabels(QStringList() << "Çı¶¯Æ÷" << "¾í±ê" << "ÎÄ¼şÏµÍ³" << "×ÜÈİÁ¿" << "ÒÑÓÃ¿Õ¼ä" << "¿ÉÓÃ¿Õ¼ä" << "Ê¹ÓÃÂÊ");
+    diskTreeWidget->setHeaderLabels(QStringList() << "é©±åŠ¨å™¨" << "å·æ ‡" << "æ–‡ä»¶ç³»ç»Ÿ" << "æ€»å®¹é‡" << "å·²ç”¨ç©ºé—´" << "å¯ç”¨ç©ºé—´" << "ä½¿ç”¨ç‡");
     diskTreeWidget->setColumnWidth(0, 80);
     diskTreeWidget->setColumnWidth(1, 150);
     diskTreeWidget->setColumnWidth(2, 80);
@@ -233,28 +233,28 @@ void SystemMonitorWindow::setupDiskInfo(QWidget* diskTab) {
 }
 
 void SystemMonitorWindow::updateSystemInfo(const SystemInfo& sysInfo) {
-    // ¸üĞÂCPUĞÅÏ¢
-    cpuNameLabel->setText(QString("Ãû³Æ: ") + QString::fromStdString(sysInfo.cpuName));
-    cpuCoresLabel->setText(QString("ÎïÀíºËĞÄÊı: ") + QString::number(sysInfo.physicalCores));
-    cpuThreadsLabel->setText(QString("Âß¼­Ïß³ÌÊı: ") + QString::number(sysInfo.logicalCores));
-    cpuPCoresLabel->setText(QString("ĞÔÄÜºËĞÄÊı: ") + QString::number(sysInfo.performanceCores));
-    cpuECoresLabel->setText(QString("ÄÜĞ§ºËĞÄÊı: ") + QString::number(sysInfo.efficiencyCores));
+    // æ›´æ–°CPUä¿¡æ¯
+    cpuNameLabel->setText(QString("åç§°: ") + QString::fromStdString(sysInfo.cpuName));
+    cpuCoresLabel->setText(QString("ç‰©ç†æ ¸å¿ƒæ•°: ") + QString::number(sysInfo.physicalCores));
+    cpuThreadsLabel->setText(QString("é€»è¾‘çº¿ç¨‹æ•°: ") + QString::number(sysInfo.logicalCores));
+    cpuPCoresLabel->setText(QString("æ€§èƒ½æ ¸å¿ƒæ•°: ") + QString::number(sysInfo.performanceCores));
+    cpuECoresLabel->setText(QString("èƒ½æ•ˆæ ¸å¿ƒæ•°: ") + QString::number(sysInfo.efficiencyCores));
 
-    std::string features = "¹¦ÄÜÖ§³Ö: ";
-    features += sysInfo.hyperThreading ? "³¬Ïß³Ì: ÊÇ" : "³¬Ïß³Ì: ·ñ";
+    std::string features = "åŠŸèƒ½æ”¯æŒ: ";
+    features += sysInfo.hyperThreading ? "è¶…çº¿ç¨‹: æ˜¯" : "è¶…çº¿ç¨‹: å¦";
     features += ", ";
-    features += sysInfo.virtualization ? "ĞéÄâ»¯: ÊÇ" : "ĞéÄâ»¯: ·ñ";
+    features += sysInfo.virtualization ? "è™šæ‹ŸåŒ–: æ˜¯" : "è™šæ‹ŸåŒ–: å¦";
     cpuFeaturesLabel->setText(features.c_str());
 
     cpuUsageBar->setValue(static_cast<int>(sysInfo.cpuUsage));
 
     char pFreqBuf[32], eFreqBuf[32];
-    snprintf(pFreqBuf, sizeof(pFreqBuf), "ĞÔÄÜºËĞÄÆµÂÊ: %.2f GHz", sysInfo.performanceCoreFreq / 1000.0);
-    snprintf(eFreqBuf, sizeof(eFreqBuf), "ÄÜĞ§ºËĞÄÆµÂÊ: %.2f GHz", sysInfo.efficiencyCoreFreq / 1000.0);
+    snprintf(pFreqBuf, sizeof(pFreqBuf), "æ€§èƒ½æ ¸å¿ƒé¢‘ç‡: %.2f GHz", sysInfo.performanceCoreFreq / 1000.0);
+    snprintf(eFreqBuf, sizeof(eFreqBuf), "èƒ½æ•ˆæ ¸å¿ƒé¢‘ç‡: %.2f GHz", sysInfo.efficiencyCoreFreq / 1000.0);
     cpuPCoreFreqLabel->setText(pFreqBuf);
     cpuECoreFreqLabel->setText(eFreqBuf);
 
-    // ¸üĞÂÄÚ´æĞÅÏ¢
+    // æ›´æ–°å†…å­˜ä¿¡æ¯
     double memUsagePercent = 0;
     if (sysInfo.totalMemory > 0) {
         memUsagePercent = (static_cast<double>(sysInfo.usedMemory) / sysInfo.totalMemory) * 100.0;
@@ -262,45 +262,45 @@ void SystemMonitorWindow::updateSystemInfo(const SystemInfo& sysInfo) {
     memoryUsageBar->setValue(static_cast<int>(memUsagePercent));
 
     char memBuf[3][64];
-    snprintf(memBuf[0], sizeof(memBuf[0]), "×ÜÄÚ´æ: %.2f GB", sysInfo.totalMemory / (1024.0 * 1024.0 * 1024.0));
-    snprintf(memBuf[1], sizeof(memBuf[1]), "ÒÑÓÃÄÚ´æ: %.2f GB", sysInfo.usedMemory / (1024.0 * 1024.0 * 1024.0));
-    snprintf(memBuf[2], sizeof(memBuf[2]), "¿ÉÓÃÄÚ´æ: %.2f GB", sysInfo.availableMemory / (1024.0 * 1024.0 * 1024.0));
+    snprintf(memBuf[0], sizeof(memBuf[0]), "æ€»å†…å­˜: %.2f GB", sysInfo.totalMemory / (1024.0 * 1024.0 * 1024.0));
+    snprintf(memBuf[1], sizeof(memBuf[1]), "å·²ç”¨å†…å­˜: %.2f GB", sysInfo.usedMemory / (1024.0 * 1024.0 * 1024.0));
+    snprintf(memBuf[2], sizeof(memBuf[2]), "å¯ç”¨å†…å­˜: %.2f GB", sysInfo.availableMemory / (1024.0 * 1024.0 * 1024.0));
 
     memoryTotalLabel->setText(memBuf[0]);
     memoryUsedLabel->setText(memBuf[1]);
     memoryAvailableLabel->setText(memBuf[2]);
 
-    // ¸üĞÂGPUĞÅÏ¢
-    gpuNameLabel->setText(QString("Ãû³Æ: ") + QString::fromStdString(sysInfo.gpuName));
-    gpuBrandLabel->setText(QString("Æ·ÅÆ: ") + QString::fromStdString(sysInfo.gpuBrand));
+    // æ›´æ–°GPUä¿¡æ¯
+    gpuNameLabel->setText(QString("åç§°: ") + QString::fromStdString(sysInfo.gpuName));
+    gpuBrandLabel->setText(QString("å“ç‰Œ: ") + QString::fromStdString(sysInfo.gpuBrand));
 
     char gpuMemBuf[64], gpuFreqBuf[64];
-    snprintf(gpuMemBuf, sizeof(gpuMemBuf), "ÏÔ´æ: %.2f GB", sysInfo.gpuMemory / (1024.0 * 1024.0 * 1024.0));
-    snprintf(gpuFreqBuf, sizeof(gpuFreqBuf), "ÆµÂÊ: %.0f MHz", sysInfo.gpuCoreFreq);
+    snprintf(gpuMemBuf, sizeof(gpuMemBuf), "æ˜¾å­˜: %.2f GB", sysInfo.gpuMemory / (1024.0 * 1024.0 * 1024.0));
+    snprintf(gpuFreqBuf, sizeof(gpuFreqBuf), "é¢‘ç‡: %.0f MHz", sysInfo.gpuCoreFreq);
 
     gpuMemoryLabel->setText(gpuMemBuf);
     gpuFreqLabel->setText(gpuFreqBuf);
 
-    // ¸üĞÂÎÂ¶ÈĞÅÏ¢
+    // æ›´æ–°æ¸©åº¦ä¿¡æ¯
     temperatureTreeWidget->clear();
     for (const auto& temp : sysInfo.temperatures) {
         QTreeWidgetItem* item = new QTreeWidgetItem(temperatureTreeWidget);
         item->setText(0, temp.first.c_str());
 
         char tempBuf[16];
-        snprintf(tempBuf, sizeof(tempBuf), "%.1f ¡ãC", temp.second);
+        snprintf(tempBuf, sizeof(tempBuf), "%.1f Â°C", temp.second);
         item->setText(1, tempBuf);
 
-        // Îª¸ßÎÂÉèÖÃºìÉ«¾¯¸æ
+        // ä¸ºé«˜æ¸©è®¾ç½®çº¢è‰²è­¦å‘Š
         if (temp.second > 80.0) {
             item->setForeground(1, Qt::red);
         }
         else if (temp.second > 70.0) {
-            item->setForeground(1, QColor(255, 165, 0)); // ³ÈÉ«
+            item->setForeground(1, QColor(255, 165, 0)); // æ©™è‰²
         }
     }
 
-    // ¸üĞÂ´ÅÅÌĞÅÏ¢
+    // æ›´æ–°ç£ç›˜ä¿¡æ¯
     diskTreeWidget->clear();
     for (const auto& disk : sysInfo.disks) {
         QTreeWidgetItem* item = new QTreeWidgetItem(diskTreeWidget);
@@ -327,41 +327,41 @@ void SystemMonitorWindow::updateSystemInfo(const SystemInfo& sysInfo) {
         item->setText(5, sizeBufs[2]);
         item->setText(6, sizeBufs[3]);
 
-        // Îª¿ìÂúµÄ´ÅÅÌÉèÖÃ¾¯¸æÉ«
+        // ä¸ºå¿«æ»¡çš„ç£ç›˜è®¾ç½®è­¦å‘Šè‰²
         if (usagePercent > 90.0) {
             item->setForeground(6, Qt::red);
         }
         else if (usagePercent > 75.0) {
-            item->setForeground(6, QColor(255, 165, 0)); // ³ÈÉ«
+            item->setForeground(6, QColor(255, 165, 0)); // æ©™è‰²
         }
     }
 }
 
-// QtDisplayBridgeÊµÏÖ
+// QtDisplayBridgeå®ç°
 bool QtDisplayBridge::Initialize(int argc, char* argv[]) {
     try {
         if (initialized) {
-            Logger::Warning("Qt»·¾³ÒÑ¾­³õÊ¼»¯");
+            Logger::Warning("Qtç¯å¢ƒå·²ç»åˆå§‹åŒ–");
             return true;
         }
 
-        // ´´½¨QtÓ¦ÓÃ³ÌĞòÊµÀı
+        // åˆ›å»ºQtåº”ç”¨ç¨‹åºå®ä¾‹
         qtAppInstance = new QApplication(argc, argv);
         if (!qtAppInstance) {
-            Logger::Error("ÎŞ·¨´´½¨QtÓ¦ÓÃ³ÌĞòÊµÀı");
+            Logger::Error("æ— æ³•åˆ›å»ºQtåº”ç”¨ç¨‹åºå®ä¾‹");
             return false;
         }
 
-        // ÉèÖÃÓ¦ÓÃ³ÌĞò»ù±¾ĞÅÏ¢
-        QApplication::setApplicationName("ÏµÍ³Ó²¼ş¼à¿Ø");
-        QApplication::setOrganizationName("Ó²¼ş¼à¿Ø¹¤¾ß");
+        // è®¾ç½®åº”ç”¨ç¨‹åºåŸºæœ¬ä¿¡æ¯
+        QApplication::setApplicationName("ç³»ç»Ÿç¡¬ä»¶ç›‘æ§");
+        QApplication::setOrganizationName("ç¡¬ä»¶ç›‘æ§å·¥å…·");
 
         initialized = true;
-        Logger::Info("Qt»·¾³³õÊ¼»¯³É¹¦");
+        Logger::Info("Qtç¯å¢ƒåˆå§‹åŒ–æˆåŠŸ");
         return true;
     }
     catch (const std::exception& e) {
-        Logger::Error("Qt»·¾³³õÊ¼»¯Ê§°Ü: " + std::string(e.what()));
+        Logger::Error("Qtç¯å¢ƒåˆå§‹åŒ–å¤±è´¥: " + std::string(e.what()));
         return false;
     }
 }
@@ -369,24 +369,24 @@ bool QtDisplayBridge::Initialize(int argc, char* argv[]) {
 bool QtDisplayBridge::CreateMonitorWindow() {
     try {
         if (!initialized) {
-            Logger::Error("³¢ÊÔ´´½¨´°¿ÚÇ°ÇëÏÈ³õÊ¼»¯Qt»·¾³");
+            Logger::Error("å°è¯•åˆ›å»ºçª—å£å‰è¯·å…ˆåˆå§‹åŒ–Qtç¯å¢ƒ");
             return false;
         }
 
         if (monitorWindow) {
-            Logger::Warning("¼à¿Ø´°¿ÚÒÑ¾­´´½¨");
+            Logger::Warning("ç›‘æ§çª—å£å·²ç»åˆ›å»º");
             return true;
         }
 
-        // ´´½¨ºÍÏÔÊ¾¼à¿Ø´°¿Ú
+        // åˆ›å»ºå’Œæ˜¾ç¤ºç›‘æ§çª—å£
         monitorWindow = new SystemMonitorWindow();
         monitorWindow->show();
 
-        Logger::Info("¼à¿Ø´°¿Ú´´½¨³É¹¦");
+        Logger::Info("ç›‘æ§çª—å£åˆ›å»ºæˆåŠŸ");
         return true;
     }
     catch (const std::exception& e) {
-        Logger::Error("¼à¿Ø´°¿Ú´´½¨Ê§°Ü: " + std::string(e.what()));
+        Logger::Error("ç›‘æ§çª—å£åˆ›å»ºå¤±è´¥: " + std::string(e.what()));
         return false;
     }
 }
@@ -396,7 +396,7 @@ void QtDisplayBridge::UpdateSystemInfo(const SystemInfo& sysInfo) {
         return;
     }
 
-    // Í¨¹ıQtÊÂ¼şÑ­»·°²È«µØ¸üĞÂUI
+    // é€šè¿‡Qtäº‹ä»¶å¾ªç¯å®‰å…¨åœ°æ›´æ–°UI
     auto* win = monitorWindow; // capture a local pointer for the lambda
     QMetaObject::invokeMethod(win, [sysInfo, win]() {
         win->updateSystemInfo(sysInfo);
@@ -408,7 +408,7 @@ bool QtDisplayBridge::IsInitialized() {
 }
 
 void QtDisplayBridge::Cleanup() {
-    // ÇåÀí´°¿ÚºÍÓ¦ÓÃ³ÌĞòÊµÀı
+    // æ¸…ç†çª—å£å’Œåº”ç”¨ç¨‹åºå®ä¾‹
     if (monitorWindow) {
         monitorWindow->close();
         delete monitorWindow;
@@ -416,10 +416,10 @@ void QtDisplayBridge::Cleanup() {
     }
 
     if (qtAppInstance) {
-        // ²»ĞèÒªÏÔÊ½É¾³ıqtAppInstance£¬Ëü»áÔÚÓ¦ÓÃ³ÌĞò½áÊøÊ±×Ô¶¯ÇåÀí
+        // ä¸éœ€è¦æ˜¾å¼åˆ é™¤qtAppInstanceï¼Œå®ƒä¼šåœ¨åº”ç”¨ç¨‹åºç»“æŸæ—¶è‡ªåŠ¨æ¸…ç†
         qtAppInstance = nullptr;
     }
 
     initialized = false;
-    Logger::Info("Qt×ÊÔ´ÒÑÇåÀí");
+    Logger::Info("Qtèµ„æºå·²æ¸…ç†");
 }

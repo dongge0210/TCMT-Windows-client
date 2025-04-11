@@ -1,4 +1,4 @@
-// QtDisplayBridge.h
+ï»¿// QtDisplayBridge.h
 #pragma once
 
 #include <string>
@@ -12,9 +12,9 @@
 #include <QProgressBar>
 #include <QTreeWidget>
 
-// ÏµÍ³ĞÅÏ¢½á¹¹Ìå£¬ÓÃÓÚ´«µİÏµÍ³Êı¾İµ½Qt½çÃæ
+// ç³»ç»Ÿä¿¡æ¯ç»“æ„ä½“ï¼Œç”¨äºä¼ é€’ç³»ç»Ÿæ•°æ®åˆ°Qtç•Œé¢
 struct SystemInfo {
-    // CPUĞÅÏ¢
+    // CPUä¿¡æ¯
     std::string cpuName;
     int physicalCores = 0;
     int logicalCores = 0;
@@ -26,21 +26,21 @@ struct SystemInfo {
     double performanceCoreFreq = 0.0;
     double efficiencyCoreFreq = 0.0;
 
-    // ÄÚ´æĞÅÏ¢
+    // å†…å­˜ä¿¡æ¯
     uint64_t totalMemory = 0;
     uint64_t usedMemory = 0;
     uint64_t availableMemory = 0;
 
-    // GPUĞÅÏ¢
+    // GPUä¿¡æ¯
     std::string gpuName;
     std::string gpuBrand;
     uint64_t gpuMemory = 0;
     double gpuCoreFreq = 0.0;
 
-    // ÎÂ¶ÈĞÅÏ¢£¨×é¼şÃû³Æ£¬ÎÂ¶ÈÖµ£©
+    // æ¸©åº¦ä¿¡æ¯ï¼ˆç»„ä»¶åç§°ï¼Œæ¸©åº¦å€¼ï¼‰
     std::vector<std::pair<std::string, double>> temperatures;
 
-    // ´ÅÅÌĞÅÏ¢½á¹¹
+    // ç£ç›˜ä¿¡æ¯ç»“æ„
     struct DiskInfo {
         char letter;
         std::string label;
@@ -52,54 +52,54 @@ struct SystemInfo {
     std::vector<DiskInfo> disks;
 };
 
-// Ç°ÏòÉùÃ÷Qt¼àÊÓ´°¿ÚÀà
+// å‰å‘å£°æ˜Qtç›‘è§†çª—å£ç±»
 class SystemMonitorWindow;
 
 /**
- * @brief QtÏÔÊ¾ÇÅ½ÓÀà
+ * @brief Qtæ˜¾ç¤ºæ¡¥æ¥ç±»
  *
- * Õâ¸öÀà×÷ÎªÏµÍ³¼à¿ØºËĞÄÓëQt GUIÖ®¼äµÄÇÅÁº£¬
- * ¸ºÔğ³õÊ¼»¯Qt»·¾³¡¢´´½¨´°¿ÚÒÔ¼°¸üĞÂÏÔÊ¾Êı¾İ
+ * è¿™ä¸ªç±»ä½œä¸ºç³»ç»Ÿç›‘æ§æ ¸å¿ƒä¸Qt GUIä¹‹é—´çš„æ¡¥æ¢ï¼Œ
+ * è´Ÿè´£åˆå§‹åŒ–Qtç¯å¢ƒã€åˆ›å»ºçª—å£ä»¥åŠæ›´æ–°æ˜¾ç¤ºæ•°æ®
  */
 class QtDisplayBridge {
 public:
     /**
-     * @brief ³õÊ¼»¯Qt»·¾³
+     * @brief åˆå§‹åŒ–Qtç¯å¢ƒ
      *
-     * @param argc ÃüÁîĞĞ²ÎÊıÊıÁ¿
-     * @param argv ÃüÁîĞĞ²ÎÊıÊı×é
-     * @return bool ³õÊ¼»¯ÊÇ·ñ³É¹¦
+     * @param argc å‘½ä»¤è¡Œå‚æ•°æ•°é‡
+     * @param argv å‘½ä»¤è¡Œå‚æ•°æ•°ç»„
+     * @return bool åˆå§‹åŒ–æ˜¯å¦æˆåŠŸ
      */
     static bool Initialize(int argc, char* argv[]);
 
     /**
-     * @brief ´´½¨ÏµÍ³¼à¿Ø´°¿Ú
+     * @brief åˆ›å»ºç³»ç»Ÿç›‘æ§çª—å£
      *
-     * @return bool ´´½¨ÊÇ·ñ³É¹¦
+     * @return bool åˆ›å»ºæ˜¯å¦æˆåŠŸ
      */
     static bool CreateMonitorWindow();
 
     /**
-     * @brief ¸üĞÂÏµÍ³ĞÅÏ¢µ½Qt½çÃæ
+     * @brief æ›´æ–°ç³»ç»Ÿä¿¡æ¯åˆ°Qtç•Œé¢
      *
-     * @param sysInfo ÏµÍ³ĞÅÏ¢½á¹¹Ìå
+     * @param sysInfo ç³»ç»Ÿä¿¡æ¯ç»“æ„ä½“
      */
     static void UpdateSystemInfo(const SystemInfo& sysInfo);
 
     /**
-     * @brief ¼ì²éQt»·¾³ÊÇ·ñÒÑ³õÊ¼»¯
+     * @brief æ£€æŸ¥Qtç¯å¢ƒæ˜¯å¦å·²åˆå§‹åŒ–
      *
-     * @return bool ÊÇ·ñÒÑ³õÊ¼»¯
+     * @return bool æ˜¯å¦å·²åˆå§‹åŒ–
      */
     static bool IsInitialized();
 
     /**
-     * @brief ÇåÀíQt×ÊÔ´
+     * @brief æ¸…ç†Qtèµ„æº
      */
     static void Cleanup();
 
 private:
-    static QApplication* qtAppInstance;  // QtÓ¦ÓÃ³ÌĞòÊµÀı
-    static SystemMonitorWindow* monitorWindow;  // ¼à¿Ø´°¿ÚÊµÀı
-    static bool initialized;  // ³õÊ¼»¯±êÖ¾
+    static QApplication* qtAppInstance;  // Qtåº”ç”¨ç¨‹åºå®ä¾‹
+    static SystemMonitorWindow* monitorWindow;  // ç›‘æ§çª—å£å®ä¾‹
+    static bool initialized;  // åˆå§‹åŒ–æ ‡å¿—
 };
