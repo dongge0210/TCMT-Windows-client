@@ -1,6 +1,6 @@
-#include "stdafx.h"
+ï»¿#include "stdafx.h"
 #include "QtWidgetsTCmonitor.h"
-#include "ui_QtWidgetsTCmonitor.h"  // È·±£´ËÎÄ¼ş´æÔÚ
+#include "ui_QtWidgetsTCmonitor.h"  // Auto-generated UI file
 
 #include <QtWidgets/QScrollArea>
 #include <QtWidgets/QSplitter>
@@ -11,6 +11,16 @@
 #include <QtWidgets/QMessageBox>
 #include <QtGui/QPainter>
 #include <QTimer>
+#include <QMainWindow>
+#include <QObject>
+#include <QtWidgets>
+#include <QtCharts/QChart>
+#include <QtCharts/QChartView>
+#include <QtCharts/QLineSeries>
+#include <QtCharts/QValueAxis>
+#include <map>       // For std::map
+#include <string>    // For std::string
+#include <QLabel>    // For QLabel
 #include <queue>
 #include <sstream>
 #include <iomanip>
@@ -21,7 +31,7 @@ QtWidgetsTCmonitor::QtWidgetsTCmonitor(QWidget* parent)
     ui->setupUi(this);
 
     // Set window properties
-    setWindowTitle(tr("ÏµÍ³Ó²¼ş¼àÊÓÆ÷"));
+    setWindowTitle(tr("ç³»ç»Ÿç¡¬ä»¶ç›‘è§†å™¨"));
     resize(800, 600);
 
     // Initialize UI
@@ -74,102 +84,102 @@ void QtWidgetsTCmonitor::setupUI()
 
 void QtWidgetsTCmonitor::createCpuSection()
 {
-    cpuGroupBox = new QGroupBox(tr("´¦ÀíÆ÷ĞÅÏ¢"), this);
+    cpuGroupBox = new QGroupBox(tr("å¤„ç†å™¨ä¿¡æ¯"), this);
     QGridLayout* layout = new QGridLayout(cpuGroupBox);
 
     // Add labels
     int row = 0;
-    layout->addWidget(new QLabel(tr("Ãû³Æ:"), this), row, 0);
+    layout->addWidget(new QLabel(tr("åç§°:"), this), row, 0);
     infoLabels["cpuName"] = new QLabel(this);
     layout->addWidget(infoLabels["cpuName"], row++, 1);
 
-    layout->addWidget(new QLabel(tr("ÎïÀíºËĞÄ:"), this), row, 0);
+    layout->addWidget(new QLabel(tr("ç‰©ç†æ ¸å¿ƒ:"), this), row, 0);
     infoLabels["physicalCores"] = new QLabel(this);
     layout->addWidget(infoLabels["physicalCores"], row++, 1);
 
-    layout->addWidget(new QLabel(tr("Âß¼­ºËĞÄ:"), this), row, 0);
+    layout->addWidget(new QLabel(tr("é€»è¾‘æ ¸å¿ƒ:"), this), row, 0);
     infoLabels["logicalCores"] = new QLabel(this);
     layout->addWidget(infoLabels["logicalCores"], row++, 1);
 
-    layout->addWidget(new QLabel(tr("ĞÔÄÜºËĞÄ:"), this), row, 0);
+    layout->addWidget(new QLabel(tr("æ€§èƒ½æ ¸å¿ƒ:"), this), row, 0);
     infoLabels["performanceCores"] = new QLabel(this);
     layout->addWidget(infoLabels["performanceCores"], row++, 1);
 
-    layout->addWidget(new QLabel(tr("ÄÜĞ§ºËĞÄ:"), this), row, 0);
+    layout->addWidget(new QLabel(tr("èƒ½æ•ˆæ ¸å¿ƒ:"), this), row, 0);
     infoLabels["efficiencyCores"] = new QLabel(this);
     layout->addWidget(infoLabels["efficiencyCores"], row++, 1);
 
-    layout->addWidget(new QLabel(tr("CPUÊ¹ÓÃÂÊ:"), this), row, 0);
+    layout->addWidget(new QLabel(tr("CPUä½¿ç”¨ç‡:"), this), row, 0);
     infoLabels["cpuUsage"] = new QLabel(this);
     layout->addWidget(infoLabels["cpuUsage"], row++, 1);
 
-    layout->addWidget(new QLabel(tr("³¬Ïß³Ì:"), this), row, 0);
+    layout->addWidget(new QLabel(tr("è¶…çº¿ç¨‹:"), this), row, 0);
     infoLabels["hyperThreading"] = new QLabel(this);
     layout->addWidget(infoLabels["hyperThreading"], row++, 1);
 
-    layout->addWidget(new QLabel(tr("ĞéÄâ»¯:"), this), row, 0);
+    layout->addWidget(new QLabel(tr("è™šæ‹ŸåŒ–:"), this), row, 0);
     infoLabels["virtualization"] = new QLabel(this);
     layout->addWidget(infoLabels["virtualization"], row++, 1);
 }
 
 void QtWidgetsTCmonitor::createMemorySection()
 {
-    memoryGroupBox = new QGroupBox(tr("ÄÚ´æĞÅÏ¢"), this);
+    memoryGroupBox = new QGroupBox(tr("å†…å­˜ä¿¡æ¯"), this);
     QGridLayout* layout = new QGridLayout(memoryGroupBox);
 
     int row = 0;
-    layout->addWidget(new QLabel(tr("×ÜÄÚ´æ:"), this), row, 0);
+    layout->addWidget(new QLabel(tr("æ€»å†…å­˜:"), this), row, 0);
     infoLabels["totalMemory"] = new QLabel(this);
     layout->addWidget(infoLabels["totalMemory"], row++, 1);
 
-    layout->addWidget(new QLabel(tr("ÒÑÓÃÄÚ´æ:"), this), row, 0);
+    layout->addWidget(new QLabel(tr("å·²ç”¨å†…å­˜:"), this), row, 0);
     infoLabels["usedMemory"] = new QLabel(this);
     layout->addWidget(infoLabels["usedMemory"], row++, 1);
 
-    layout->addWidget(new QLabel(tr("¿ÉÓÃÄÚ´æ:"), this), row, 0);
+    layout->addWidget(new QLabel(tr("å¯ç”¨å†…å­˜:"), this), row, 0);
     infoLabels["availableMemory"] = new QLabel(this);
     layout->addWidget(infoLabels["availableMemory"], row++, 1);
 
-    layout->addWidget(new QLabel(tr("ÄÚ´æÊ¹ÓÃÂÊ:"), this), row, 0);
+    layout->addWidget(new QLabel(tr("å†…å­˜ä½¿ç”¨ç‡:"), this), row, 0);
     infoLabels["memoryUsage"] = new QLabel(this);
     layout->addWidget(infoLabels["memoryUsage"], row++, 1);
 }
 
 void QtWidgetsTCmonitor::createGpuSection()
 {
-    gpuGroupBox = new QGroupBox(tr("ÏÔ¿¨ĞÅÏ¢"), this);
+    gpuGroupBox = new QGroupBox(tr("æ˜¾å¡ä¿¡æ¯"), this);
     QGridLayout* layout = new QGridLayout(gpuGroupBox);
 
     int row = 0;
-    layout->addWidget(new QLabel(tr("Ãû³Æ:"), this), row, 0);
+    layout->addWidget(new QLabel(tr("åç§°:"), this), row, 0);
     infoLabels["gpuName"] = new QLabel(this);
     layout->addWidget(infoLabels["gpuName"], row++, 1);
 
-    layout->addWidget(new QLabel(tr("Æ·ÅÆ:"), this), row, 0);
+    layout->addWidget(new QLabel(tr("å“ç‰Œ:"), this), row, 0);
     infoLabels["gpuBrand"] = new QLabel(this);
     layout->addWidget(infoLabels["gpuBrand"], row++, 1);
 
-    layout->addWidget(new QLabel(tr("ÏÔ´æ:"), this), row, 0);
+    layout->addWidget(new QLabel(tr("æ˜¾å­˜:"), this), row, 0);
     infoLabels["gpuMemory"] = new QLabel(this);
     layout->addWidget(infoLabels["gpuMemory"], row++, 1);
 
-    layout->addWidget(new QLabel(tr("ºËĞÄÆµÂÊ:"), this), row, 0);
+    layout->addWidget(new QLabel(tr("æ ¸å¿ƒé¢‘ç‡:"), this), row, 0);
     infoLabels["gpuCoreFreq"] = new QLabel(this);
     layout->addWidget(infoLabels["gpuCoreFreq"], row++, 1);
 }
 
 void QtWidgetsTCmonitor::createTemperatureSection()
 {
-    temperatureGroupBox = new QGroupBox(tr("ÎÂ¶È¼à¿Ø"), this);
+    temperatureGroupBox = new QGroupBox(tr("æ¸©åº¦ç›‘æ§"), this);
     QVBoxLayout* layout = new QVBoxLayout(temperatureGroupBox);
 
     // Temperature labels
     QGridLayout* tempLabelsLayout = new QGridLayout();
-    tempLabelsLayout->addWidget(new QLabel(tr("CPUÎÂ¶È:"), this), 0, 0);
+    tempLabelsLayout->addWidget(new QLabel(tr("CPUæ¸©åº¦:"), this), 0, 0);
     infoLabels["cpuTemp"] = new QLabel(this);
     tempLabelsLayout->addWidget(infoLabels["cpuTemp"], 0, 1);
 
-    tempLabelsLayout->addWidget(new QLabel(tr("GPUÎÂ¶È:"), this), 1, 0);
+    tempLabelsLayout->addWidget(new QLabel(tr("GPUæ¸©åº¦:"), this), 1, 0);
     infoLabels["gpuTemp"] = new QLabel(this);
     tempLabelsLayout->addWidget(infoLabels["gpuTemp"], 1, 1);
 
@@ -178,7 +188,7 @@ void QtWidgetsTCmonitor::createTemperatureSection()
     // Create charts
     // CPU temperature chart
     cpuTempChart = new QChart();
-    cpuTempChart->setTitle(tr("CPUÎÂ¶ÈÀúÊ·"));
+    cpuTempChart->setTitle(tr("CPUæ¸©åº¦å†å²"));
     cpuTempSeries = new QLineSeries();
     cpuTempChart->addSeries(cpuTempSeries);
 
@@ -186,12 +196,12 @@ void QtWidgetsTCmonitor::createTemperatureSection()
     QValueAxis* axisX = new QValueAxis();
     axisX->setRange(0, MAX_DATA_POINTS);
     axisX->setLabelFormat("%d");
-    axisX->setTitleText(tr("Ê±¼ä (Ãë)"));
+    axisX->setTitleText(tr("æ—¶é—´ (ç§’)"));
 
     QValueAxis* axisY = new QValueAxis();
     axisY->setRange(0, 100);
     axisY->setLabelFormat("%d");
-    axisY->setTitleText(tr("ÎÂ¶È (¡ãC)"));
+    axisY->setTitleText(tr("æ¸©åº¦ (Â°C)"));
 
     cpuTempChart->addAxis(axisX, Qt::AlignBottom);
     cpuTempChart->addAxis(axisY, Qt::AlignLeft);
@@ -203,19 +213,19 @@ void QtWidgetsTCmonitor::createTemperatureSection()
 
     // GPU temperature chart
     gpuTempChart = new QChart();
-    gpuTempChart->setTitle(tr("GPUÎÂ¶ÈÀúÊ·"));
+    gpuTempChart->setTitle(tr("GPUæ¸©åº¦å†å²"));
     gpuTempSeries = new QLineSeries();
     gpuTempChart->addSeries(gpuTempSeries);
 
     QValueAxis* axisX2 = new QValueAxis();
     axisX2->setRange(0, MAX_DATA_POINTS);
     axisX2->setLabelFormat("%d");
-    axisX2->setTitleText(tr("Ê±¼ä (Ãë)"));
+    axisX2->setTitleText(tr("æ—¶é—´ (ç§’)"));
 
     QValueAxis* axisY2 = new QValueAxis();
     axisY2->setRange(0, 100);
     axisY2->setLabelFormat("%d");
-    axisY2->setTitleText(tr("ÎÂ¶È (¡ãC)"));
+    axisY2->setTitleText(tr("æ¸©åº¦ (Â°C)"));
 
     gpuTempChart->addAxis(axisX2, Qt::AlignBottom);
     gpuTempChart->addAxis(axisY2, Qt::AlignLeft);
@@ -235,7 +245,7 @@ void QtWidgetsTCmonitor::createTemperatureSection()
 
 void QtWidgetsTCmonitor::createDiskSection()
 {
-    diskGroupBox = new QGroupBox(tr("´ÅÅÌĞÅÏ¢"), this);
+    diskGroupBox = new QGroupBox(tr("ç£ç›˜ä¿¡æ¯"), this);
     QVBoxLayout* layout = new QVBoxLayout(diskGroupBox);
 
     // Disk info container
@@ -266,10 +276,10 @@ void QtWidgetsTCmonitor::updateTemperatureData(const std::vector<std::pair<std::
 
     // If no data found, update to no data state
     if (!cpuFound) {
-        infoLabels["cpuTemp"]->setText(tr("ÎŞÊı¾İ"));
+        infoLabels["cpuTemp"]->setText(tr("æ— æ•°æ®"));
     }
     if (!gpuFound) {
-        infoLabels["gpuTemp"]->setText(tr("ÎŞÊı¾İ"));
+        infoLabels["gpuTemp"]->setText(tr("æ— æ•°æ®"));
     }
 
     // Update temperature history
@@ -306,8 +316,8 @@ void QtWidgetsTCmonitor::updateSystemInfo(const SystemInfo& sysInfo)
     infoLabels["performanceCores"]->setText(QString::number(sysInfo.performanceCores));
     infoLabels["efficiencyCores"]->setText(QString::number(sysInfo.efficiencyCores));
     infoLabels["cpuUsage"]->setText(formatPercentage(sysInfo.cpuUsage));
-    infoLabels["hyperThreading"]->setText(sysInfo.hyperThreading ? tr("ÒÑÆôÓÃ") : tr("Î´ÆôÓÃ"));
-    infoLabels["virtualization"]->setText(sysInfo.virtualization ? tr("ÒÑÆôÓÃ") : tr("Î´ÆôÓÃ"));
+    infoLabels["hyperThreading"]->setText(sysInfo.hyperThreading ? tr("å·²å¯ç”¨") : tr("æœªå¯ç”¨"));
+    infoLabels["virtualization"]->setText(sysInfo.virtualization ? tr("å·²å¯ç”¨") : tr("æœªå¯ç”¨"));
 
     // Update memory info
     infoLabels["totalMemory"]->setText(formatSize(sysInfo.totalMemory));
@@ -371,7 +381,7 @@ void QtWidgetsTCmonitor::updateSystemInfo(const SystemInfo& sysInfo)
 
     // Add disk info
     for (const auto& disk : sysInfo.disks) {
-        QString diskLabel = QString("%1: %2").arg(disk.letter).arg(tr("Çı¶¯Æ÷"));
+        QString diskLabel = QString("%1: %2").arg(disk.letter).arg(tr("é©±åŠ¨å™¨"));
         if (!disk.label.empty()) {
             diskLabel += QString(" (%1)").arg(QString::fromStdString(disk.label));
         }
@@ -381,21 +391,21 @@ void QtWidgetsTCmonitor::updateSystemInfo(const SystemInfo& sysInfo)
 
         int row = 0;
         if (!disk.fileSystem.empty()) {
-            diskInfoLayout->addWidget(new QLabel(tr("ÎÄ¼şÏµÍ³:")), row, 0);
+            diskInfoLayout->addWidget(new QLabel(tr("æ–‡ä»¶ç³»ç»Ÿ:")), row, 0);
             diskInfoLayout->addWidget(new QLabel(QString::fromStdString(disk.fileSystem)), row++, 1);
         }
 
-        diskInfoLayout->addWidget(new QLabel(tr("×ÜÈİÁ¿:")), row, 0);
+        diskInfoLayout->addWidget(new QLabel(tr("æ€»å®¹é‡:")), row, 0);
         diskInfoLayout->addWidget(new QLabel(formatSize(disk.totalSize)), row++, 1);
 
-        diskInfoLayout->addWidget(new QLabel(tr("ÒÑÓÃ¿Õ¼ä:")), row, 0);
+        diskInfoLayout->addWidget(new QLabel(tr("å·²ç”¨ç©ºé—´:")), row, 0);
         diskInfoLayout->addWidget(new QLabel(formatSize(disk.usedSpace)), row++, 1);
 
-        diskInfoLayout->addWidget(new QLabel(tr("¿ÉÓÃ¿Õ¼ä:")), row, 0);
+        diskInfoLayout->addWidget(new QLabel(tr("å¯ç”¨ç©ºé—´:")), row, 0);
         diskInfoLayout->addWidget(new QLabel(formatSize(disk.freeSpace)), row++, 1);
 
         double usagePercent = static_cast<double>(disk.usedSpace) / disk.totalSize * 100.0;
-        diskInfoLayout->addWidget(new QLabel(tr("Ê¹ÓÃÂÊ:")), row, 0);
+        diskInfoLayout->addWidget(new QLabel(tr("ä½¿ç”¨ç‡:")), row, 0);
         diskInfoLayout->addWidget(new QLabel(formatPercentage(usagePercent)), row++, 1);
 
         diskLayout->addWidget(diskBox);
@@ -429,7 +439,7 @@ void QtWidgetsTCmonitor::updateCharts()
 
 void QtWidgetsTCmonitor::on_pushButton_clicked()
 {
-    QMessageBox::information(this, tr("ÏµÍ³¼à¿Ø"), tr("ÕıÔÚ¼à¿ØÏµÍ³Ó²¼şĞÅÏ¢"));
+    QMessageBox::information(this, tr("ç³»ç»Ÿç›‘æ§"), tr("æ­£åœ¨ç›‘æ§ç³»ç»Ÿç¡¬ä»¶ä¿¡æ¯"));
 }
 
 QString QtWidgetsTCmonitor::formatSize(uint64_t bytes)
@@ -466,7 +476,7 @@ QString QtWidgetsTCmonitor::formatPercentage(double value)
 
 QString QtWidgetsTCmonitor::formatTemperature(double value)
 {
-    return QString(u"%1¡ãC").arg(static_cast<int>(value));
+    return QString("%1Â°C").arg(static_cast<int>(value));
 }
 
 QString QtWidgetsTCmonitor::formatFrequency(double value)

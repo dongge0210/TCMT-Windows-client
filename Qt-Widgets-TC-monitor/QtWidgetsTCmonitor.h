@@ -1,4 +1,4 @@
-// QtWidgetsTCmonitor.h
+﻿// QtWidgetsTCmonitor.h
 #pragma once
 
 #include "stdafx.h"
@@ -30,11 +30,8 @@ namespace Ui {
 class QtWidgetsTCmonitorClass;
 }
 
-// Use the Qt Charts namespace
-QT_CHARTS_USE_NAMESPACE
-
 // Define the maximum number of data points for charts
-#define MAX_DATA_POINTS 60
+constexpr int MAX_DATA_POINTS = 60;
 
 class QtWidgetsTCmonitor : public QMainWindow
 {

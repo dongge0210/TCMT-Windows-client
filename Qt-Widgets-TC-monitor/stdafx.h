@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 
 #include <QtWidgets/QApplication>
 #include <QtWidgets/QMainWindow>
@@ -20,3 +20,9 @@
 #ifndef __cplusplus
 #define __cplusplus 202002L
 #endif
+
+// Make sure QtCharts namespace is accessible without conflicts
+namespace QtCharts {}
+
+// Make QtCharts namespace available throughout the application
+using namespace QtCharts;
