@@ -1,0 +1,36 @@
+name: Sync to Gitee and GitLab
+
+on:
+  push:
+    branches:
+      - T1-F-P  # 监听 T1-F-P 分支的更新
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+
+    steps:
+      # Step 1: 检出代码
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      # Step 2: 配置 Gitee 和 GitLab 的凭据
+      - name: Setup Gitee and GitLab credentials
+        run: |
+          git config --global user.name "dongge0210"
+          git config --global user.email "dongge0210@163.com"
+          # 添加 Gitee 远程仓库
+          git remote add gitee https://DonggeML:${{ secrets.GITEE_TOKEN }}@gitee.com/DonggeML/project-monitor-TC.git
+          # 添加 GitLab 远程仓库
+          git remote add gitlab https://dongge0210:${{ secrets.GITLAB_TOKEN }}@gitlab.com/dongge0210/project-monitor-TC.git
+
+      # Step 3: 推送到 Gitee
+      - name: Push to Gitee
+        run: |
+          git fetch --unshallow
+          git push gitee T1-F-P --force
+
+      # Step 4: 推送到 GitLab
+      - name: Push to GitLab
+        run: |
+          git push gitlab T1-F-P --force
