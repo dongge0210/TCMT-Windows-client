@@ -137,22 +137,7 @@ _WINSOCK_DEPRECATED_NO_WARNINGS;%(PreprocessorDefinitions)</PreprocessorDefiniti
       <SubSystem>Console</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <AdditionalLibraryDirectories>F:\Win_x64-sysMonitor\Windows Kits\10\Lib\10.0.26100.0\ucrt\x64;F:\Win_x64-sysMonitor\Windows Kits\10\Lib\10.0.26100.0\um\x64;$(CUDA_PATH)/lib/x64;$(SolutionDir)src\third_party\LibreHardwareMonitor\bin\Debug\net8.0;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
-      <AdditionalDependencies>kernel32.lib;
-user32.lib;
-gdi32.lib;
-winspool.lib;
-shell32.lib;
-ole32.lib;
-oleaut32.lib;
-uuid.lib;
-comdlg32.lib;
-advapi32.lib;dxgi.lib
-;nvml.lib;
-wbemuuid.lib;
-msvcrtd.lib;
-ucrtd.lib;
-vcruntimed.lib
-;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>kernel32.lib;user32.lib;gdi32.lib;winspool.lib;shell32.lib;ole32.lib;oleaut32.lib;uuid.lib;comdlg32.lib;advapi32.lib;dxgi.lib;nvml.lib;wbemuuid.lib;msvcrtd.lib;ucrtd.lib;vcruntimed.lib;E:\Qt\6.9.0\msvc2022_64\lib\Qt6Charts.lib;E:\Qt\6.9.0\msvc2022_64\lib\Qt6Chartsd.lib;E:\Qt\6.9.0\msvc2022_64\lib\Qt6ChartsQml.lib;E:\Qt\6.9.0\msvc2022_64\lib\Qt6ChartsQmld.lib;E:\Qt\6.9.0\msvc2022_64\lib\Qt6Core.lib;E:\Qt\6.9.0\msvc2022_64\lib\Qt6Widgets.lib;E:\Qt\6.9.0\msvc2022_64\lib\Qt6Widgetsd.lib;E:\Qt\6.9.0\msvc2022_64\lib\Qt6Gui.lib;E:\Qt\6.9.0\msvc2022_64\lib\Qt6Guid.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <AdditionalOptions>/Zc:__cplusplus %(AdditionalOptions)</AdditionalOptions>
     </Link>
     <PostBuildEvent>

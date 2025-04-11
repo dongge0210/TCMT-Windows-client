@@ -345,7 +345,10 @@ bool QtDisplayBridge::Initialize(int argc, char* argv[]) {
             return true;
         }
 
-        // 创建Qt应用程序实例
+        // 设置 Qt 插件路径
+        QApplication::addLibraryPath(QCoreApplication::applicationDirPath() + "/platforms");
+
+        // 创建 Qt 应用程序实例
         qtAppInstance = new QApplication(argc, argv);
         if (!qtAppInstance) {
             Logger::Error("无法创建Qt应用程序实例");
