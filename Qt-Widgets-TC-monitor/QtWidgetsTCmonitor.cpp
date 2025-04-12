@@ -24,7 +24,6 @@
 #include <queue>
 #include <sstream>
 #include <iomanip>
-#include "../src/core/temperature/LibreHardwareMonitorBridge.h"
 
 QtWidgetsTCmonitor::QtWidgetsTCmonitor(QWidget* parent)
     : QMainWindow(parent), ui(new Ui::QtWidgetsTCmonitorClass)
@@ -417,13 +416,6 @@ void QtWidgetsTCmonitor::updateSystemInfo(const SystemInfo& sysInfo)
 
 void QtWidgetsTCmonitor::updateCharts()
 {
-    auto temps = LibreHardwareMonitorBridge::GetTemperatures();
-    std::vector<std::pair<std::string, float>> floatTemps;
-    for (auto &t : temps) {
-        floatTemps.push_back(std::make_pair(t.first, static_cast<float>(t.second)));
-    }
-    updateTemperatureData(floatTemps);
-
     // Update CPU temperature chart
     cpuTempSeries->clear();
     int pointIndex = 0;
