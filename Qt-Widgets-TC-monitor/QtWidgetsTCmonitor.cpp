@@ -1,6 +1,7 @@
 ﻿#include "stdafx.h"
 #include "QtWidgetsTCmonitor.h"
 #include "ui_QtWidgetsTCmonitor.h"  // Auto-generated UI file
+#include <windows.h>
 
 #include <QtWidgets/QScrollArea>
 #include <QtWidgets/QSplitter>

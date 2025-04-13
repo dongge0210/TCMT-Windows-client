@@ -80,7 +80,7 @@
       <AdditionalLibraryDirectories>$(QTDIR)\lib</AdditionalLibraryDirectories>
       <AdditionalDependencies>Qt6Cored.lib;
 Qt6Guid.lib;
-Qt6Widgetsd.lib;%(AdditionalDependencies)</AdditionalDependencies>
+Qt6Widgetsd.lib;Qt6Chartsd.lib;Qt6Charts.lib;Qt6Core.lib;Qt6Gui.lib;Qt6Widgets.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
     <QtUic>
       <Generator>cpp</Generator>

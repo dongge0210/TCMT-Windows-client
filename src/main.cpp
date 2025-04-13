@@ -133,21 +133,46 @@ static void PrintInfoItem(const std::string& label, const std::string& value, in
 }
 
 //主要函数
-int main(int argc, char *argv[]) {
+int main(int argc, char* argv[]) {
     try {
         Logger::Initialize("system_monitor.log");
         Logger::Info("系统监控程序启动");
 
-        // 初始化Qt显示
-        if (!QtDisplayBridge::Initialize(argc, argv)) {
-            Logger::Error("Qt初始化失败");
-            return 1;
+        // 使用 CoInitializeEx 替换 OleInitialize
+        HRESULT hr = CoInitializeEx(nullptr, COINIT_APARTMENTTHREADED);
+        if (FAILED(hr)) {
+            std::cerr << "CoInitializeEx failed with error: " << hr << std::endl;
+            return -1;
         }
 
-        // 创建Qt监视窗口
-        if (!QtDisplayBridge::CreateMonitorWindow()) {
-            Logger::Error("创建Qt监视窗口失败");
-            // 继续运行，但不显示GUI
+        try {
+            // 初始化Qt显示
+            if (!QtDisplayBridge::Initialize(argc, argv)) {
+                Logger::Error("Qt初始化失败");
+                CoUninitialize(); // 确保释放 COM
+                return 1;
+            }
+
+            // 创建Qt监视窗口
+            if (!QtDisplayBridge::CreateMonitorWindow()) {
+                Logger::Error("创建Qt监视窗口失败");
+            }
+
+            // 进入Qt事件循环
+            int result = qApp->exec();
+
+            // 清理资源
+            LibreHardwareMonitorBridge::Cleanup();
+            QtDisplayBridge::Cleanup();
+
+            // 在程序结束前调用 CoUninitialize
+            CoUninitialize();
+            return result;
+        }
+        catch (const std::exception& e) {
+            Logger::Error("程序发生致命错误: " + std::string(e.what()));
+            CoUninitialize(); // 确保异常时也释放 COM
+            return 1;
         }
 
         // 初始化WMI管理器
@@ -223,7 +248,8 @@ int main(int argc, char *argv[]) {
         const auto& gpus = gpuInfo.GetGpuData();
         if (gpus.empty()) {
             Logger::Warning("未检测到任何显卡");
-        } else {
+        }
+        else {
             int gpuIndex = 1;
             for (const auto& gpu : gpus) {
                 std::cout << "\n  显卡 #" << gpuIndex << std::endl;
@@ -236,7 +262,7 @@ int main(int argc, char *argv[]) {
                         std::to_string(gpu.computeCapabilityMajor) + "." +
                         std::to_string(gpu.computeCapabilityMinor));
                 }
-                
+
                 // 只填充第一个GPU信息到SystemInfo
                 if (gpuIndex == 1) {
                     sysInfo.gpuName = WinUtils::WstringToString(gpu.name);
@@ -244,7 +270,7 @@ int main(int argc, char *argv[]) {
                     sysInfo.gpuMemory = gpu.dedicatedMemory;
                     sysInfo.gpuCoreFreq = gpu.coreClock;
                 }
-                
+
                 gpuIndex++;
             }
         }
@@ -371,37 +397,27 @@ int main(int argc, char *argv[]) {
                 sysInfo.cpuUsage = cpu.GetUsage();
                 sysInfo.performanceCoreFreq = cpu.GetLargeCoreSpeed();
                 sysInfo.efficiencyCoreFreq = cpu.GetSmallCoreSpeed() * 0.8;
-                
+
                 // 更新内存信息
                 sysInfo.usedMemory = mem.GetTotalPhysical() - mem.GetAvailablePhysical();
                 sysInfo.availableMemory = mem.GetAvailablePhysical();
-                
+
                 // 更新温度信息
                 sysInfo.temperatures = LibreHardwareMonitorBridge::GetTemperatures();
-                
+
                 // 更新Qt显示
                 QtDisplayBridge::UpdateSystemInfo(sysInfo);
-                
+
                 // 每秒更新一次
                 std::this_thread::sleep_for(std::chrono::seconds(1));
             }
-        });
-        
+            });
+
         // 设置线程为后台线程
         updateThread.detach();
 
-        Logger::Info("系统信息收集完成，进入Qt事件循环");
-        
-        // 进入Qt事件循环
-        int result = qApp->exec();
-        
-        // 清理资源
-        LibreHardwareMonitorBridge::Cleanup();
-        QtDisplayBridge::Cleanup();
-        
-        return result;
-        
-    } catch (const std::exception& e) {
+    }
+    catch (const std::exception& e) {
         Logger::Error("程序发生致命错误: " + std::string(e.what()));
         return 1;
     }
