@@ -24,9 +24,11 @@
     <ProjectGuid>{EB8E0379-D5D5-45E8-9F90-73216725C93A}</ProjectGuid>
     <RootNamespace>Project1</RootNamespace>
     <WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>
-    <TargetFrameworkVersion></TargetFrameworkVersion>
+    <TargetFrameworkVersion>
+    </TargetFrameworkVersion>
     <Keyword>QtVS_v304</Keyword>
     <QtMsBuild Condition="'$(QtMsBuild)'=='' OR !Exists('$(QtMsBuild)\qt.targets')">$(MSBuildProjectDirectory)\QtMsBuild</QtMsBuild>
+    <WindowsTargetPlatformMinVersion>10.0.26100.0</WindowsTargetPlatformMinVersion>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="Configuration">
@@ -60,13 +62,18 @@
   <Import Project="$(QtMsBuild)\qt_defaults.props" Condition="Exists('$(QtMsBuild)\qt_defaults.props')" />
   <PropertyGroup Label="QtSettings" Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" />
   <PropertyGroup Label="QtSettings" Condition="'$(Configuration)|$(Platform)'=='Release|Win32'" />
-  <PropertyGroup Label="QtSettings" Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" />
+  <PropertyGroup Label="QtSettings" Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
+    <QtModules>core;gui;widgets;charts</QtModules>
+    <QtInstall>6.9.0_msvc2022_64</QtInstall>
+  </PropertyGroup>
   <PropertyGroup Label="QtSettings" Condition="'$(Configuration)|$(Platform)'=='Release|x64'" />
   <Target Name="QtMsBuildNotFound" BeforeTargets="CustomBuild;ClCompile" Condition="!Exists('$(QtMsBuild)\qt.targets') OR !Exists('$(QtMsBuild)\Qt.props')">
     <Message Importance="High" Text="QtMsBuild: could not locate qt.targets, qt.props; project may not build correctly." />
   </Target>
-  <ImportGroup Label="ExtensionSettings"></ImportGroup>
-  <ImportGroup Label="Shared"></ImportGroup>
+  <ImportGroup Label="ExtensionSettings">
+  </ImportGroup>
+  <ImportGroup Label="Shared">
+  </ImportGroup>
   <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
     <Import Project="$(QtMsBuild)\Qt.props" />
@@ -138,7 +145,7 @@ _WINSOCK_DEPRECATED_NO_WARNINGS;%(PreprocessorDefinitions)</PreprocessorDefiniti
       <CompileAsManaged>true</CompileAsManaged>
       <CompileAsWinRT>false</CompileAsWinRT>
       <MultiProcessorCompilation>false</MultiProcessorCompilation>
-      <AdditionalIncludeDirectories>GeneratedFiles\$(ConfigurationName);GeneratedFiles;$(ProjectDir)../src/core/utils;$(WindowsSDK_MetadataPath);$(ProjectDir)../src/core;$(ProjectDir)../src;$(ProjectDir)src;$(CUDA_PATH)\include;$(SolutionDir)src\third_party\LibreHardwareMonitor\LibreHardwareMonitorLib\obj\Debug\net8.0;E:\Qt\6.9.0\msvc2022_64\include;E:\Qt\6.9.0\msvc2022_64\include\QtWidgets;$(ProjectDir)\GeneratedFiles;E:\Qt\6.9.0\msvc2022_64\include\QtCharts;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>GeneratedFiles\$(ConfigurationName);GeneratedFiles;$(ProjectDir)../src/core/Utils;$(WindowsSDK_MetadataPath);$(ProjectDir)../src/core;$(ProjectDir)../src;$(ProjectDir)src;$(CUDA_PATH)\include;$(SolutionDir)src\third_party\LibreHardwareMonitor\LibreHardwareMonitorLib\obj\Debug\net8.0;E:\Qt\6.9.0\msvc2022_64\include;E:\Qt\6.9.0\msvc2022_64\include\QtWidgets;$(ProjectDir)\GeneratedFiles;E:\Qt\6.9.0\msvc2022_64\include\QtCharts;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <AdditionalUsingDirectories>$(WindowsSDK_MetadataPath);%(AdditionalUsingDirectories)</AdditionalUsingDirectories>
       <LanguageStandard>stdcpp20</LanguageStandard>
       <RuntimeLibrary>MultiThreadedDebugDLL</RuntimeLibrary>
@@ -153,7 +160,8 @@ _WINSOCK_DEPRECATED_NO_WARNINGS;%(PreprocessorDefinitions)</PreprocessorDefiniti
       <AdditionalDependencies>kernel32.lib;user32.lib;gdi32.lib;winspool.lib;shell32.lib;ole32.lib;oleaut32.lib;uuid.lib;comdlg32.lib;advapi32.lib;dxgi.lib;nvml.lib;wbemuuid.lib;msvcrtd.lib;ucrtd.lib;vcruntimed.lib;E:\Qt\6.9.0\msvc2022_64\lib\Qt6Charts.lib;E:\Qt\6.9.0\msvc2022_64\lib\Qt6ChartsQml.lib;E:\Qt\6.9.0\msvc2022_64\lib\Qt6Core.lib;E:\Qt\6.9.0\msvc2022_64\lib\Qt6Gui.lib;E:\Qt\6.9.0\msvc2022_64\lib\Qt6Widgets.lib;E:\Qt\6.9.0\msvc2022_64\lib\Qt6Chartsd.lib;E:\Qt\6.9.0\msvc2022_64\lib\Qt6ChartsQmld.lib;E:\Qt\6.9.0\msvc2022_64\lib\Qt6Cored.lib;E:\Qt\6.9.0\msvc2022_64\lib\Qt6Guid.lib;E:\Qt\6.9.0\msvc2022_64\lib\Qt6Widgetsd.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
     <PostBuildEvent>
-      <Command></Command>
+      <Command>
+      </Command>
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
@@ -194,9 +202,7 @@ _WINSOCK_DEPRECATED_NO_WARNINGS;%(PreprocessorDefinitions)</PreprocessorDefiniti
     <ClCompile Include="..\src\core\memory\MemoryInfo.cpp" />
     <ClCompile Include="..\src\core\network\NetworkAdapter.cpp" />
     <ClCompile Include="..\src\core\os\OSInfo.cpp" />
-    <ClCompile Include="..\src\core\temperature\LibreHardwareMonitorBridge.cpp">
-      <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</CompileAsManaged>
-    </ClCompile>
+    <ClCompile Include="..\src\core\temperature\LibreHardwareMonitorBridge.cpp" />
     <ClCompile Include="..\src\core\ui\QtDisplayBridge.cpp">
       <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">false</CompileAsManaged>
     </ClCompile>
@@ -222,5 +228,6 @@ _WINSOCK_DEPRECATED_NO_WARNINGS;%(PreprocessorDefinitions)</PreprocessorDefiniti
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <Import Project="$(QtMsBuild)\qt.targets" Condition="Exists('$(QtMsBuild)\qt.targets')" />
-  <ImportGroup Label="ExtensionTargets"></ImportGroup>
+  <ImportGroup Label="ExtensionTargets">
+  </ImportGroup>
 </Project>

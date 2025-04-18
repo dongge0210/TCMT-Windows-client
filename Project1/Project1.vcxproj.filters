@@ -65,9 +65,6 @@
     <ClCompile Include="..\src\core\Utils\WMIManager.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
-    <ClCompile Include="..\src\core\temperature\LibreHardwareMonitorBridge.cpp">
-      <Filter>源文件</Filter>
-    </ClCompile>
     <ClCompile Include="..\src\core\os\OSInfo.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
@@ -90,6 +87,9 @@
       <Filter>源文件</Filter>
     </ClCompile>
     <ClCompile Include="..\src\core\ui\QtDisplayBridge.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\core\temperature\LibreHardwareMonitorBridge.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
   </ItemGroup>
