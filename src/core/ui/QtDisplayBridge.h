@@ -14,6 +14,14 @@
 
 // 系统信息结构体，用于传递系统数据到Qt界面
 struct SystemInfo {
+    // 操作系统信息
+    std::string osVersion;
+
+    // 网络适配器信息
+    std::string networkAdapterName;
+    std::string networkAdapterMac;
+    uint64_t networkAdapterSpeed = 0;
+
     // CPU信息
     std::string cpuName;
     int physicalCores = 0;

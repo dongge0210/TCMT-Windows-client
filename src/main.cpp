@@ -17,6 +17,9 @@
 #include <windows.h>
 #include <utility>
 #include <thread>
+#include <QMessageBox> // Ensure QMessageBox is included
+#include <io.h>
+#include <fcntl.h>
 
 #pragma comment(lib, "kernel32.lib")
 #pragma comment(lib, "user32.lib")
@@ -135,69 +138,48 @@ static void PrintInfoItem(const std::string& label, const std::string& value, in
 //主要函数
 int main(int argc, char* argv[]) {
     try {
-        Logger::Initialize("system_monitor.log");
-        Logger::Info("系统监控程序启动");
+        // Set console output to UTF-8
+        _setmode(_fileno(stdout), _O_U8TEXT);
 
-        // 使用 CoInitializeEx 替换 OleInitialize
+        Logger::EnableConsoleOutput(true); // Enable console output for Logger
+        Logger::Initialize("system_monitor.log");
+        Logger::Info("程序启动");
+
+        // 初始化COM为单线程模式
         HRESULT hr = CoInitializeEx(nullptr, COINIT_APARTMENTTHREADED);
         if (FAILED(hr)) {
-            std::cerr << "CoInitializeEx failed with error: " << hr << std::endl;
+            if (hr == RPC_E_CHANGED_MODE) {
+                Logger::Error("COM初始化模式冲突: 线程已初始化为不同的模式");
+            }
+            else {
+                Logger::Error("COM初始化失败: 0x" + std::to_string(hr));
+            }
             return -1;
         }
 
-        try {
-            // 初始化Qt显示
-            if (!QtDisplayBridge::Initialize(argc, argv)) {
-                Logger::Error("Qt初始化失败");
-                CoUninitialize(); // 确保释放 COM
-                return 1;
-            }
+        struct ComCleanup {
+            ~ComCleanup() { CoUninitialize(); }
+        } comCleanup;
 
-            // 创建Qt监视窗口
-            if (!QtDisplayBridge::CreateMonitorWindow()) {
-                Logger::Error("创建Qt监视窗口失败");
-            }
+        QApplication app(argc, argv);
 
-            // 进入Qt事件循环
-            int result = qApp->exec();
-
-            // 清理资源
-            LibreHardwareMonitorBridge::Cleanup();
-            QtDisplayBridge::Cleanup();
-
-            // 在程序结束前调用 CoUninitialize
-            CoUninitialize();
-            return result;
-        }
-        catch (const std::exception& e) {
-            Logger::Error("程序发生致命错误: " + std::string(e.what()));
-            CoUninitialize(); // 确保异常时也释放 COM
-            return 1;
-        }
-
-        // 初始化WMI管理器
+        // 创建WMI管理器并初始化
         WmiManager wmiManager;
         if (!wmiManager.IsInitialized()) {
             Logger::Error("WMI初始化失败");
+            QMessageBox::critical(nullptr, "错误", "WMI初始化失败，无法获取系统信息。");
             return 1;
         }
 
-        // 创建SystemInfo结构体用于向Qt传递数据
+        // 获取系统信息
         SystemInfo sysInfo;
 
         // 操作系统信息
-        PrintSectionHeader("操作系统");
         OSInfo os;
-        PrintInfoItem("操作系统版本", os.GetVersion());
+        sysInfo.osVersion = os.GetVersion();
 
         // CPU信息
-        PrintSectionHeader("处理器信息");
         CpuInfo cpu;
-        PrintInfoItem("CPU名称", cpu.GetName());
-        PrintInfoItem("物理核心数", std::to_string(cpu.GetLargeCores() + cpu.GetSmallCores()));
-        PrintInfoItem("逻辑线程数", std::to_string(cpu.GetTotalCores()));
-
-        // 填充CPU信息到SystemInfo
         sysInfo.cpuName = cpu.GetName();
         sysInfo.physicalCores = cpu.GetLargeCores() + cpu.GetSmallCores();
         sysInfo.logicalCores = cpu.GetTotalCores();
@@ -209,213 +191,58 @@ int main(int argc, char* argv[]) {
         sysInfo.performanceCoreFreq = cpu.GetLargeCoreSpeed();
         sysInfo.efficiencyCoreFreq = cpu.GetSmallCoreSpeed() * 0.8;
 
-        // P-Core (性能核心)信息
-        PrintInfoItem("性能核心", std::to_string(cpu.GetLargeCores()) + " 核" +
-            (cpu.IsHyperThreadingEnabled() ? " (" + std::to_string(cpu.GetLargeCores() * 2) + " 线程)" : ""));
-        PrintInfoItem("性能核心频率", FormatFrequency(cpu.GetLargeCoreSpeed()));
-
-        // E-Core (能效核心)信息
-        PrintInfoItem("能效核心", std::to_string(cpu.GetSmallCores()) + " 核");
-        PrintInfoItem("能效核心频率", FormatFrequency(cpu.GetSmallCoreSpeed() * 0.8));  // E核心频率通常较低
-
-        PrintInfoItem("CPU使用率", FormatPercentage(cpu.GetUsage()));
-        PrintInfoItem("超线程状态", cpu.IsHyperThreadingEnabled() ? "已启用" : "未启用");
-        PrintInfoItem("虚拟化支持", cpu.IsVirtualizationEnabled() ? "已启用" : "未启用");
-
         // 内存信息
-        PrintSectionHeader("内存信息");
         MemoryInfo mem;
-        PrintInfoItem("物理内存总量", FormatSize(mem.GetTotalPhysical()));
-        PrintInfoItem("已用物理内存", FormatSize(mem.GetTotalPhysical() - mem.GetAvailablePhysical()));
-        PrintInfoItem("可用物理内存", FormatSize(mem.GetAvailablePhysical()));
-
-        // 填充内存信息到SystemInfo
         sysInfo.totalMemory = mem.GetTotalPhysical();
         sysInfo.usedMemory = mem.GetTotalPhysical() - mem.GetAvailablePhysical();
         sysInfo.availableMemory = mem.GetAvailablePhysical();
 
-        // 虚拟内存显示部分
-        MEMORYSTATUSEX memStatus;
-        memStatus.dwLength = sizeof(memStatus);
-        if (GlobalMemoryStatusEx(&memStatus)) {
-            PrintInfoItem("页面文件总量", FormatSize(memStatus.ullTotalPageFile));
-            PrintInfoItem("可用页面文件", FormatSize(memStatus.ullAvailPageFile));
-        }
-
         // GPU信息
-        PrintSectionHeader("显卡信息");
         GpuInfo gpuInfo(wmiManager);
         const auto& gpus = gpuInfo.GetGpuData();
-        if (gpus.empty()) {
-            Logger::Warning("未检测到任何显卡");
-        }
-        else {
-            int gpuIndex = 1;
-            for (const auto& gpu : gpus) {
-                std::cout << "\n  显卡 #" << gpuIndex << std::endl;
-                PrintInfoItem("名称", WinUtils::WstringToString(gpu.name));
-                PrintInfoItem("品牌", GetGpuBrand(gpu.name));
-                PrintInfoItem("显存", FormatSize(gpu.dedicatedMemory));
-                PrintInfoItem("核心频率", FormatFrequency(gpu.coreClock));
-                if (gpu.isNvidia) {
-                    PrintInfoItem("计算能力",
-                        std::to_string(gpu.computeCapabilityMajor) + "." +
-                        std::to_string(gpu.computeCapabilityMinor));
-                }
-
-                // 只填充第一个GPU信息到SystemInfo
-                if (gpuIndex == 1) {
-                    sysInfo.gpuName = WinUtils::WstringToString(gpu.name);
-                    sysInfo.gpuBrand = GetGpuBrand(gpu.name);
-                    sysInfo.gpuMemory = gpu.dedicatedMemory;
-                    sysInfo.gpuCoreFreq = gpu.coreClock;
-                }
-
-                gpuIndex++;
-            }
+        if (!gpus.empty()) {
+            const auto& gpu = gpus[0];
+            sysInfo.gpuName = WinUtils::WstringToString(gpu.name);
+            sysInfo.gpuBrand = GetGpuBrand(gpu.name);
+            sysInfo.gpuMemory = gpu.dedicatedMemory;
+            sysInfo.gpuCoreFreq = gpu.coreClock;
         }
 
-        // 网络适配器
-        PrintSectionHeader("网络适配器");
+        // 网络适配器信息
         NetworkAdapter network(wmiManager);
         const auto& adapters = network.GetAdapters();
-        if (adapters.empty()) {
-            Logger::Warning("未检测到活动网络适配器");
-        }
-        else {
-            for (size_t i = 0; i < adapters.size(); ++i) {
-                const auto& adapter = adapters[i];
-                std::cout << "\n  适配器 #" << i + 1 << std::endl;
-                PrintInfoItem("适配器名称", WinUtils::WstringToString(adapter.name));
-                PrintInfoItem("MAC地址", WinUtils::WstringToString(adapter.mac));
-                PrintInfoItem("连接状态", adapter.isConnected ? "已连接" : "未连接");
-
-                if (adapter.isConnected) {
-                    PrintInfoItem("IP地址", WinUtils::WstringToString(adapter.ip));
-                    PrintInfoItem("连接速度", WinUtils::WstringToString(adapter.speedString));
-                }
-            }
+        if (!adapters.empty()) {
+            const auto& adapter = adapters[0];
+            sysInfo.networkAdapterName = WinUtils::WstringToString(adapter.name);
+            sysInfo.networkAdapterMac = WinUtils::WstringToString(adapter.mac);
+            sysInfo.networkAdapterSpeed = adapter.speed;
         }
 
-        // 时间信息
-        PrintSectionHeader("时间");
-        auto now = std::chrono::system_clock::now();
-        auto custom_now = std::chrono::time_point_cast<std::chrono::duration<int64_t, std::ratio<1, 10000000>>>(now);
-        PrintInfoItem("当前本地时间", TimeUtils::GetCurrentLocalTime());
-        PrintInfoItem("当前本机UTC时间", TimeUtils::FormatTimePoint(custom_now));
-        PrintInfoItem("系统启动时间", TimeUtils::GetBootTimeUtc());
-        PrintInfoItem("系统运行时间", TimeUtils::GetUptime());
-
-        // 温度信息
-        PrintSectionHeader("硬件温度信息");
-        LibreHardwareMonitorBridge::Initialize();
-        auto temps = LibreHardwareMonitorBridge::GetTemperatures();
-
-        // 保存温度信息到SystemInfo
-        sysInfo.temperatures = temps;
-
-        bool cpuTempFound = false;
-        bool gpuTempFound = false;
-
-        // gpus 已在前面定义，直接使用
-        std::string gpuName;
-        if (!gpus.empty()) {
-            gpuName = WinUtils::WstringToString(gpus[0].name);
+        // 初始化Qt显示
+        if (!QtDisplayBridge::Initialize(argc, argv)) {
+            Logger::Error("Qt初始化失败");
+            return 1;
         }
 
-        for (const auto& temp : temps) {
-            if (temp.first == "CPU Package") {
-                PrintInfoItem("CPU温度", FormatTemperature(temp.second));
-                cpuTempFound = true;
-            }
-            else if (temp.first.find("GPU Core") != std::string::npos) {
-                if (!gpuName.empty()) {
-                    PrintInfoItem("GPU温度 (" + gpuName + ")",
-                        FormatTemperature(temp.second));
-                }
-                else {
-                    PrintInfoItem("GPU温度", FormatTemperature(temp.second));
-                }
-                gpuTempFound = true;
-            }
-        }
-
-        // 如果没有找到温度，显示提示信息
-        if (!cpuTempFound) {
-            PrintInfoItem("CPU温度", "无法获取");
-        }
-        if (!gpuTempFound) {
-            PrintInfoItem("GPU温度", "无法获取");
-        }
-
-        // 硬盘信息显示部分
-        PrintSectionHeader("磁盘信息");
-        DiskInfo diskInfo;
-        const auto& drives = diskInfo.GetDrives();
-
-        // 清空sysInfo中的磁盘信息
-        sysInfo.disks.clear();
-
-        for (const auto& drive : drives) {
-            std::cout << "\n  " << drive.letter << ": 驱动器" << std::endl;
-
-            // 添加磁盘信息到SystemInfo
-            SystemInfo::DiskInfo diskInfoObj;
-            diskInfoObj.letter = drive.letter;
-            diskInfoObj.label = WinUtils::WstringToString(drive.label);
-            diskInfoObj.fileSystem = WinUtils::WstringToString(drive.fileSystem);
-            diskInfoObj.totalSize = drive.totalSize;
-            diskInfoObj.usedSpace = drive.usedSpace;
-            diskInfoObj.freeSpace = drive.freeSpace;
-            sysInfo.disks.push_back(diskInfoObj);
-
-            // 显示卷标（如果有）
-            if (!drive.label.empty()) {
-                PrintInfoItem("卷标", WinUtils::WstringToString(drive.label));
-            }
-
-            // 显示文件系统
-            PrintInfoItem("文件系统", WinUtils::WstringToString(drive.fileSystem));
-
-            // 显示容量信息
-            PrintInfoItem("总容量", FormatSize(drive.totalSize));
-            PrintInfoItem("已用空间", FormatSize(drive.usedSpace));
-            PrintInfoItem("可用空间", FormatSize(drive.freeSpace));
-
-            // 计算并显示使用率
-            double usagePercent = (static_cast<double>(drive.usedSpace) / drive.totalSize) * 100.0;
-            PrintInfoItem("使用率", FormatPercentage(usagePercent));
+        // 创建Qt监视窗口
+        if (!QtDisplayBridge::CreateMonitorWindow()) {
+            Logger::Error("创建Qt监视窗口失败");
+            QtDisplayBridge::Cleanup();
+            return 1;
         }
 
         // 更新Qt显示界面的系统信息
         QtDisplayBridge::UpdateSystemInfo(sysInfo);
 
-        // 创建定时器线程，定期更新系统信息
-        std::thread updateThread([&]() {
-            while (QtDisplayBridge::IsInitialized()) {
-                // 更新CPU信息
-                sysInfo.cpuUsage = cpu.GetUsage();
-                sysInfo.performanceCoreFreq = cpu.GetLargeCoreSpeed();
-                sysInfo.efficiencyCoreFreq = cpu.GetSmallCoreSpeed() * 0.8;
+        // 进入Qt事件循环
+        int result = app.exec();
 
-                // 更新内存信息
-                sysInfo.usedMemory = mem.GetTotalPhysical() - mem.GetAvailablePhysical();
-                sysInfo.availableMemory = mem.GetAvailablePhysical();
+        // 清理资源
+        LibreHardwareMonitorBridge::Cleanup();
+        QtDisplayBridge::Cleanup();
 
-                // 更新温度信息
-                sysInfo.temperatures = LibreHardwareMonitorBridge::GetTemperatures();
-
-                // 更新Qt显示
-                QtDisplayBridge::UpdateSystemInfo(sysInfo);
-
-                // 每秒更新一次
-                std::this_thread::sleep_for(std::chrono::seconds(1));
-            }
-            });
-
-        // 设置线程为后台线程
-        updateThread.detach();
-
+        Logger::Info("程序正常退出");
+        return result;
     }
     catch (const std::exception& e) {
         Logger::Error("程序发生致命错误: " + std::string(e.what()));

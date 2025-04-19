@@ -392,6 +392,7 @@ bool QtDisplayBridge::CreateMonitorWindow() {
 }
 
 void QtDisplayBridge::UpdateSystemInfo(const SystemInfo& sysInfo) {
+    // Implementation to update the UI with the provided system information
     if (!initialized || !monitorWindow) {
         return;
     }

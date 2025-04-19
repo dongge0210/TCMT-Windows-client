@@ -2,10 +2,18 @@
 #include "Logger.h"
 #include <comdef.h>
 
-WmiManager::WmiManager() {
-    HRESULT hres = CoInitializeEx(0, COINIT_MULTITHREADED);
+WmiManager::WmiManager() : initialized(false), pLoc(nullptr), pSvc(nullptr) {
+    Initialize(); // Ensure Initialize is called
+}
+
+WmiManager::~WmiManager() {
+    Cleanup(); // Ensure Cleanup is called
+}
+
+void WmiManager::Initialize() {
+    HRESULT hres = CoInitializeEx(0, COINIT_APARTMENTTHREADED);
     if (FAILED(hres)) {
-        Logger::Error("COM初始化失败: 0x" + std::to_string(hres));
+        Logger::Error("COM initialization failed: 0x" + std::to_string(hres));
         return;
     }
 
@@ -22,7 +30,7 @@ WmiManager::WmiManager() {
     );
 
     if (FAILED(hres)) {
-        Logger::Error("安全初始化失败: 0x" + std::to_string(hres));
+        Logger::Error("Security initialization failed: 0x" + std::to_string(hres));
         CoUninitialize();
         return;
     }
@@ -36,7 +44,7 @@ WmiManager::WmiManager() {
     );
 
     if (FAILED(hres)) {
-        Logger::Error("创建WMI定位器失败: 0x" + std::to_string(hres));
+        Logger::Error("Failed to create WMI locator: 0x" + std::to_string(hres));
         CoUninitialize();
         return;
     }
@@ -53,38 +61,25 @@ WmiManager::WmiManager() {
     );
 
     if (FAILED(hres)) {
-        Logger::Error("连接WMI命名空间失败: 0x" + std::to_string(hres));
-        pLoc->Release();
-        CoUninitialize();
-        return;
-    }
-
-    hres = CoSetProxyBlanket(
-        pSvc,
-        RPC_C_AUTHN_WINNT,
-        RPC_C_AUTHZ_NONE,
-        NULL,
-        RPC_C_AUTHN_LEVEL_CALL,
-        RPC_C_IMP_LEVEL_IMPERSONATE,
-        NULL,
-        EOAC_NONE
-    );
-
-    if (FAILED(hres)) {
-        Logger::Error("设置代理权限失败: 0x" + std::to_string(hres));
-        pSvc->Release();
-        pLoc->Release();
-        CoUninitialize();
+        Logger::Error("Failed to connect to WMI namespace: 0x" + std::to_string(hres));
+        Cleanup();
         return;
     }
 
     initialized = true;
 }
 
-WmiManager::~WmiManager() {
-    if (pSvc) pSvc->Release();
-    if (pLoc) pLoc->Release();
+void WmiManager::Cleanup() {
+    if (pSvc) {
+        pSvc->Release();
+        pSvc = nullptr;
+    }
+    if (pLoc) {
+        pLoc->Release();
+        pLoc = nullptr;
+    }
     CoUninitialize();
+    initialized = false;
 }
 
 bool WmiManager::IsInitialized() const {
@@ -92,6 +87,10 @@ bool WmiManager::IsInitialized() const {
 }
 
 IWbemServices* WmiManager::GetWmiService() const {
+    if (!initialized) {
+        Logger::Error("尝试获取WMI服务时，WMI管理器未初始化");
+        return nullptr;
+    }
     return pSvc;
 }
 
