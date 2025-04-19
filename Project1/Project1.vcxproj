@@ -93,7 +93,7 @@
   <PropertyGroup Label="UserMacros" />
   <PropertyGroup>
     <CppCliTargetPlatform>x64</CppCliTargetPlatform>
-    <CLRSupport>NetCore</CLRSupport>
+    <CLRSupport>true</CLRSupport>
     <TargetFramework>net8.0</TargetFramework>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">

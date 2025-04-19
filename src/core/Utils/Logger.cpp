@@ -3,38 +3,89 @@
 #include <ctime>
 #include <iomanip>
 #include <sstream>
+#include <iostream>
+#include <codecvt> // For UTF-8 to wide string conversion
+#include <locale>
+#include <stdexcept>
+#include <io.h>
+#include <fcntl.h>
 
 std::ofstream Logger::logFile;
 std::mutex Logger::logMutex;
+bool Logger::consoleOutputEnabled = false; // Initialize console output flag
 
 void Logger::Initialize(const std::string& logFilePath) {
-    logFile.open(logFilePath, std::ios::app);
+    logFile.open(logFilePath, std::ios::binary | std::ios::app);
     if (!logFile.is_open()) {
         throw std::runtime_error("无法打开日志文件");
     }
+
+    // Write UTF-8 BOM if the file is empty
+    if (logFile.tellp() == 0) {
+        const unsigned char bom[] = {0xEF, 0xBB, 0xBF};
+        logFile.write(reinterpret_cast<const char*>(bom), sizeof(bom));
+    }
+
+    // Set console output to UTF-8
+    _setmode(_fileno(stdout), _O_U8TEXT);
+    _setmode(_fileno(stderr), _O_U8TEXT);
+}
+
+void Logger::EnableConsoleOutput(bool enable) {
+    consoleOutputEnabled = enable;
+}
+
+std::wstring Logger::ConvertToWideString(const std::string& utf8Str) {
+    std::wstring_convert<std::codecvt_utf8_utf16<wchar_t>> converter;
+    return converter.from_bytes(utf8Str);
 }
 
 void Logger::WriteLog(const std::string& level, const std::string& message) {
     std::lock_guard<std::mutex> lock(logMutex);
+
+    if (message.empty()) {
+        throw std::invalid_argument("Log message cannot be empty");
+    }
+
     if (logFile.is_open()) {
-        // 获取当前时间
+        // Validate stream state
+        if (!logFile.good()) {
+            throw std::runtime_error("Log file stream is in an invalid state");
+        }
+
+        // Get current time
         auto now = std::chrono::system_clock::now();
         auto time_now = std::chrono::system_clock::to_time_t(now);
 
-        // 使用安全版本的localtime
+        // Use safe version of localtime
         std::tm timeinfo;
         localtime_s(&timeinfo, &time_now);
 
-        // 使用字符串流来构建日志消息
+        // Construct log message
         std::stringstream ss;
         ss << "[" << std::put_time(&timeinfo, "%Y-%m-%d %H:%M:%S") << "]"
-            << "[" << level << "] "
-            << message
-            << std::endl;
+           << "[" << level << "] "
+           << message
+           << std::endl;
 
-        // 写入日志文件
-        logFile << ss.str();
+        std::string logEntry = ss.str();
+
+        // Ensure buffer size is even
+        if (logEntry.size() % 2 != 0) {
+            logEntry += " "; // Add padding to make size even
+        }
+
+        // Write to log file
+        logFile.write(logEntry.c_str(), logEntry.size());
         logFile.flush();
+
+        // Optional console output
+        if (consoleOutputEnabled) {
+            std::wstring wideLogEntry = ConvertToWideString(logEntry);
+            std::wcout << wideLogEntry; // Output to console only once
+        }
+    } else {
+        throw std::runtime_error("Log file is not open");
     }
 }
 

@@ -19,10 +19,11 @@ public:
     IWbemServices* GetWmiService() const;
 
 private:
-    void LogCOMError(HRESULT hr, const std::string& context);
+    void Initialize();
+    void Cleanup();
 
     IWbemLocator* pLoc = nullptr;
     IWbemServices* pSvc = nullptr;
     bool initialized = false;
     LONG m_refCount = 1;
-};                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               
+};
