@@ -21,14 +21,10 @@
 #include <map>
 #include <sstream>
 #include <iomanip>
+#include "../src/core/DataStruct/DataStruct.h" // Include header for SystemInfo
 
-// Include SystemInfo structure definition
-#include "../src/core/ui/QtDisplayBridge.h"
-
-// Forward declaration of UI namespace
-namespace Ui {
-class QtWidgetsTCmonitorClass;
-}
+// Add external declaration for pBuffer
+extern struct SharedMemoryBlock* pBuffer;
 
 // Define the maximum number of data points for charts
 constexpr int MAX_DATA_POINTS = 60;
@@ -48,6 +44,7 @@ public:
 private slots:
     void updateCharts();
     void on_pushButton_clicked();
+    void updateFromSharedMemory();
 
 private:
     // UI setup functions

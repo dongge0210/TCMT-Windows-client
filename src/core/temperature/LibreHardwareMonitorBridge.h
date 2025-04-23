@@ -5,7 +5,7 @@
 #include <utility>
 #include <vcclr.h> // 必须包含以使用 gcroot
 
-#using "F:\Win_x64-sysMonitor\src\third_party\LibreHardwareMonitor\bin\Debug\net8.0\LibreHardwareMonitorLib.dll"
+#using "F:\Win_x64-10.lastest-sysMonitor\src\third_party\LibreHardwareMonitor\bin\Debug\net8.0\LibreHardwareMonitorLib.dll"
 
 
 // 添加对 .NET 类型的前向声明

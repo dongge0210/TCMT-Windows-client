@@ -3,7 +3,7 @@
 #include <iostream>
 
 // 确保 .NET 8.0 兼容性
-#using "F:\Win_x64-sysMonitor\src\third_party\LibreHardwareMonitor\bin\Debug\net8.0\LibreHardwareMonitorLib.dll"
+#using "F:\Win_x64-10.lastest-sysMonitor\src\third_party\LibreHardwareMonitor\bin\Debug\net8.0\LibreHardwareMonitorLib.dll"
 
 using namespace LibreHardwareMonitor::Hardware;
 using namespace System;

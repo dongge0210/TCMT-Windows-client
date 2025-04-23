@@ -3,21 +3,16 @@
 #include <comdef.h>
 
 WmiManager::WmiManager() : initialized(false), pLoc(nullptr), pSvc(nullptr) {
-    Initialize(); // Ensure Initialize is called
+    Initialize();
 }
 
 WmiManager::~WmiManager() {
-    Cleanup(); // Ensure Cleanup is called
+    Cleanup();
 }
 
 void WmiManager::Initialize() {
-    HRESULT hres = CoInitializeEx(0, COINIT_APARTMENTTHREADED);
-    if (FAILED(hres)) {
-        Logger::Error("COM initialization failed: 0x" + std::to_string(hres));
-        return;
-    }
-
-    hres = CoInitializeSecurity(
+    // 已由main.cpp统一初始化COM，此处仅需安全验证
+    HRESULT hres = CoInitializeSecurity(
         NULL,
         -1,
         NULL,
@@ -29,12 +24,13 @@ void WmiManager::Initialize() {
         NULL
     );
 
-    if (FAILED(hres)) {
-        Logger::Error("Security initialization failed: 0x" + std::to_string(hres));
-        CoUninitialize();
+    // 允许安全初始化已完成的情况
+    if (FAILED(hres) && hres != RPC_E_TOO_LATE) {
+        Logger::Error("安全初始化失败: 0x" + std::to_string(hres));
         return;
     }
 
+    // 创建WMI定位器
     hres = CoCreateInstance(
         CLSID_WbemLocator,
         0,
@@ -44,11 +40,11 @@ void WmiManager::Initialize() {
     );
 
     if (FAILED(hres)) {
-        Logger::Error("Failed to create WMI locator: 0x" + std::to_string(hres));
-        CoUninitialize();
+        Logger::Error("创建WMI定位器失败: 0x" + std::to_string(hres));
         return;
     }
 
+    // 连接WMI服务
     hres = pLoc->ConnectServer(
         _bstr_t(L"ROOT\\CIMV2"),
         NULL,
@@ -61,7 +57,25 @@ void WmiManager::Initialize() {
     );
 
     if (FAILED(hres)) {
-        Logger::Error("Failed to connect to WMI namespace: 0x" + std::to_string(hres));
+        Logger::Error("连接WMI命名空间失败: 0x" + std::to_string(hres));
+        Cleanup();
+        return;
+    }
+
+    // 设置代理安全级别
+    hres = CoSetProxyBlanket(
+        pSvc,
+        RPC_C_AUTHN_WINNT,
+        RPC_C_AUTHZ_NONE,
+        NULL,
+        RPC_C_AUTHN_LEVEL_CALL,
+        RPC_C_IMP_LEVEL_IMPERSONATE,
+        NULL,
+        EOAC_NONE
+    );
+
+    if (FAILED(hres)) {
+        Logger::Error("设置代理安全失败: 0x" + std::to_string(hres));
         Cleanup();
         return;
     }
