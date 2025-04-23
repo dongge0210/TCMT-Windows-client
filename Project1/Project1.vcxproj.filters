@@ -48,6 +48,9 @@
     <ClInclude Include="..\src\core\disk\DiskInfo.h">
       <Filter>头文件</Filter>
     </ClInclude>
+    <ClInclude Include="..\src\core\DataStruct\DataStruct.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
     <ClInclude Include="..\src\core\ui\QtDisplayBridge.h">
       <Filter>头文件</Filter>
     </ClInclude>
@@ -86,14 +89,15 @@
     <ClCompile Include="..\src\core\disk\DiskInfo.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
-    <ClCompile Include="..\src\core\ui\QtDisplayBridge.cpp">
+    <ClCompile Include="..\src\core\temperature\LibreHardwareMonitorBridge.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
-    <ClCompile Include="..\src\core\temperature\LibreHardwareMonitorBridge.cpp">
+    <ClCompile Include="..\src\core\DataStruct\Producer.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <None Include="..\Qt-Widgets-TC-monitor\QtWidgetsTCmonitor.pro" />
+    <None Include="..\Project1.vcxproj.filters" />
   </ItemGroup>
 </Project>

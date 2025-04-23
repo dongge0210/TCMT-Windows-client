@@ -402,8 +402,9 @@ void QtWidgetsTCmonitor::updateSystemInfo(const SystemInfo& sysInfo)
         diskInfoLayout->addWidget(new QLabel(tr("已用空间:")), row, 0);
         diskInfoLayout->addWidget(new QLabel(formatSize(disk.usedSpace)), row++, 1);
 
+        uint64_t freeSpace = disk.totalSize - disk.usedSpace;
         diskInfoLayout->addWidget(new QLabel(tr("可用空间:")), row, 0);
-        diskInfoLayout->addWidget(new QLabel(formatSize(disk.freeSpace)), row++, 1);
+        diskInfoLayout->addWidget(new QLabel(formatSize(freeSpace)), row++, 1);
 
         double usagePercent = static_cast<double>(disk.usedSpace) / disk.totalSize * 100.0;
         diskInfoLayout->addWidget(new QLabel(tr("使用率:")), row, 0);
@@ -488,4 +489,50 @@ QString QtWidgetsTCmonitor::formatFrequency(double value)
     else {
         return QString("%1 MHz").arg(value, 0, 'f', 2);
     }
+}
+
+QString fromWString(const std::wstring& wstr) {
+    return QString::fromStdString(WinUtils::WstringToString(wstr));
+}
+
+QString fromWCharArray(const wchar_t* array) {
+    if (!array) return QString();
+    return QString::fromWCharArray(array);
+}
+
+// Ensure data is read from shared memory and updates the UI
+void QtWidgetsTCmonitor::updateFromSharedMemory() {
+    if (!pBuffer) return;
+
+    EnterCriticalSection(&pBuffer->lock);
+    {
+        // Update CPU information
+        infoLabels["cpuName"]->setText(QString::fromStdString(std::string(pBuffer->cpuName)));
+        infoLabels["physicalCores"]->setText(QString::number(pBuffer->physicalCores));
+        infoLabels["logicalCores"]->setText(QString::number(pBuffer->logicalCores));
+        infoLabels["cpuUsage"]->setText(formatPercentage(pBuffer->cpuUsage));
+        infoLabels["performanceCores"]->setText(QString::number(pBuffer->performanceCores));
+        infoLabels["efficiencyCores"]->setText(QString::number(pBuffer->efficiencyCores));
+        infoLabels["hyperThreading"]->setText(pBuffer->hyperThreading ? tr("已启用") : tr("未启用"));
+        infoLabels["virtualization"]->setText(pBuffer->virtualization ? tr("已启用") : tr("未启用"));
+
+        // Update memory information
+        infoLabels["totalMemory"]->setText(formatSize(pBuffer->totalMemory));
+        infoLabels["usedMemory"]->setText(formatSize(pBuffer->usedMemory));
+        infoLabels["availableMemory"]->setText(formatSize(pBuffer->availableMemory));
+
+        // Update GPU information
+        if (pBuffer->gpuCount > 0) {
+            infoLabels["gpuName"]->setText(QString::fromWString(std::wstring(pBuffer->gpus[0].name)));
+            infoLabels["gpuBrand"]->setText(QString::fromWString(std::wstring(pBuffer->gpus[0].brand)));
+            infoLabels["gpuMemory"]->setText(formatSize(pBuffer->gpus[0].memory));
+            infoLabels["gpuCoreFreq"]->setText(formatFrequency(pBuffer->gpus[0].coreClock));
+        }
+
+        // Update temperature data
+        if (pBuffer->tempCount > 0) {
+            infoLabels["cpuTemp"]->setText(formatTemperature(pBuffer->temperatures[0].temperature));
+        }
+    }
+    LeaveCriticalSection(&pBuffer->lock);
 }

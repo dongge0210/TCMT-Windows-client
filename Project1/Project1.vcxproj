@@ -183,6 +183,7 @@ _WINSOCK_DEPRECATED_NO_WARNINGS;%(PreprocessorDefinitions)</PreprocessorDefiniti
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClInclude Include="..\src\core\cpu\CpuInfo.h" />
+    <ClInclude Include="..\src\core\DataStruct\DataStruct.h" />
     <ClInclude Include="..\src\core\disk\DiskInfo.h" />
     <ClInclude Include="..\src\core\gpu\GpuInfo.h" />
     <ClInclude Include="..\src\core\memory\MemoryInfo.h" />
@@ -197,15 +198,13 @@ _WINSOCK_DEPRECATED_NO_WARNINGS;%(PreprocessorDefinitions)</PreprocessorDefiniti
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="..\src\core\cpu\CpuInfo.cpp" />
+    <ClCompile Include="..\src\core\DataStruct\Producer.cpp" />
     <ClCompile Include="..\src\core\disk\DiskInfo.cpp" />
     <ClCompile Include="..\src\core\gpu\GpuInfo.cpp" />
     <ClCompile Include="..\src\core\memory\MemoryInfo.cpp" />
     <ClCompile Include="..\src\core\network\NetworkAdapter.cpp" />
     <ClCompile Include="..\src\core\os\OSInfo.cpp" />
     <ClCompile Include="..\src\core\temperature\LibreHardwareMonitorBridge.cpp" />
-    <ClCompile Include="..\src\core\ui\QtDisplayBridge.cpp">
-      <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">false</CompileAsManaged>
-    </ClCompile>
     <ClCompile Include="..\src\core\Utils\Logger.cpp" />
     <ClCompile Include="..\src\core\Utils\TimeUtils.cpp" />
     <ClCompile Include="..\src\core\Utils\WinUtils.cpp" />
@@ -224,6 +223,7 @@ _WINSOCK_DEPRECATED_NO_WARNINGS;%(PreprocessorDefinitions)</PreprocessorDefiniti
     </Reference>
   </ItemGroup>
   <ItemGroup>
+    <None Include="..\Project1.vcxproj.filters" />
     <None Include="..\Qt-Widgets-TC-monitor\QtWidgetsTCmonitor.pro" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
