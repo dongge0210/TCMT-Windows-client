@@ -1,4 +1,4 @@
-# Visual Studio directories
+.DS_Store# Visual Studio directories
 .vs/
 ipch/
 [Dd]ebug/
@@ -75,3 +75,4 @@ bld/
 /Project1/system_monitor.log
 
 .fake
+.DS_Store
