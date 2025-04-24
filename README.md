@@ -8,7 +8,7 @@
 
 - [LibreHardwareMonitor](https://github.com/LibreHardwareMonitor/LibreHardwareMonitor)  
   - **协议**: [Mozilla Public License v2.0 (MPL-2.0)](https://mozilla.org/MPL/2.0/)
-  - **使用方式**: 本项目直接使用 LibreHardwareMonitor 的生成产物（如动态链接库），未对其源代码进行修改。
+  - **使用方式**: 本项目直接使用了 LibreHardwareMonitor 的 `net8` 版本编译后的库（动态链接库 DLL 文件），未对其源代码进行修改。
   - **源代码获取**: 您可以在其 [GitHub 仓库](https://github.com/LibreHardwareMonitor/LibreHardwareMonitor) 中找到完整的源代码及其协议文件。
 
 ## 注意事项
