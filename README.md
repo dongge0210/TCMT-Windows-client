@@ -1,8 +1,8 @@
-# 项目名称
+# project-monitor-TC
 
 本项目遵循 [GNU General Public License v3.0 (GPL-3.0)](https://www.gnu.org/licenses/gpl-3.0.html) 开源协议。
 
-## 使用的子项目
+## 此项目使用的子项目
 
 本项目使用了以下子项目：
 
