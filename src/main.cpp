@@ -17,9 +17,11 @@
 #include <windows.h>
 #include <utility>
 #include <thread>
-#include <QMessageBox> // Ensure QMessageBox is included
+#include <QMessageBox> 
 #include <io.h>
 #include <fcntl.h>
+
+//QT已在本体软件因为COM证实为无效，QTUI将单独UI通过内存共享显示
 
 #pragma comment(lib, "kernel32.lib")
 #pragma comment(lib, "user32.lib")
