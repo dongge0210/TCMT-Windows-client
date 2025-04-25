@@ -10,6 +10,7 @@
 #include "core/utils/WmiManager.h"
 #include "core/disk/DiskInfo.h"
 #include "core/DataStruct/DataStruct.h"
+#include "core/DataStruct/SharedMemoryManager.h"  // Include the new shared memory manager
 #include <chrono>
 #include <iostream>
 #include <sstream>
@@ -26,9 +27,7 @@
 #pragma comment(lib, "kernel32.lib")
 #pragma comment(lib, "user32.lib")
 
-// Declare global variables for shared memory
-HANDLE hMapFile = NULL;
-SharedMemoryBlock* pBuffer = nullptr;
+// Remove the global variables for shared memory - now in SharedMemoryManager
 
 //辅助函数
 // 硬件名称翻译
@@ -141,110 +140,19 @@ static void PrintInfoItem(const std::string& label, const std::string& value, in
         << ": " << value << std::endl;
 }
 
-bool InitSharedMemory() {
-    // 创建文件映射对象（使用Global\\前缀需要管理员权限）
-    hMapFile = CreateFileMapping(
-        INVALID_HANDLE_VALUE,
-        NULL,
-        PAGE_READWRITE,
-        0,
-        sizeof(SharedMemoryBlock),
-        L"Global\\SystemMonitorSharedMemory"
-    );
-
-    if (!hMapFile) {
-        Logger::Error("无法创建共享内存 (Error: " + std::to_string(GetLastError()) + ")");
-        return false;
-    }
-
-    // 映射到进程地址空间
-    pBuffer = (SharedMemoryBlock*)MapViewOfFile(
-        hMapFile,
-        FILE_MAP_ALL_ACCESS,
-        0, 0, sizeof(SharedMemoryBlock)
-    );
-
-    if (!pBuffer) {
-        CloseHandle(hMapFile);
-        Logger::Error("无法映射共享内存视图");
-        return false;
-    }
-
-    // 初始化临界区
-    InitializeCriticalSection(&pBuffer->lock);
-    return true;
-}
+// Remove InitSharedMemory and WriteToSharedMemory functions - now in SharedMemoryManager
 
 // 将SystemInfo转换为共享内存格式
 void ConvertToSharedData(const SystemInfo& sysInfo, SharedMemoryBlock& sharedData) {
-    // CPU信息
-    strcpy_s(sharedData.cpuName, sizeof(sharedData.cpuName), sysInfo.cpuName.c_str());
-    sharedData.physicalCores = sysInfo.physicalCores;
-    sharedData.logicalCores = sysInfo.logicalCores;
-    sharedData.cpuUsage = static_cast<float>(sysInfo.cpuUsage);
-    sharedData.performanceCores = sysInfo.performanceCores;
-    sharedData.efficiencyCores = sysInfo.efficiencyCores;
-    sharedData.pCoreFreq = sysInfo.performanceCoreFreq;
-    sharedData.eCoreFreq = sysInfo.efficiencyCoreFreq;
-    sharedData.hyperThreading = sysInfo.hyperThreading;
-    sharedData.virtualization = sysInfo.virtualization;
+    wcscpy_s(sharedData.cpuName, sizeof(sharedData.cpuName) / sizeof(wchar_t), WinUtils::StringToWstring(sysInfo.cpuName).c_str());
 
-    // 内存信息
-    sharedData.totalMemory = sysInfo.totalMemory;
-    sharedData.usedMemory = sysInfo.usedMemory;
-    sharedData.availableMemory = sysInfo.availableMemory;
-
-    // GPU信息
-    sharedData.gpuCount = std::min(2, static_cast<int>(sysInfo.gpus.size()));
-    for (int i = 0; i < sharedData.gpuCount; i++) {
-        const auto& gpu = sysInfo.gpus[i];
-        wcscpy_s(sharedData.gpus[i].name, sizeof(sharedData.gpus[i].name) / sizeof(wchar_t), gpu.name.c_str());
-        wcscpy_s(sharedData.gpus[i].brand, sizeof(sharedData.gpus[i].brand) / sizeof(wchar_t), gpu.brand.c_str());
-        sharedData.gpus[i].memory = gpu.memory;
-        sharedData.gpus[i].coreClock = gpu.coreClock;
+    if (!sysInfo.gpus.empty()) {
+        // Use the correct types and properly calculate the size for wcscpy_s
+        wcscpy_s(sharedData.gpus[0].name, sizeof(sharedData.gpus[0].name) / sizeof(wchar_t),
+                 WinUtils::StringToWstring(sysInfo.gpuName).c_str());
+        wcscpy_s(sharedData.gpus[0].brand, sizeof(sharedData.gpus[0].brand) / sizeof(wchar_t),
+                 WinUtils::StringToWstring(sysInfo.gpuBrand).c_str());
     }
-
-    // 网络适配器
-    sharedData.adapterCount = std::min(4, static_cast<int>(sysInfo.adapters.size()));
-    for (int i = 0; i < sharedData.adapterCount; i++) {
-        const auto& adapter = sysInfo.adapters[i];
-        wcscpy_s(sharedData.adapters[i].name, sizeof(sharedData.adapters[i].name) / sizeof(wchar_t), adapter.name.c_str());
-        wcscpy_s(sharedData.adapters[i].mac, sizeof(sharedData.adapters[i].mac) / sizeof(wchar_t), adapter.mac.c_str());
-        sharedData.adapters[i].speed = adapter.speed;
-    }
-
-    // 磁盘信息
-    sharedData.diskCount = std::min(8, static_cast<int>(sysInfo.disks.size()));
-    for (int i = 0; i < sharedData.diskCount; i++) {
-        const auto& disk = sysInfo.disks[i];
-        sharedData.disks[i].letter = disk.letter;
-        wcscpy_s(sharedData.disks[i].label, sizeof(sharedData.disks[i].label) / sizeof(wchar_t), disk.label.c_str());
-        wcscpy_s(sharedData.disks[i].fileSystem, sizeof(sharedData.disks[i].fileSystem) / sizeof(wchar_t), disk.fileSystem.c_str());
-        sharedData.disks[i].totalSize = disk.totalSize;
-        sharedData.disks[i].usedSpace = disk.usedSpace;
-        sharedData.disks[i].freeSpace = disk.freeSpace;
-    }
-
-    // 温度数据
-    sharedData.tempCount = std::min(10, static_cast<int>(sysInfo.temperatures.size()));
-    for (int i = 0; i < sharedData.tempCount; i++) {
-        const auto& temp = sysInfo.temperatures[i];
-        wcscpy_s(sharedData.temperatures[i].sensorName, sizeof(sharedData.temperatures[i].sensorName) / sizeof(wchar_t),
-            WinUtils::StringToWstring(temp.first).c_str());
-        sharedData.temperatures[i].temperature = temp.second;
-    }
-
-    // 更新时间戳
-    GetSystemTime(&sharedData.lastUpdate);
-}
-
-// 写入共享内存
-void WriteToSharedMemory(const SystemInfo& sysInfo) {
-    if (!pBuffer) return;
-
-    EnterCriticalSection(&pBuffer->lock);
-    ConvertToSharedData(sysInfo, *pBuffer);
-    LeaveCriticalSection(&pBuffer->lock);
 }
 
 //主要函数
@@ -273,7 +181,8 @@ int main(int argc, char* argv[]) {
             ~ComCleanup() { CoUninitialize(); }
         } comCleanup;
 
-        if (!InitSharedMemory()) {
+        // Use SharedMemoryManager instead of local functions
+        if (!SharedMemoryManager::InitSharedMemory()) {
             CoUninitialize();
             return 1;
         }
@@ -337,8 +246,8 @@ int main(int argc, char* argv[]) {
                 sysInfo.networkAdapterSpeed = adapter.speed;
             }
 
-            // 写入共享内存
-            WriteToSharedMemory(sysInfo);
+            // 写入共享内存，使用 SharedMemoryManager 代替
+            SharedMemoryManager::WriteToSharedMemory(sysInfo);
 
             // 等待1秒
             std::this_thread::sleep_for(std::chrono::seconds(1));
@@ -346,8 +255,7 @@ int main(int argc, char* argv[]) {
             
         // 清理资源
         LibreHardwareMonitorBridge::Cleanup();
-        UnmapViewOfFile(pBuffer);
-        CloseHandle(hMapFile);
+        SharedMemoryManager::CleanupSharedMemory(); // Use SharedMemoryManager for cleanup
         CoUninitialize();
 
         Logger::Info("程序正常退出");

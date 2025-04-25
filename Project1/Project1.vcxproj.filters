@@ -54,6 +54,12 @@
     <ClInclude Include="src\core\DataStruct\DataStruct.h">
       <Filter>头文件</Filter>
     </ClInclude>
+    <ClInclude Include="..\src\core\DataStruct\SharedMemoryManager.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="src\core\Utils\ComInitializationHelper.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="..\src\core\Utils\Logger.cpp">
@@ -95,7 +101,10 @@
     <ClCompile Include="..\src\core\DataStruct\Producer.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
-    <ClCompile Include="src\main.cpp">
+    <ClCompile Include="..\src\core\DataStruct\SharedMemoryManager.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="src\core\Utils\ComInitializationHelper.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
   </ItemGroup>
