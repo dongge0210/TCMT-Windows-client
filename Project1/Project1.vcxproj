@@ -184,6 +184,7 @@ _WINSOCK_DEPRECATED_NO_WARNINGS;%(PreprocessorDefinitions)</PreprocessorDefiniti
   <ItemGroup>
     <ClInclude Include="..\src\core\cpu\CpuInfo.h" />
     <ClInclude Include="..\src\core\DataStruct\DataStruct.h" />
+    <ClInclude Include="..\src\core\DataStruct\SharedMemoryManager.h" />
     <ClInclude Include="..\src\core\disk\DiskInfo.h" />
     <ClInclude Include="..\src\core\gpu\GpuInfo.h" />
     <ClInclude Include="..\src\core\memory\MemoryInfo.h" />
@@ -195,10 +196,12 @@ _WINSOCK_DEPRECATED_NO_WARNINGS;%(PreprocessorDefinitions)</PreprocessorDefiniti
     <ClInclude Include="..\src\core\Utils\WinUtils.h" />
     <ClInclude Include="..\src\core\Utils\WMIManager.h" />
     <ClInclude Include="src\core\DataStruct\DataStruct.h" />
+    <ClInclude Include="src\core\Utils\ComInitializationHelper.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="..\src\core\cpu\CpuInfo.cpp" />
     <ClCompile Include="..\src\core\DataStruct\Producer.cpp" />
+    <ClCompile Include="..\src\core\DataStruct\SharedMemoryManager.cpp" />
     <ClCompile Include="..\src\core\disk\DiskInfo.cpp" />
     <ClCompile Include="..\src\core\gpu\GpuInfo.cpp" />
     <ClCompile Include="..\src\core\memory\MemoryInfo.cpp" />
@@ -210,7 +213,7 @@ _WINSOCK_DEPRECATED_NO_WARNINGS;%(PreprocessorDefinitions)</PreprocessorDefiniti
     <ClCompile Include="..\src\core\Utils\WinUtils.cpp" />
     <ClCompile Include="..\src\core\Utils\WMIManager.cpp" />
     <ClCompile Include="..\src\main.cpp" />
-    <ClCompile Include="src\main.cpp" />
+    <ClCompile Include="src\core\Utils\ComInitializationHelper.cpp" />
   </ItemGroup>
   <ItemGroup>
     <Reference Include="HidSharp">

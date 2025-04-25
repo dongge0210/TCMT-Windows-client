@@ -22,6 +22,7 @@
 #include <sstream>
 #include <iomanip>
 #include "../src/core/DataStruct/DataStruct.h" // Include header for SystemInfo
+#include "../src/core/utils/Logger.h"
 
 // Add external declaration for pBuffer
 extern struct SharedMemoryBlock* pBuffer;
@@ -62,7 +63,6 @@ private:
     QString formatFrequency(double value);
 
     // UI components
-    Ui::QtWidgetsTCmonitorClass *ui;
     QTimer *updateTimer;
 
     // Main UI containers

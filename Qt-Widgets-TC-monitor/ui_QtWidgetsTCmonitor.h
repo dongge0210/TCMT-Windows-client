@@ -17,6 +17,7 @@
 #include <QtWidgets/QStatusBar>
 #include <QtWidgets/QVBoxLayout>
 #include <QtWidgets/QWidget>
+#include "../src/core/DataStruct/SharedMemoryManager.h"
 
 QT_BEGIN_NAMESPACE
 

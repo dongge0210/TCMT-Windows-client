@@ -74,6 +74,7 @@
       <UseStandardPreprocessor>true</UseStandardPreprocessor>
       <AdditionalOptions>/Zc:__cplusplus /utf-8 %(AdditionalOptions)</AdditionalOptions>
       <AdditionalIncludeDirectories>$(ProjectDir);$(IntDir);$(QTDIR)\include;$(QTDIR)\include\QtCore;$(QTDIR)\include\QtGui;$(QTDIR)\include\QtWidgets;$(ProjectDir)x64\Debug\qt\uic</AdditionalIncludeDirectories>
+      <PreprocessorDefinitions>QT_WIDGETS_TC_MONITOR;%(PreprocessorDefinitions)</PreprocessorDefinitions>
     </ClCompile>
     <Link>
       <AdditionalOptions>/Zc:__cplusplus %(AdditionalOptions)</AdditionalOptions>
@@ -128,8 +129,12 @@ Qt6Widgetsd.lib;Qt6Chartsd.lib;Qt6Charts.lib;Qt6Core.lib;Qt6Gui.lib;Qt6Widgets.l
     <QtRcc Include="QtWidgetsTCmonitor.qrc" />
     <QtUic Include="QtWidgetsTCmonitor.ui" />
     <QtMoc Include="QtWidgetsTCmonitor.h" />
+    <ClCompile Include="..\src\core\DataStruct\SharedMemoryManager.cpp">
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">NotUsing</PrecompiledHeader>
+    </ClCompile>
     <ClCompile Include="main.cpp" />
     <ClCompile Include="QtWidgetsTCmonitor.cpp" />
+    <ClInclude Include="..\src\core\DataStruct\SharedMemoryManager.h" />
     <ClInclude Include="stdafx.h" />
     <ClCompile Include="stdafx.cpp">
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)' == 'Debug|x64'">Create</PrecompiledHeader>
