@@ -1,4 +1,4 @@
-#pragma once
+ï»¿#pragma once
 
 #ifndef WIN32_LEAN_AND_MEAN
 #define WIN32_LEAN_AND_MEAN
@@ -42,7 +42,7 @@ private:
     void QueryWmiAdapterInfo();
     void UpdateAdapterAddresses();
     std::wstring FormatMacAddress(const unsigned char* address, size_t length) const;
-    std::wstring FormatSpeed(uint64_t bitsPerSecond) const;  // Ìí¼ÓÉùÃ÷
+    std::wstring FormatSpeed(uint64_t bitsPerSecond) const;  // æ·»åŠ å£°æ˜Ž
     bool IsVirtualAdapter(const std::wstring& name) const;
     void SafeRelease(IUnknown* pInterface);
 

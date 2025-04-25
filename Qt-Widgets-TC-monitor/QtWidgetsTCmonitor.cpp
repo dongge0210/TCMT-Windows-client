@@ -2,6 +2,7 @@
 #include "QtWidgetsTCmonitor.h"
 #include "ui_QtWidgetsTCmonitor.h"  // Auto-generated UI file
 #include <windows.h>
+#include "../src/core/DataStruct/SharedMemoryManager.h"
 
 #include <QtWidgets/QScrollArea>
 #include <QtWidgets/QSplitter>
@@ -25,18 +26,16 @@
 #include <queue>
 #include <sstream>
 #include <iomanip>
+#include <QString>
 
 QtWidgetsTCmonitor::QtWidgetsTCmonitor(QWidget* parent)
-    : QMainWindow(parent), ui(new Ui::QtWidgetsTCmonitorClass)
+    : QMainWindow(parent)
 {
-    ui->setupUi(this);
+    setupUI();
 
     // Set window properties
     setWindowTitle(tr("系统硬件监视器"));
     resize(800, 600);
-
-    // Initialize UI
-    setupUI();
 
     // Set up update timer
     updateTimer = new QTimer(this);
@@ -50,7 +49,6 @@ QtWidgetsTCmonitor::~QtWidgetsTCmonitor()
         updateTimer->stop();
         delete updateTimer;
     }
-    delete ui;
 }
 
 void QtWidgetsTCmonitor::setupUI()
@@ -491,23 +489,15 @@ QString QtWidgetsTCmonitor::formatFrequency(double value)
     }
 }
 
-QString fromWString(const std::wstring& wstr) {
-    return QString::fromStdString(WinUtils::WstringToString(wstr));
-}
-
-QString fromWCharArray(const wchar_t* array) {
-    if (!array) return QString();
-    return QString::fromWCharArray(array);
-}
-
 // Ensure data is read from shared memory and updates the UI
 void QtWidgetsTCmonitor::updateFromSharedMemory() {
+    SharedMemoryBlock* pBuffer = SharedMemoryManager::GetBuffer();
     if (!pBuffer) return;
 
     EnterCriticalSection(&pBuffer->lock);
     {
         // Update CPU information
-        infoLabels["cpuName"]->setText(QString::fromStdString(std::string(pBuffer->cpuName)));
+        infoLabels["cpuName"]->setText(QString::fromWCharArray(pBuffer->cpuName));
         infoLabels["physicalCores"]->setText(QString::number(pBuffer->physicalCores));
         infoLabels["logicalCores"]->setText(QString::number(pBuffer->logicalCores));
         infoLabels["cpuUsage"]->setText(formatPercentage(pBuffer->cpuUsage));
@@ -523,8 +513,8 @@ void QtWidgetsTCmonitor::updateFromSharedMemory() {
 
         // Update GPU information
         if (pBuffer->gpuCount > 0) {
-            infoLabels["gpuName"]->setText(QString::fromWString(std::wstring(pBuffer->gpus[0].name)));
-            infoLabels["gpuBrand"]->setText(QString::fromWString(std::wstring(pBuffer->gpus[0].brand)));
+            infoLabels["gpuName"]->setText(QString::fromWCharArray(pBuffer->gpus[0].name));
+            infoLabels["gpuBrand"]->setText(QString::fromWCharArray(pBuffer->gpus[0].brand));
             infoLabels["gpuMemory"]->setText(formatSize(pBuffer->gpus[0].memory));
             infoLabels["gpuCoreFreq"]->setText(formatFrequency(pBuffer->gpus[0].coreClock));
         }

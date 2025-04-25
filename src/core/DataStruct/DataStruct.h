@@ -1,52 +1,43 @@
-// DataStruct.h
+ï»¿// DataStruct.h
 #pragma once
 #include <windows.h>
 #include <string>
 #include <vector>
 
-#pragma pack(push, 1) // È·±£ÄÚ´æ¶ÔÆë
+#pragma pack(push, 1) // ç¡®ä¿å†…å­˜å¯¹é½
 
-// GPUĞÅÏ¢
+// GPUä¿¡æ¯
 struct GPUData {
-    wchar_t name[128];    // GPUÃû³Æ
-    wchar_t brand[64];    // Æ·ÅÆ
-    uint64_t memory;      // ÏÔ´æ£¨×Ö½Ú£©
-    double coreClock;     // ºËĞÄÆµÂÊ£¨MHz£©
+    wchar_t name[128];    // GPUåç§°
+    wchar_t brand[64];    // å“ç‰Œ
+    uint64_t memory;      // æ˜¾å­˜ï¼ˆå­—èŠ‚ï¼‰
+    double coreClock;     // æ ¸å¿ƒé¢‘ç‡ï¼ˆMHzï¼‰
 };
 
-// ÍøÂçÊÊÅäÆ÷ĞÅÏ¢
+// ç½‘ç»œé€‚é…å™¨ä¿¡æ¯
 struct NetworkAdapterData {
-    wchar_t name[128];    // ÊÊÅäÆ÷Ãû³Æ
-    wchar_t mac[32];      // MACµØÖ·
-    uint64_t speed;       // ËÙ¶È£¨bps£©
+    wchar_t name[128];    // é€‚é…å™¨åç§°
+    wchar_t mac[32];      // MACåœ°å€
+    uint64_t speed;       // é€Ÿåº¦ï¼ˆbpsï¼‰
 };
 
-// ´ÅÅÌĞÅÏ¢
+// ç£ç›˜ä¿¡æ¯
 struct DiskData {
-    wchar_t letter;       // ÅÌ·û£¨ÈçL'C'£©
-    wchar_t label[128];   // ¾í±ê
-    wchar_t fileSystem[64];// ÎÄ¼şÏµÍ³
-    uint64_t totalSize;   // ×ÜÈİÁ¿£¨×Ö½Ú£©
-    uint64_t usedSpace;   // ÒÑÓÃ¿Õ¼ä£¨×Ö½Ú£©
-    uint64_t freeSpace;   // ¿ÉÓÃ¿Õ¼ä£¨×Ö½Ú£©
-    // Only modify the DiskData structure to add freeSpace field
-    struct DiskData {
-        wchar_t letter;       // ÅÌ·û£¨ÈçL'C'£©
-        wchar_t label[128];   // ¾í±ê
-        wchar_t fileSystem[64];// ÎÄ¼şÏµÍ³
-        uint64_t totalSize;   // ×ÜÈİÁ¿£¨×Ö½Ú£©
-        uint64_t usedSpace;   // ÒÑÓÃ¿Õ¼ä£¨×Ö½Ú£©
-        uint64_t freeSpace;   // ¿ÉÓÃ¿Õ¼ä£¨×Ö½Ú£©
-    };
+    char letter;          // ç›˜ç¬¦ï¼ˆå¦‚'C'ï¼‰
+    std::string label;    // å·æ ‡
+    std::string fileSystem;// æ–‡ä»¶ç³»ç»Ÿ
+    uint64_t totalSize = 0; // æ€»å®¹é‡ï¼ˆå­—èŠ‚ï¼‰
+    uint64_t usedSpace = 0; // å·²ç”¨ç©ºé—´ï¼ˆå­—èŠ‚ï¼‰
+    uint64_t freeSpace = 0; // å¯ç”¨ç©ºé—´ï¼ˆå­—èŠ‚ï¼‰
 };
 
-// ÎÂ¶È´«¸ĞÆ÷ĞÅÏ¢
+// æ¸©åº¦ä¼ æ„Ÿå™¨ä¿¡æ¯
 struct TemperatureData {
-    wchar_t sensorName[64]; // ´«¸ĞÆ÷Ãû³Æ
-    double temperature;     // ÎÂ¶È£¨ÉãÊÏ¶È£©
+    wchar_t sensorName[64]; // ä¼ æ„Ÿå™¨åç§°
+    double temperature;     // æ¸©åº¦ï¼ˆæ‘„æ°åº¦ï¼‰
 };
 
-// SystemInfo½á¹¹
+// SystemInfoç»“æ„
 struct SystemInfo {
     std::string cpuName;
     int physicalCores;
@@ -65,43 +56,50 @@ struct SystemInfo {
     std::vector<NetworkAdapterData> adapters;
     std::vector<DiskData> disks;
     std::vector<std::pair<std::string, double>> temperatures;
-    std::string osVersion;          // Added
+    std::string osVersion;
+    std::string gpuName;            // Added
+    std::string gpuBrand;           // Added
+    uint64_t gpuMemory;             // Added
+    double gpuCoreFreq;             // Added
     std::string networkAdapterName; // Added
     std::string networkAdapterMac;  // Added
     uint64_t networkAdapterSpeed;   // Added
-    std::string gpuName;            // Added
-    uint64_t gpuMemory;             // Added
-    double gpuCoreFreq;             // Added
-    std::string gpuBrand;           // Added
     SYSTEMTIME lastUpdate;
 };
 
-// ¹²ÏíÄÚ´æÖ÷½á¹¹
+// å…±äº«å†…å­˜ä¸»ç»“æ„
 struct SharedMemoryBlock {
-    char cpuName[128];        // CPUÃû³Æ
-    int physicalCores;        // ÎïÀíºËĞÄÊı
-    int logicalCores;         // Âß¼­ºËĞÄÊı
-    float cpuUsage;           // CPUÊ¹ÓÃÂÊ£¨°Ù·Ö±È£©
-    int performanceCores;     // ĞÔÄÜºËĞÄÊı
-    int efficiencyCores;      // ÄÜĞ§ºËĞÄÊı
-    double pCoreFreq;         // ĞÔÄÜºËĞÄÆµÂÊ£¨GHz£©
-    double eCoreFreq;         // ÄÜĞ§ºËĞÄÆµÂÊ£¨GHz£©
-    bool hyperThreading;      // ³¬Ïß³ÌÊÇ·ñÆôÓÃ
-    bool virtualization;      // ĞéÄâ»¯ÊÇ·ñÆôÓÃ
-    uint64_t totalMemory;     // ×ÜÄÚ´æ£¨×Ö½Ú£©
-    uint64_t usedMemory;      // ÒÑÓÃÄÚ´æ£¨×Ö½Ú£©
-    uint64_t availableMemory; // ¿ÉÓÃÄÚ´æ£¨×Ö½Ú£©
+    wchar_t cpuName[128];       // CPUåç§° - wchar_t array
+    int physicalCores;        // ç‰©ç†æ ¸å¿ƒæ•°
+    int logicalCores;         // é€»è¾‘æ ¸å¿ƒæ•°
+    float cpuUsage;           // CPUä½¿ç”¨ç‡ï¼ˆç™¾åˆ†æ¯”ï¼‰
+    int performanceCores;     // æ€§èƒ½æ ¸å¿ƒæ•°
+    int efficiencyCores;      // èƒ½æ•ˆæ ¸å¿ƒæ•°
+    double pCoreFreq;         // æ€§èƒ½æ ¸å¿ƒé¢‘ç‡ï¼ˆGHzï¼‰
+    double eCoreFreq;         // èƒ½æ•ˆæ ¸å¿ƒé¢‘ç‡ï¼ˆGHzï¼‰
+    bool hyperThreading;      // è¶…çº¿ç¨‹æ˜¯å¦å¯ç”¨
+    bool virtualization;      // è™šæ‹ŸåŒ–æ˜¯å¦å¯ç”¨
+    uint64_t totalMemory;     // æ€»å†…å­˜ï¼ˆå­—èŠ‚ï¼‰
+    uint64_t usedMemory;      // å·²ç”¨å†…å­˜ï¼ˆå­—èŠ‚ï¼‰
+    uint64_t availableMemory; // å¯ç”¨å†…å­˜ï¼ˆå­—èŠ‚ï¼‰
 
-    // GPUĞÅÏ¢£¨Ö§³Ö×î¶à2¸öGPU£©
+    // GPUä¿¡æ¯ï¼ˆæ”¯æŒæœ€å¤š2ä¸ªGPUï¼‰
     GPUData gpus[2];
 
-    // ÍøÂçÊÊÅäÆ÷£¨Ö§³Ö×î¶à4¸öÊÊÅäÆ÷£©
+    // ç½‘ç»œé€‚é…å™¨ï¼ˆæ”¯æŒæœ€å¤š4ä¸ªé€‚é…å™¨ï¼‰
     NetworkAdapterData adapters[4];
 
-    // ´ÅÅÌĞÅÏ¢£¨Ö§³Ö×î¶à8¸ö´ÅÅÌ£©
-    DiskData disks[8];
+    // ç£ç›˜ä¿¡æ¯ï¼ˆæ”¯æŒæœ€å¤š8ä¸ªç£ç›˜ï¼‰
+    struct SharedDiskData {
+        char letter;             // ç›˜ç¬¦ï¼ˆå¦‚'C'ï¼‰
+        wchar_t label[128];      // å·æ ‡ - Using wchar_t array for shared memory
+        wchar_t fileSystem[32];  // æ–‡ä»¶ç³»ç»Ÿ - Using wchar_t array for shared memory
+        uint64_t totalSize;      // æ€»å®¹é‡ï¼ˆå­—èŠ‚ï¼‰
+        uint64_t usedSpace;      // å·²ç”¨ç©ºé—´ï¼ˆå­—èŠ‚ï¼‰
+        uint64_t freeSpace;      // å¯ç”¨ç©ºé—´ï¼ˆå­—èŠ‚ï¼‰
+    } disks[8];
 
-    // ÎÂ¶ÈÊı¾İ£¨Ö§³Ö10¸ö´«¸ĞÆ÷£©
+    // æ¸©åº¦æ•°æ®ï¼ˆæ”¯æŒ10ä¸ªä¼ æ„Ÿå™¨ï¼‰
     TemperatureData temperatures[10];
 
     int adapterCount;

@@ -1,4 +1,4 @@
-#include "stdafx.h"  // ·ÅÔÚ×îÇ°Ãæ
+ï»¿#include "stdafx.h"  // æ”¾åœ¨æœ€å‰é¢
 #include <QtWidgets/QApplication>
 #include "QtWidgetsTCmonitor.h"
 

@@ -1,4 +1,4 @@
-#pragma once
+ï»¿#pragma once
 #include <string>
 #include <windows.h>
 #include <pdh.h>
@@ -15,9 +15,9 @@ public:
     int GetTotalCores() const;
     int GetSmallCores() const;
     int GetLargeCores() const;
-    double GetLargeCoreSpeed() const;    // ĞÂÔö£º»ñÈ¡ĞÔÄÜºËĞÄÆµÂÊ
-    double GetSmallCoreSpeed() const;    // ĞÂÔö£º»ñÈ¡ÄÜĞ§ºËĞÄÆµÂÊ
-    DWORD GetCurrentSpeed() const;       // ±£³Ö¼æÈİĞÔ
+    double GetLargeCoreSpeed() const;    // æ–°å¢ï¼šè·å–æ€§èƒ½æ ¸å¿ƒé¢‘ç‡
+    double GetSmallCoreSpeed() const;    // æ–°å¢ï¼šè·å–èƒ½æ•ˆæ ¸å¿ƒé¢‘ç‡
+    DWORD GetCurrentSpeed() const;       // ä¿æŒå…¼å®¹æ€§
     bool IsHyperThreadingEnabled() const;
     bool IsVirtualizationEnabled() const;
 
@@ -25,23 +25,23 @@ private:
     void DetectCores();
     void InitializeCounter();
     void CleanupCounter();
-    void UpdateCoreSpeeds();             // ĞÂÔö£º¸üĞÂºËĞÄÆµÂÊ
+    void UpdateCoreSpeeds();             // æ–°å¢ï¼šæ›´æ–°æ ¸å¿ƒé¢‘ç‡
     std::string GetNameFromRegistry();
     double updateUsage();
 
-    // »ù±¾ĞÅÏ¢
+    // åŸºæœ¬ä¿¡æ¯
     std::string cpuName;
     int totalCores;
     int smallCores;
     int largeCores;
     double cpuUsage;
 
-    // ÆµÂÊĞÅÏ¢
-    std::vector<DWORD> largeCoresSpeeds; // ĞÔÄÜºËĞÄÆµÂÊ
-    std::vector<DWORD> smallCoresSpeeds; // ÄÜĞ§ºËĞÄÆµÂÊ
-    DWORD lastUpdateTime;                // ÉÏ´Î¸üĞÂÊ±¼ä
+    // é¢‘ç‡ä¿¡æ¯
+    std::vector<DWORD> largeCoresSpeeds; // æ€§èƒ½æ ¸å¿ƒé¢‘ç‡
+    std::vector<DWORD> smallCoresSpeeds; // èƒ½æ•ˆæ ¸å¿ƒé¢‘ç‡
+    DWORD lastUpdateTime;                // ä¸Šæ¬¡æ›´æ–°æ—¶é—´
 
-    // PDH ¼ÆÊıÆ÷Ïà¹Ø
+    // PDH è®¡æ•°å™¨ç›¸å…³
     PDH_HQUERY queryHandle;
     PDH_HCOUNTER counterHandle;
     bool counterInitialized;
