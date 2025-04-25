@@ -51,7 +51,7 @@
     <ClInclude Include="..\src\core\DataStruct\DataStruct.h">
       <Filter>头文件</Filter>
     </ClInclude>
-    <ClInclude Include="..\src\core\ui\QtDisplayBridge.h">
+    <ClInclude Include="src\core\DataStruct\DataStruct.h">
       <Filter>头文件</Filter>
     </ClInclude>
   </ItemGroup>
@@ -93,6 +93,9 @@
       <Filter>源文件</Filter>
     </ClCompile>
     <ClCompile Include="..\src\core\DataStruct\Producer.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="src\main.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
   </ItemGroup>
