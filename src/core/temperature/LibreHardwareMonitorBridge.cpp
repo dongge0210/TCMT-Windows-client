@@ -2,9 +2,9 @@
 #include "Logger.h"
 #include <msclr/marshal_cppstd.h>
 #include <iostream>
+#include <windows.h>
 
-// 确保 .NET 8.0 兼容性
-#using "F:/Win_x64-10.lastest-sysMonitor/src/third_party/LibreHardwareMonitor-0.9.4/bin/Debug/net8.0/LibreHardwareMonitorLib.dll"
+#using "LibreHardwareMonitorLib.dll"
 
 using namespace LibreHardwareMonitor::Hardware;
 using namespace System;

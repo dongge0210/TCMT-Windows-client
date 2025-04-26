@@ -104,9 +104,6 @@
     <ClCompile Include="..\src\core\DataStruct\SharedMemoryManager.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
-    <ClCompile Include="src\core\Utils\ComInitializationHelper.cpp">
-      <Filter>源文件</Filter>
-    </ClCompile>
     <ClCompile Include="..\src\core\Utils\ComInitializationHelper.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
