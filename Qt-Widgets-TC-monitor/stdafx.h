@@ -11,6 +11,11 @@
 #include <QtCharts/QLineSeries>
 #include <QtCharts/QValueAxis>
 
+// Windows API headers
+#include <windows.h>
+#include <sstream>
+#include <string>
+
 // C++20 specific headers if needed
 #include <concepts>
 #include <ranges>

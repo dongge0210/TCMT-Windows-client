@@ -165,8 +165,8 @@ int main(int argc, char* argv[]) {
         Logger::Initialize("system_monitor.log");
         Logger::Info("程序启动");
 
-        // 初始化COM为单线程模式
-        HRESULT hr = CoInitializeEx(nullptr, COINIT_APARTMENTTHREADED);
+        // 初始化COM为多线程模式
+        HRESULT hr = CoInitializeEx(nullptr, COINIT_MULTITHREADED);
         if (FAILED(hr)) {
             if (hr == RPC_E_CHANGED_MODE) {
                 Logger::Error("COM初始化模式冲突: 线程已初始化为不同的模式");
@@ -247,7 +247,14 @@ int main(int argc, char* argv[]) {
             }
 
             // 写入共享内存，使用 SharedMemoryManager 代替
-            SharedMemoryManager::WriteToSharedMemory(sysInfo);
+            if (!SharedMemoryManager::GetBuffer() && !SharedMemoryManager::InitSharedMemory()) {
+                // Handle shared memory initialization failure
+                Logger::Error("Failed to initialize shared memory: " + SharedMemoryManager::GetLastError());
+                // Continue with program execution even if shared memory fails
+                // This prevents the program from crashing but logs the error
+            } else {
+                SharedMemoryManager::WriteToSharedMemory(sysInfo);
+            }
 
             // 等待1秒
             std::this_thread::sleep_for(std::chrono::seconds(1));

@@ -46,6 +46,12 @@
     <ClCompile Include="..\src\core\DataStruct\SharedMemoryManager.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="..\src\core\Utils\Logger.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\core\Utils\WinUtils.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <QtMoc Include="QtWidgetsTCmonitor.h">
@@ -54,6 +60,12 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\src\core\DataStruct\SharedMemoryManager.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\src\core\Utils\Logger.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\src\core\Utils\WinUtils.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

@@ -51,13 +51,13 @@
     <ClInclude Include="..\src\core\DataStruct\DataStruct.h">
       <Filter>头文件</Filter>
     </ClInclude>
-    <ClInclude Include="src\core\DataStruct\DataStruct.h">
-      <Filter>头文件</Filter>
-    </ClInclude>
     <ClInclude Include="..\src\core\DataStruct\SharedMemoryManager.h">
       <Filter>头文件</Filter>
     </ClInclude>
     <ClInclude Include="src\core\Utils\ComInitializationHelper.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="..\src\core\Utils\stdafx.h">
       <Filter>头文件</Filter>
     </ClInclude>
   </ItemGroup>
@@ -107,9 +107,13 @@
     <ClCompile Include="src\core\Utils\ComInitializationHelper.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
+    <ClCompile Include="..\src\core\Utils\ComInitializationHelper.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <None Include="..\Qt-Widgets-TC-monitor\QtWidgetsTCmonitor.pro" />
     <None Include="..\Project1.vcxproj.filters" />
+    <None Include="Qt-Widgets-TC-monitor.vcxproj" />
   </ItemGroup>
 </Project>

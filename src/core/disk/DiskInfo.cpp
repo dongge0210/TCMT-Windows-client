@@ -1,4 +1,4 @@
-// DiskInfo.cpp
+Ôªø// DiskInfo.cpp
 #include "DiskInfo.h"
 
 DiskInfo::DiskInfo() {
@@ -23,7 +23,7 @@ void DiskInfo::QueryDrives() {
                 info.freeSpace = totalFreeBytes.QuadPart;
                 info.usedSpace = totalBytes.QuadPart - totalFreeBytes.QuadPart;
 
-                // ªÒ»°æÌ±Í
+                // Ëé∑ÂèñÂç∑Ê†á
                 wchar_t volumeName[MAX_PATH + 1] = { 0 };
                 wchar_t fileSystemName[MAX_PATH + 1] = { 0 };
                 GetVolumeInformationW(rootPath.c_str(),
