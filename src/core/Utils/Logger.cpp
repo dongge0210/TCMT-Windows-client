@@ -1,14 +1,14 @@
-﻿#include "Logger.h"
+﻿#include "stdafx.h"
+#include "Logger.h"
 #include <chrono>
 #include <ctime>
 #include <iomanip>
 #include <sstream>
 #include <iostream>
-#include <codecvt> // For UTF-8 to wide string conversion
-#include <locale>
 #include <stdexcept>
 #include <io.h>
 #include <fcntl.h>
+#include <windows.h> // For MultiByteToWideChar
 
 std::ofstream Logger::logFile;
 std::mutex Logger::logMutex;
@@ -36,8 +36,41 @@ void Logger::EnableConsoleOutput(bool enable) {
 }
 
 std::wstring Logger::ConvertToWideString(const std::string& utf8Str) {
-    std::wstring_convert<std::codecvt_utf8_utf16<wchar_t>> converter;
-    return converter.from_bytes(utf8Str);
+    // Handle empty string case
+    if (utf8Str.empty()) {
+        return std::wstring();
+    }
+    
+    // Get required buffer size
+    int bufferSize = MultiByteToWideChar(
+        CP_UTF8,                // Code page: UTF-8
+        0,                      // Flags
+        utf8Str.c_str(),        // Source UTF-8 string
+        static_cast<int>(utf8Str.length()), // Source string length
+        nullptr,                // Output buffer (null to get required size)
+        0                       // Output buffer size
+    );
+    
+    if (bufferSize == 0) {
+        throw std::runtime_error("Failed to convert UTF-8 string to wide string");
+    }
+    
+    // Create buffer to hold the wide string
+    std::wstring wideStr(bufferSize, L'\0');
+    
+    // Convert the string
+    if (!MultiByteToWideChar(
+        CP_UTF8,                // Code page: UTF-8
+        0,                      // Flags
+        utf8Str.c_str(),        // Source UTF-8 string
+        static_cast<int>(utf8Str.length()), // Source string length
+        &wideStr[0],            // Output buffer
+        bufferSize              // Output buffer size
+    )) {
+        throw std::runtime_error("Failed to convert UTF-8 string to wide string");
+    }
+    
+    return wideStr;
 }
 
 void Logger::WriteLog(const std::string& level, const std::string& message) {

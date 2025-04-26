@@ -81,7 +81,7 @@
       <AdditionalLibraryDirectories>$(QTDIR)\lib</AdditionalLibraryDirectories>
       <AdditionalDependencies>Qt6Cored.lib;
 Qt6Guid.lib;
-Qt6Widgetsd.lib;Qt6Chartsd.lib;Qt6Charts.lib;Qt6Core.lib;Qt6Gui.lib;Qt6Widgets.lib;%(AdditionalDependencies)</AdditionalDependencies>
+Qt6Widgetsd.lib;Qt6Chartsd.lib;Qt6Charts.lib;Qt6Core.lib;Qt6Gui.lib;Qt6Widgets.lib;F:\Win_x64-10.lastest-sysMonitor\Windows Kits\10\Lib\10.0.26100.0\um\x64\AdvAPI32.Lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
     <QtUic>
       <Generator>cpp</Generator>
@@ -132,9 +132,13 @@ Qt6Widgetsd.lib;Qt6Chartsd.lib;Qt6Charts.lib;Qt6Core.lib;Qt6Gui.lib;Qt6Widgets.l
     <ClCompile Include="..\src\core\DataStruct\SharedMemoryManager.cpp">
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">NotUsing</PrecompiledHeader>
     </ClCompile>
+    <ClCompile Include="..\src\core\Utils\Logger.cpp" />
+    <ClCompile Include="..\src\core\Utils\WinUtils.cpp" />
     <ClCompile Include="main.cpp" />
     <ClCompile Include="QtWidgetsTCmonitor.cpp" />
     <ClInclude Include="..\src\core\DataStruct\SharedMemoryManager.h" />
+    <ClInclude Include="..\src\core\Utils\Logger.h" />
+    <ClInclude Include="..\src\core\Utils\WinUtils.h" />
     <ClInclude Include="stdafx.h" />
     <ClCompile Include="stdafx.cpp">
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)' == 'Debug|x64'">Create</PrecompiledHeader>

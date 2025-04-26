@@ -192,10 +192,10 @@ _WINSOCK_DEPRECATED_NO_WARNINGS;%(PreprocessorDefinitions)</PreprocessorDefiniti
     <ClInclude Include="..\src\core\os\OSInfo.h" />
     <ClInclude Include="..\src\core\temperature\LibreHardwareMonitorBridge.h" />
     <ClInclude Include="..\src\core\Utils\Logger.h" />
+    <ClInclude Include="..\src\core\Utils\stdafx.h" />
     <ClInclude Include="..\src\core\Utils\TimeUtils.h" />
     <ClInclude Include="..\src\core\Utils\WinUtils.h" />
     <ClInclude Include="..\src\core\Utils\WMIManager.h" />
-    <ClInclude Include="src\core\DataStruct\DataStruct.h" />
     <ClInclude Include="src\core\Utils\ComInitializationHelper.h" />
   </ItemGroup>
   <ItemGroup>
@@ -208,12 +208,12 @@ _WINSOCK_DEPRECATED_NO_WARNINGS;%(PreprocessorDefinitions)</PreprocessorDefiniti
     <ClCompile Include="..\src\core\network\NetworkAdapter.cpp" />
     <ClCompile Include="..\src\core\os\OSInfo.cpp" />
     <ClCompile Include="..\src\core\temperature\LibreHardwareMonitorBridge.cpp" />
+    <ClCompile Include="..\src\core\Utils\ComInitializationHelper.cpp" />
     <ClCompile Include="..\src\core\Utils\Logger.cpp" />
     <ClCompile Include="..\src\core\Utils\TimeUtils.cpp" />
     <ClCompile Include="..\src\core\Utils\WinUtils.cpp" />
     <ClCompile Include="..\src\core\Utils\WMIManager.cpp" />
     <ClCompile Include="..\src\main.cpp" />
-    <ClCompile Include="src\core\Utils\ComInitializationHelper.cpp" />
   </ItemGroup>
   <ItemGroup>
     <Reference Include="HidSharp">
@@ -229,6 +229,7 @@ _WINSOCK_DEPRECATED_NO_WARNINGS;%(PreprocessorDefinitions)</PreprocessorDefiniti
   <ItemGroup>
     <None Include="..\Project1.vcxproj.filters" />
     <None Include="..\Qt-Widgets-TC-monitor\QtWidgetsTCmonitor.pro" />
+    <None Include="Qt-Widgets-TC-monitor.vcxproj" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <Import Project="$(QtMsBuild)\qt.targets" Condition="Exists('$(QtMsBuild)\qt.targets')" />
