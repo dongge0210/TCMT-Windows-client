@@ -16,3 +16,6 @@
 [submodule "src/third_party/LibreHardwareMonitor-0.9.4"]
 	path = src/third_party/LibreHardwareMonitor-0.9.4
 	url = https://github.com/LibreHardwareMonitor/LibreHardwareMonitor
+[submodule "src/third_party/FFmpeg-7.1"]
+	path = src/third_party/FFmpeg-7.1
+	url = https://github.com/FFmpeg/FFmpeg
