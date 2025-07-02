@@ -2,6 +2,7 @@
 #include <string>
 #include <fstream>
 #include <mutex>
+#include <algorithm> // Added for std::transform
 
 class Logger {
 private:
@@ -17,4 +18,5 @@ public:
     static void Info(const std::string& message);
     static void Error(const std::string& message);
     static void Warning(const std::string& message);
+    static void Debug(const std::string& message); // Add Debug method
 };

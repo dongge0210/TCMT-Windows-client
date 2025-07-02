@@ -12,6 +12,7 @@ struct GPUData {
     wchar_t brand[64];    // 品牌
     uint64_t memory;      // 显存（字节）
     double coreClock;     // 核心频率（MHz）
+    bool isVirtual;       // 新增：是否为虚拟显卡
 };
 
 // 网络适配器信息
@@ -42,7 +43,7 @@ struct SystemInfo {
     std::string cpuName;
     int physicalCores;
     int logicalCores;
-    double cpuUsage;
+    double cpuUsage;      // 确保使用double类型
     int performanceCores;
     int efficiencyCores;
     double performanceCoreFreq;
@@ -61,6 +62,7 @@ struct SystemInfo {
     std::string gpuBrand;           // Added
     uint64_t gpuMemory;             // Added
     double gpuCoreFreq;             // Added
+    bool gpuIsVirtual;              // 新增：GPU是否为虚拟显卡
     std::string networkAdapterName; // Added
     std::string networkAdapterMac;  // Added
     uint64_t networkAdapterSpeed;   // Added
@@ -72,7 +74,7 @@ struct SharedMemoryBlock {
     wchar_t cpuName[128];       // CPU名称 - wchar_t array
     int physicalCores;        // 物理核心数
     int logicalCores;         // 逻辑核心数
-    float cpuUsage;           // CPU使用率（百分比）
+    double cpuUsage;          // 改为double类型，提高精度
     int performanceCores;     // 性能核心数
     int efficiencyCores;      // 能效核心数
     double pCoreFreq;         // 性能核心频率（GHz）

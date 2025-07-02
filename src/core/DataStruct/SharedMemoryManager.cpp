@@ -198,8 +198,9 @@ bool SharedMemoryManager::InitSharedMemory() {
         return false;
     }
 
-    // Initialize critical section
-    try {
+    // Initialize critical section (only if not already initialized)
+    static bool csInitialized = false;
+    if (!csInitialized) {
         if (!InitializeCriticalSectionAndSpinCount(&pBuffer->lock, 4000)) {
             DWORD errorCode = ::GetLastError();
             std::stringstream ss;
@@ -220,13 +221,12 @@ bool SharedMemoryManager::InitSharedMemory() {
             hMapFile = NULL;
             return false;
         }
-    } catch (...) {
-        Logger::Error("Exception during critical section initialization.");
-        UnmapViewOfFile(pBuffer);
-        pBuffer = nullptr;
-        CloseHandle(hMapFile);
-        hMapFile = NULL;
-        return false;
+        csInitialized = true;
+    }
+
+    // Zero out the shared memory to avoid dirty data (only on first creation)
+    if (errorCode != ERROR_ALREADY_EXISTS) {
+        memset(pBuffer, 0, sizeof(SharedMemoryBlock));
     }
 
     Logger::Info("Shared memory initialized successfully.");
@@ -250,10 +250,154 @@ std::string SharedMemoryManager::GetLastError() {
 
 void SharedMemoryManager::WriteToSharedMemory(const SystemInfo& systemInfo) {
     if (!pBuffer) {
-        Logger::Error("Shared memory not initialized.");
+        lastError = "Shared memory not initialized";
+        Logger::Error(lastError);
         return;
     }
+
     EnterCriticalSection(&pBuffer->lock);
-    // ...copy fields from systemInfo to pBuffer...
+    try {
+        // Clear all string fields first to ensure proper null termination
+        memset(pBuffer->cpuName, 0, sizeof(pBuffer->cpuName));
+        for (int i = 0; i < 2; ++i) {
+            memset(pBuffer->gpus[i].name, 0, sizeof(pBuffer->gpus[i].name));
+            memset(pBuffer->gpus[i].brand, 0, sizeof(pBuffer->gpus[i].brand));
+        }
+        for (int i = 0; i < 8; ++i) {
+            memset(&pBuffer->disks[i], 0, sizeof(pBuffer->disks[i]));
+        }
+        for (int i = 0; i < 10; ++i) {
+            memset(pBuffer->temperatures[i].sensorName, 0, sizeof(pBuffer->temperatures[i].sensorName));
+        }
+        
+        // Copy CPU information with safe string conversion
+        std::wstring cpuNameW = WinUtils::StringToWstring(systemInfo.cpuName);
+        if (!cpuNameW.empty()) {
+            size_t copyLen = std::min(cpuNameW.length(), static_cast<size_t>(127));
+            wcsncpy_s(pBuffer->cpuName, sizeof(pBuffer->cpuName) / sizeof(wchar_t), 
+                     cpuNameW.c_str(), copyLen);
+            pBuffer->cpuName[copyLen] = L'\0'; // Ensure null termination
+        }
+        
+        pBuffer->physicalCores = systemInfo.physicalCores;
+        pBuffer->logicalCores = systemInfo.logicalCores;
+        pBuffer->cpuUsage = static_cast<float>(systemInfo.cpuUsage);
+        pBuffer->performanceCores = systemInfo.performanceCores;
+        pBuffer->efficiencyCores = systemInfo.efficiencyCores;
+        pBuffer->pCoreFreq = systemInfo.performanceCoreFreq;
+        pBuffer->eCoreFreq = systemInfo.efficiencyCoreFreq;
+        pBuffer->hyperThreading = systemInfo.hyperThreading;
+        pBuffer->virtualization = systemInfo.virtualization;
+
+        // Copy memory information
+        pBuffer->totalMemory = systemInfo.totalMemory;
+        pBuffer->usedMemory = systemInfo.usedMemory;
+        pBuffer->availableMemory = systemInfo.availableMemory;
+
+        // Copy GPU information with safe string handling
+        pBuffer->gpuCount = 0;
+        if (!systemInfo.gpuName.empty()) {
+            std::wstring gpuNameW = WinUtils::StringToWstring(systemInfo.gpuName);
+            std::wstring gpuBrandW = WinUtils::StringToWstring(systemInfo.gpuBrand);
+            
+            if (!gpuNameW.empty()) {
+                size_t copyLen = std::min(gpuNameW.length(), static_cast<size_t>(127));
+                wcsncpy_s(pBuffer->gpus[0].name, sizeof(pBuffer->gpus[0].name) / sizeof(wchar_t), 
+                         gpuNameW.c_str(), copyLen);
+                pBuffer->gpus[0].name[copyLen] = L'\0';
+            }
+            
+            if (!gpuBrandW.empty()) {
+                size_t copyLen = std::min(gpuBrandW.length(), static_cast<size_t>(63));
+                wcsncpy_s(pBuffer->gpus[0].brand, sizeof(pBuffer->gpus[0].brand) / sizeof(wchar_t), 
+                         gpuBrandW.c_str(), copyLen);
+                pBuffer->gpus[0].brand[copyLen] = L'\0';
+            }
+            
+            pBuffer->gpus[0].memory = systemInfo.gpuMemory;
+            pBuffer->gpus[0].coreClock = systemInfo.gpuCoreFreq;
+            pBuffer->gpuCount = 1;
+        }
+
+        // Copy network adapter information
+        pBuffer->adapterCount = 0;
+        if (!systemInfo.networkAdapterName.empty()) {
+            std::wstring adapterNameW = WinUtils::StringToWstring(systemInfo.networkAdapterName);
+            std::wstring adapterMacW = WinUtils::StringToWstring(systemInfo.networkAdapterMac);
+            
+            if (!adapterNameW.empty()) {
+                size_t copyLen = std::min(adapterNameW.length(), static_cast<size_t>(127));
+                wcsncpy_s(pBuffer->adapters[0].name, sizeof(pBuffer->adapters[0].name) / sizeof(wchar_t), 
+                         adapterNameW.c_str(), copyLen);
+                pBuffer->adapters[0].name[copyLen] = L'\0';
+            }
+            
+            if (!adapterMacW.empty()) {
+                size_t copyLen = std::min(adapterMacW.length(), static_cast<size_t>(31));
+                wcsncpy_s(pBuffer->adapters[0].mac, sizeof(pBuffer->adapters[0].mac) / sizeof(wchar_t), 
+                         adapterMacW.c_str(), copyLen);
+                pBuffer->adapters[0].mac[copyLen] = L'\0';
+            }
+            
+            pBuffer->adapters[0].speed = systemInfo.networkAdapterSpeed;
+            pBuffer->adapterCount = 1;
+        }
+
+        // Copy disk information with safe string handling
+        pBuffer->diskCount = static_cast<int>(std::min(systemInfo.disks.size(), static_cast<size_t>(8)));
+        for (int i = 0; i < pBuffer->diskCount; ++i) {
+            const auto& disk = systemInfo.disks[i];
+            pBuffer->disks[i].letter = disk.letter;
+            
+            if (!disk.label.empty()) {
+                std::wstring labelW = WinUtils::StringToWstring(disk.label);
+                size_t copyLen = std::min(labelW.length(), static_cast<size_t>(127));
+                wcsncpy_s(pBuffer->disks[i].label, sizeof(pBuffer->disks[i].label) / sizeof(wchar_t), 
+                         labelW.c_str(), copyLen);
+                pBuffer->disks[i].label[copyLen] = L'\0';
+            }
+            
+            if (!disk.fileSystem.empty()) {
+                std::wstring fileSystemW = WinUtils::StringToWstring(disk.fileSystem);
+                size_t copyLen = std::min(fileSystemW.length(), static_cast<size_t>(31));
+                wcsncpy_s(pBuffer->disks[i].fileSystem, sizeof(pBuffer->disks[i].fileSystem) / sizeof(wchar_t), 
+                         fileSystemW.c_str(), copyLen);
+                pBuffer->disks[i].fileSystem[copyLen] = L'\0';
+            }
+            
+            pBuffer->disks[i].totalSize = disk.totalSize;
+            pBuffer->disks[i].usedSpace = disk.usedSpace;
+            pBuffer->disks[i].freeSpace = disk.freeSpace;
+        }
+
+        // Copy temperature information with safe string handling
+        pBuffer->tempCount = static_cast<int>(std::min(systemInfo.temperatures.size(), static_cast<size_t>(10)));
+        for (int i = 0; i < pBuffer->tempCount; ++i) {
+            const auto& temp = systemInfo.temperatures[i];
+            
+            if (!temp.first.empty()) {
+                std::wstring sensorNameW = WinUtils::StringToWstring(temp.first);
+                size_t copyLen = std::min(sensorNameW.length(), static_cast<size_t>(63));
+                wcsncpy_s(pBuffer->temperatures[i].sensorName, sizeof(pBuffer->temperatures[i].sensorName) / sizeof(wchar_t), 
+                         sensorNameW.c_str(), copyLen);
+                pBuffer->temperatures[i].sensorName[copyLen] = L'\0';
+            }
+            
+            pBuffer->temperatures[i].temperature = temp.second;
+        }
+
+        // Update timestamp
+        GetSystemTime(&pBuffer->lastUpdate);
+        
+        Logger::Info("Successfully wrote system information to shared memory");
+    }
+    catch (const std::exception& e) {
+        lastError = "Exception in WriteToSharedMemory: " + std::string(e.what());
+        Logger::Error(lastError);
+    }
+    catch (...) {
+        lastError = "Unknown exception in WriteToSharedMemory";
+        Logger::Error(lastError);
+    }
     LeaveCriticalSection(&pBuffer->lock);
 }

@@ -3,6 +3,7 @@
 #include <string>
 #include <vector>
 #include <windows.h>
+#include "../DataStruct/DataStruct.h"
 
 struct DriveInfo {
     char letter;
@@ -15,9 +16,10 @@ struct DriveInfo {
 
 class DiskInfo {
 public:
-    DiskInfo();
+    DiskInfo(); // 无参数构造
     const std::vector<DriveInfo>& GetDrives() const;
     void Refresh();
+    std::vector<DiskData> GetDisks(); // 返回所有磁盘信息
 
 private:
     void QueryDrives();

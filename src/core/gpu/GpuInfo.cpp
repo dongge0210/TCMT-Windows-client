@@ -3,6 +3,9 @@
 #include "WmiManager.h"
 #include <comutil.h>
 #include <nvml.h>
+#include <algorithm>  // Add this header for std::transform
+#include <cctype>     // Add this header for character functions
+#include <cwctype>    // Add this header for wide character functions like towlower
 
 GpuInfo::GpuInfo(WmiManager& manager) : wmiManager(manager) {
     if (!wmiManager.IsInitialized()) {
@@ -15,6 +18,58 @@ GpuInfo::GpuInfo(WmiManager& manager) : wmiManager(manager) {
 
 GpuInfo::~GpuInfo() {
     Logger::Info("GPU信息检测结束");
+}
+
+bool GpuInfo::IsVirtualGpu(const std::wstring& name) {
+    // 扩展虚拟显卡检测列表
+    const std::vector<std::wstring> virtualGpuNames = {
+        L"Microsoft Basic Display Adapter",
+        L"Microsoft Hyper-V Video",
+        L"VMware SVGA 3D",
+        L"VirtualBox Graphics Adapter",
+        L"Todesk Virtual Display Adapter",
+        L"Parsec Virtual Display Adapter",
+        L"TeamViewer Display",
+        L"AnyDesk Display",
+        L"Remote Desktop Display",
+        L"RDP Display",
+        L"VNC Display",
+        L"Citrix Display",
+        L"Standard VGA Graphics Adapter",
+        L"Generic PnP Monitor",
+        L"Virtual Desktop Infrastructure",
+        L"VDI Display",
+        L"Cloud Display",
+        L"Remote Graphics"
+    };
+
+    std::wstring lowerName = name;
+    std::transform(lowerName.begin(), lowerName.end(), lowerName.begin(), 
+        [](wchar_t c) { return ::towlower(c); });
+
+    for (const auto& virtualName : virtualGpuNames) {
+        std::wstring lowerVirtualName = virtualName;
+        std::transform(lowerVirtualName.begin(), lowerVirtualName.end(), lowerVirtualName.begin(), 
+            [](wchar_t c) { return ::towlower(c); });
+        
+        if (lowerName.find(lowerVirtualName) != std::wstring::npos) {
+            return true;
+        }
+    }
+
+    // 检查关键词
+    const std::vector<std::wstring> virtualKeywords = {
+        L"virtual", L"remote", L"basic", L"generic", L"standard vga",
+        L"rdp", L"vnc", L"citrix", L"vmware", L"virtualbox", L"hyper-v"
+    };
+
+    for (const auto& keyword : virtualKeywords) {
+        if (lowerName.find(keyword) != std::wstring::npos) {
+            return true;
+        }
+    }
+
+    return false;
 }
 
 void GpuInfo::DetectGpusViaWmi() {
@@ -58,16 +113,21 @@ void GpuInfo::DetectGpusViaWmi() {
             data.coreClock = static_cast<double>(vtCurrentClockSpeed.uintVal) / 1e6;
         }
 
-        bool isVirtual = (
-            data.name.find(L"Todesk Virtual Display Adapter") != std::wstring::npos ||
-            data.name.find(L"Microsoft Basic Display Adapter") != std::wstring::npos
-        );
-
-        if (!isVirtual) {
-            data.isNvidia = (data.name.find(L"NVIDIA") != std::wstring::npos);
-            data.isIntegrated = (data.deviceId.find(L"VEN_8086") != std::wstring::npos);
-            gpuList.push_back(data);
-        }
+        // 改进的虚拟显卡检测
+        data.isVirtual = IsVirtualGpu(data.name);
+        
+        // 记录所有GPU，包括虚拟GPU，但标记它们
+        data.isNvidia = (data.name.find(L"NVIDIA") != std::wstring::npos);
+        data.isIntegrated = (data.deviceId.find(L"VEN_8086") != std::wstring::npos);
+        
+        gpuList.push_back(data);
+        
+        // 记录GPU信息到日志
+        std::string gpuNameStr(data.name.begin(), data.name.end());
+        Logger::Info("检测到GPU: " + gpuNameStr + 
+                    " (虚拟: " + (data.isVirtual ? "是" : "否") + 
+                    ", NVIDIA: " + (data.isNvidia ? "是" : "否") + 
+                    ", 集成: " + (data.isIntegrated ? "是" : "否") + ")");
 
         VariantClear(&vtName);
         VariantClear(&vtPnpId);
@@ -78,8 +138,9 @@ void GpuInfo::DetectGpusViaWmi() {
 
     pEnumerator->Release();
 
+    // 为NVIDIA GPU查询详细信息
     for (size_t i = 0; i < gpuList.size(); ++i) {
-        if (gpuList[i].isNvidia) {
+        if (gpuList[i].isNvidia && !gpuList[i].isVirtual) {
             QueryNvidiaGpuInfo(static_cast<int>(i));
         }
     }

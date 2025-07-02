@@ -4,7 +4,7 @@
 #include <iostream>
 #include <windows.h>
 
-#using "LibreHardwareMonitorLib.dll"
+#using "..\src\third_party\LibreHardwareMonitor\bin\Debug\net8.0\LibreHardwareMonitorLib.dll"
 
 using namespace LibreHardwareMonitor::Hardware;
 using namespace System;
