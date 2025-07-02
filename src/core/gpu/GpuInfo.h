@@ -23,6 +23,7 @@ public:
         double coreClock = 0.0;
         bool isNvidia = false;
         bool isIntegrated = false;
+        bool isVirtual = false;  // 新增：标识是否为虚拟显卡
         int computeCapabilityMajor = 0;
         int computeCapabilityMinor = 0;
         unsigned int temperature = 0;
@@ -37,6 +38,7 @@ private:
     void DetectGpusViaWmi();
     void QueryIntelGpuInfo(int index);
     void QueryNvidiaGpuInfo(int index);
+    bool IsVirtualGpu(const std::wstring& name);  // 新增：虚拟显卡检测方法
 
     WmiManager& wmiManager;
     IWbemServices* pSvc = nullptr;

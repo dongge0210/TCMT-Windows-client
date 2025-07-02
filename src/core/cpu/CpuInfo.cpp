@@ -4,8 +4,18 @@
 #include <windows.h>
 #include <vector>
 #include <pdh.h>
+#include <algorithm>
 
 #pragma comment(lib, "pdh.lib")
+
+// Define PDH constants if not available
+#ifndef PDH_CSTATUS_VALID_DATA
+#define PDH_CSTATUS_VALID_DATA 0x00000000L
+#endif
+
+#ifndef PDH_CSTATUS_NEW_DATA
+#define PDH_CSTATUS_NEW_DATA 0x00000001L
+#endif
 
 CpuInfo::CpuInfo() :
     totalCores(0),
@@ -149,12 +159,13 @@ void CpuInfo::UpdateCoreSpeeds() {
 
 double CpuInfo::updateUsage() {
     if (!counterInitialized) {
+        Logger::Warning("CPU性能计数器未初始化");
         return cpuUsage;
     }
 
     PDH_STATUS status = PdhCollectQueryData(queryHandle);
     if (status != ERROR_SUCCESS) {
-        Logger::Error("无法收集CPU使用率数据");
+        Logger::Error("无法收集CPU使用率数据，错误代码: " + std::to_string(status));
         return cpuUsage;
     }
 
@@ -165,12 +176,36 @@ double CpuInfo::updateUsage() {
         &counterValue);
 
     if (status != ERROR_SUCCESS) {
-        Logger::Error("无法格式化CPU使用率数据");
+        Logger::Error("无法格式化CPU使用率数据，错误代码: " + std::to_string(status));
         return cpuUsage;
     }
 
-    cpuUsage = counterValue.doubleValue;
+    // 验证数据有效性
+    if (counterValue.CStatus == PDH_CSTATUS_VALID_DATA || counterValue.CStatus == PDH_CSTATUS_NEW_DATA) {
+        cpuUsage = counterValue.doubleValue;
+        
+        // 限制在合理范围内
+        if (cpuUsage < 0.0) cpuUsage = 0.0;
+        if (cpuUsage > 100.0) cpuUsage = 100.0;
+        
+        Logger::Debug("CPU使用率更新: " + std::to_string(cpuUsage) + "%");
+    } else {
+        Logger::Warning("CPU使用率数据无效，状态: " + std::to_string(counterValue.CStatus));
+    }
+
     return cpuUsage;
+}
+
+double CpuInfo::GetUsage() {
+    double currentUsage = updateUsage();
+    
+    // 添加调试信息
+    static int debugCounter = 0;
+    if (++debugCounter % 10 == 0) { // 每10次调用记录一次
+        Logger::Info("CPU使用率: " + std::to_string(currentUsage) + "%");
+    }
+    
+    return currentUsage;
 }
 
 std::string CpuInfo::GetNameFromRegistry() {
@@ -186,10 +221,6 @@ std::string CpuInfo::GetNameFromRegistry() {
         RegCloseKey(hKey);
     }
     return "Unknown CPU";
-}
-
-double CpuInfo::GetUsage() {
-    return updateUsage();
 }
 
 int CpuInfo::GetTotalCores() const {

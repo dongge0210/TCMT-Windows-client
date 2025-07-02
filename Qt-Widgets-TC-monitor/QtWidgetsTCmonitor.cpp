@@ -27,6 +27,7 @@
 #include <sstream>
 #include <iomanip>
 #include <QString>
+#include <vector>
 
 QtWidgetsTCmonitor::QtWidgetsTCmonitor(QWidget* parent)
     : QMainWindow(parent)
@@ -37,8 +38,16 @@ QtWidgetsTCmonitor::QtWidgetsTCmonitor(QWidget* parent)
     setWindowTitle(tr("系统硬件监视器"));
     resize(800, 600);
 
-    // Set up update timer
+    // Initialize shared memory access
+    if (!SharedMemoryManager::InitSharedMemory()) {
+        QMessageBox::critical(this, tr("错误"), 
+            tr("无法初始化共享内存，请确保 project1.exe 正在运行。\n错误信息: ") + 
+            QString::fromStdString(SharedMemoryManager::GetLastError()));
+    }
+
+    // Set up update timer - connect to shared memory reader instead of just charts
     updateTimer = new QTimer(this);
+    connect(updateTimer, &QTimer::timeout, this, &QtWidgetsTCmonitor::updateFromSharedMemory);
     connect(updateTimer, &QTimer::timeout, this, &QtWidgetsTCmonitor::updateCharts);
     updateTimer->start(1000); // Update once per second
 }
@@ -49,6 +58,24 @@ QtWidgetsTCmonitor::~QtWidgetsTCmonitor()
         updateTimer->stop();
         delete updateTimer;
     }
+}
+
+QString QtWidgetsTCmonitor::safeFromWCharArray(const wchar_t* wstr, size_t maxLen) {
+    if (!wstr) return QString();
+    
+    // Find the actual string length, but don't exceed maxLen
+    size_t len = 0;
+    while (len < maxLen && wstr[len] != L'\0') {
+        len++;
+    }
+    
+    // Ensure null termination by creating a safe copy
+    std::vector<wchar_t> safeCopy(len + 1, L'\0');
+    if (len > 0) {
+        memcpy(safeCopy.data(), wstr, len * sizeof(wchar_t));
+    }
+    
+    return QString::fromWCharArray(safeCopy.data());
 }
 
 void QtWidgetsTCmonitor::setupUI()
@@ -471,7 +498,14 @@ QString QtWidgetsTCmonitor::formatSize(uint64_t bytes)
 
 QString QtWidgetsTCmonitor::formatPercentage(double value)
 {
-    return QString("%1%").arg(value, 0, 'f', 1);
+    // 改进百分比格式化，处理小数精度
+    if (value < 0.1 && value > 0.0) {
+        return QString("< 0.1%");
+    } else if (value >= 99.95) {
+        return QString("100%");
+    } else {
+        return QString("%1%").arg(value, 0, 'f', 1);
+    }
 }
 
 QString QtWidgetsTCmonitor::formatTemperature(double value)
@@ -492,37 +526,202 @@ QString QtWidgetsTCmonitor::formatFrequency(double value)
 // Ensure data is read from shared memory and updates the UI
 void QtWidgetsTCmonitor::updateFromSharedMemory() {
     SharedMemoryBlock* pBuffer = SharedMemoryManager::GetBuffer();
-    if (!pBuffer) return;
+    if (!pBuffer) {
+        // Try to reinitialize
+        if (!SharedMemoryManager::InitSharedMemory()) {
+            return;
+        }
+        pBuffer = SharedMemoryManager::GetBuffer();
+        if (!pBuffer) return;
+    }
 
-    EnterCriticalSection(&pBuffer->lock);
-    {
-        // Update CPU information
-        infoLabels["cpuName"]->setText(QString::fromWCharArray(pBuffer->cpuName));
+    if (!TryEnterCriticalSection(&pBuffer->lock)) {
+        // If we can't get the lock immediately, skip this update
+        return;
+    }
+
+    try {
+        // Update CPU information with improved formatting
+        infoLabels["cpuName"]->setText(safeFromWCharArray(pBuffer->cpuName, 128));
         infoLabels["physicalCores"]->setText(QString::number(pBuffer->physicalCores));
         infoLabels["logicalCores"]->setText(QString::number(pBuffer->logicalCores));
-        infoLabels["cpuUsage"]->setText(formatPercentage(pBuffer->cpuUsage));
+        
+        // 改进CPU使用率显示
+        QString cpuUsageText = formatPercentage(pBuffer->cpuUsage);
+        infoLabels["cpuUsage"]->setText(cpuUsageText);
+        
+        // 添加调试信息
+        static int updateCounter = 0;
+        if (++updateCounter % 10 == 0) {
+            Logger::Info("Qt界面CPU使用率显示: " + cpuUsageText.toStdString());
+        }
+        
         infoLabels["performanceCores"]->setText(QString::number(pBuffer->performanceCores));
         infoLabels["efficiencyCores"]->setText(QString::number(pBuffer->efficiencyCores));
         infoLabels["hyperThreading"]->setText(pBuffer->hyperThreading ? tr("已启用") : tr("未启用"));
         infoLabels["virtualization"]->setText(pBuffer->virtualization ? tr("已启用") : tr("未启用"));
 
-        // Update memory information
-        infoLabels["totalMemory"]->setText(formatSize(pBuffer->totalMemory));
-        infoLabels["usedMemory"]->setText(formatSize(pBuffer->usedMemory));
-        infoLabels["availableMemory"]->setText(formatSize(pBuffer->availableMemory));
-
-        // Update GPU information
+        // Update GPU information with virtual GPU indication
         if (pBuffer->gpuCount > 0) {
-            infoLabels["gpuName"]->setText(QString::fromWCharArray(pBuffer->gpus[0].name));
-            infoLabels["gpuBrand"]->setText(QString::fromWCharArray(pBuffer->gpus[0].brand));
+            QString gpuName = safeFromWCharArray(pBuffer->gpus[0].name, 128);
+            QString gpuBrand = safeFromWCharArray(pBuffer->gpus[0].brand, 64);
+            
+            // 添加虚拟显卡标识
+            if (pBuffer->gpus[0].isVirtual) {
+                gpuName += tr(" (虚拟)");
+                gpuBrand += tr(" (虚拟)");
+            }
+            
+            infoLabels["gpuName"]->setText(gpuName);
+            infoLabels["gpuBrand"]->setText(gpuBrand);
             infoLabels["gpuMemory"]->setText(formatSize(pBuffer->gpus[0].memory));
             infoLabels["gpuCoreFreq"]->setText(formatFrequency(pBuffer->gpus[0].coreClock));
+        } else {
+            infoLabels["gpuName"]->setText(tr("未检测到GPU"));
+            infoLabels["gpuBrand"]->setText(tr("未知"));
+            infoLabels["gpuMemory"]->setText(tr("0 B"));
+            infoLabels["gpuCoreFreq"]->setText(tr("0 MHz"));
         }
 
-        // Update temperature data
-        if (pBuffer->tempCount > 0) {
-            infoLabels["cpuTemp"]->setText(formatTemperature(pBuffer->temperatures[0].temperature));
+        // Update temperature data and history for charts
+        float cpuTemp = 0;
+        float gpuTemp = 0;
+        bool cpuFound = false;
+        bool gpuFound = false;
+
+        for (int i = 0; i < pBuffer->tempCount && i < 10; ++i) {
+            QString sensorName = safeFromWCharArray(pBuffer->temperatures[i].sensorName, 64);
+            double temperature = pBuffer->temperatures[i].temperature;
+            
+            if (sensorName.contains("CPU", Qt::CaseInsensitive) || 
+                sensorName.contains("Package", Qt::CaseInsensitive)) {
+                cpuTemp = static_cast<float>(temperature);
+                cpuFound = true;
+                infoLabels["cpuTemp"]->setText(formatTemperature(temperature));
+            }
+            else if (sensorName.contains("GPU", Qt::CaseInsensitive) || 
+                     sensorName.contains("Graphics", Qt::CaseInsensitive)) {
+                gpuTemp = static_cast<float>(temperature);
+                gpuFound = true;
+                infoLabels["gpuTemp"]->setText(formatTemperature(temperature));
+            }
+        }
+
+        // Update temperature history for charts
+        if (cpuFound) {
+            cpuTempHistory.push(cpuTemp);
+            if (cpuTempHistory.size() > MAX_DATA_POINTS) {
+                cpuTempHistory.pop();
+            }
+        } else {
+            infoLabels["cpuTemp"]->setText(tr("无数据"));
+        }
+
+        if (gpuFound) {
+            gpuTempHistory.push(gpuTemp);
+            if (gpuTempHistory.size() > MAX_DATA_POINTS) {
+                gpuTempHistory.pop();
+            }
+        } else {
+            infoLabels["gpuTemp"]->setText(tr("无数据"));
+        }
+
+        // Update disk information
+        updateDiskInfoFromSharedMemory(pBuffer);
+        
+    }
+    catch (const std::exception& e) {
+        Logger::Error("Qt界面更新异常: " + std::string(e.what()));
+        infoLabels["cpuName"]->setText(tr("读取错误"));
+    }
+    catch (...) {
+        Logger::Error("Qt界面更新未知异常");
+        infoLabels["cpuName"]->setText(tr("未知错误"));
+    }
+    
+    LeaveCriticalSection(&pBuffer->lock);
+}
+
+// Add helper method for disk info updates
+void QtWidgetsTCmonitor::updateDiskInfoFromSharedMemory(SharedMemoryBlock* pBuffer) {
+    if (!pBuffer) {
+        return;
+    }
+    if (pBuffer->diskCount < 0 || pBuffer->diskCount > 8) {
+        return;
+    }
+
+    // Get or create disk container
+    QLayout* currentLayout = diskGroupBox->layout();
+    QWidget* diskContainer = nullptr;
+
+    if (currentLayout) {
+        for (int i = 0; i < currentLayout->count(); ++i) {
+            QWidget* widget = currentLayout->itemAt(i)->widget();
+            if (widget) {
+                diskContainer = widget;
+                break;
+            }
         }
     }
-    LeaveCriticalSection(&pBuffer->lock);
+
+    if (!diskContainer) {
+        diskContainer = new QWidget(diskGroupBox);
+        static_cast<QVBoxLayout*>(currentLayout)->addWidget(diskContainer);
+    }
+
+    // Clear existing layout
+    if (diskContainer->layout()) {
+        QLayoutItem* child;
+        while ((child = diskContainer->layout()->takeAt(0)) != nullptr) {
+            if (child->widget()) {
+                child->widget()->deleteLater();
+            }
+            delete child;
+        }
+        delete diskContainer->layout();
+    }
+
+    // Create new layout and add disk info
+    QVBoxLayout* diskLayout = new QVBoxLayout(diskContainer);
+
+    for (int i = 0; i < pBuffer->diskCount && i < 8; ++i) {
+        const auto& disk = pBuffer->disks[i];
+
+        // Use safe string conversion
+        QString label = safeFromWCharArray(disk.label, 128);
+        QString fileSystem = safeFromWCharArray(disk.fileSystem, 32);
+
+        QString diskLabel = QString("%1: %2").arg(QChar(disk.letter)).arg(tr("驱动器"));
+        if (!label.isEmpty()) {
+            diskLabel += QString(" (%1)").arg(label);
+        }
+
+        QGroupBox* diskBox = new QGroupBox(diskLabel);
+        QGridLayout* diskInfoLayout = new QGridLayout(diskBox);
+
+        int row = 0;
+        if (!fileSystem.isEmpty()) {
+            diskInfoLayout->addWidget(new QLabel(tr("文件系统:")), row, 0);
+            diskInfoLayout->addWidget(new QLabel(fileSystem), row++, 1);
+        }
+
+        diskInfoLayout->addWidget(new QLabel(tr("总容量:")), row, 0);
+        diskInfoLayout->addWidget(new QLabel(formatSize(disk.totalSize)), row++, 1);
+
+        diskInfoLayout->addWidget(new QLabel(tr("已用空间:")), row, 0);
+        diskInfoLayout->addWidget(new QLabel(formatSize(disk.usedSpace)), row++, 1);
+
+        diskInfoLayout->addWidget(new QLabel(tr("可用空间:")), row, 0);
+        diskInfoLayout->addWidget(new QLabel(formatSize(disk.freeSpace)), row++, 1);
+
+        double usagePercent = disk.totalSize > 0 ?
+            (static_cast<double>(disk.usedSpace) / disk.totalSize * 100.0) : 0.0;
+        diskInfoLayout->addWidget(new QLabel(tr("使用率:")), row, 0);
+        diskInfoLayout->addWidget(new QLabel(formatPercentage(usagePercent)), row++, 1);
+
+        diskLayout->addWidget(diskBox);
+    }
+
+    diskLayout->addStretch();
 }

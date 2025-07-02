@@ -9,6 +9,7 @@
 #include <io.h>
 #include <fcntl.h>
 #include <windows.h> // For MultiByteToWideChar
+#include <algorithm> // For std::transform
 
 std::ofstream Logger::logFile;
 std::mutex Logger::logMutex;
@@ -132,5 +133,9 @@ void Logger::Error(const std::string& message) {
 
 void Logger::Warning(const std::string& message) {
     WriteLog("WARNING", message);
+}
+
+void Logger::Debug(const std::string& message) {
+    WriteLog("DEBUG", message);
 }
 

@@ -1,5 +1,6 @@
 ﻿// DiskInfo.cpp
 #include "DiskInfo.h"
+#include "../Utils/WinUtils.h"
 
 DiskInfo::DiskInfo() {
     QueryDrives();
@@ -46,4 +47,19 @@ void DiskInfo::Refresh() {
 
 const std::vector<DriveInfo>& DiskInfo::GetDrives() const {
     return drives;
+}
+
+std::vector<DiskData> DiskInfo::GetDisks() {
+    std::vector<DiskData> disks;
+    for (const auto& drive : drives) {
+        DiskData data;
+        data.letter = drive.letter;
+        data.totalSize = drive.totalSize;
+        data.freeSpace = drive.freeSpace;
+        data.usedSpace = drive.usedSpace;
+        data.label = WinUtils::WstringToString(drive.label);
+        data.fileSystem = WinUtils::WstringToString(drive.fileSystem);
+        disks.push_back(data);
+    }
+    return disks;
 }

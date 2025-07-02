@@ -61,6 +61,12 @@ private:
     QString formatPercentage(double value);
     QString formatTemperature(double value);
     QString formatFrequency(double value);
+    
+    // Safe string conversion helper
+    QString safeFromWCharArray(const wchar_t* wstr, size_t maxLen);
+    
+    // Helper method for disk info updates
+    void updateDiskInfoFromSharedMemory(SharedMemoryBlock* pBuffer);
 
     // UI components
     QTimer *updateTimer;
