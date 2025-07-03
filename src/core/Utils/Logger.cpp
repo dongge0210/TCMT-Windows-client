@@ -14,6 +14,7 @@
 std::ofstream Logger::logFile;
 std::mutex Logger::logMutex;
 bool Logger::consoleOutputEnabled = false; // Initialize console output flag
+LogLevel Logger::currentLogLevel = LogLevel::INFO; // 默认日志等级为INFO
 
 void Logger::Initialize(const std::string& logFilePath) {
     logFile.open(logFilePath, std::ios::binary | std::ios::app);
@@ -34,6 +35,14 @@ void Logger::Initialize(const std::string& logFilePath) {
 
 void Logger::EnableConsoleOutput(bool enable) {
     consoleOutputEnabled = enable;
+}
+
+void Logger::SetLogLevel(LogLevel level) {
+    currentLogLevel = level;
+}
+
+LogLevel Logger::GetLogLevel() {
+    return currentLogLevel;
 }
 
 std::wstring Logger::ConvertToWideString(const std::string& utf8Str) {
@@ -74,7 +83,12 @@ std::wstring Logger::ConvertToWideString(const std::string& utf8Str) {
     return wideStr;
 }
 
-void Logger::WriteLog(const std::string& level, const std::string& message) {
+void Logger::WriteLog(const std::string& level, const std::string& message, LogLevel msgLevel) {
+    // 检查日志等级过滤
+    if (msgLevel < currentLogLevel) {
+        return; // 跳过低于当前等级的日志
+    }
+
     std::lock_guard<std::mutex> lock(logMutex);
 
     if (message.empty()) {
@@ -123,19 +137,31 @@ void Logger::WriteLog(const std::string& level, const std::string& message) {
     }
 }
 
-void Logger::Info(const std::string& message) {
-    WriteLog("INFO", message);
-}
-
-void Logger::Error(const std::string& message) {
-    WriteLog("ERROR", message);
-}
-
-void Logger::Warning(const std::string& message) {
-    WriteLog("WARNING", message);
+void Logger::Trace(const std::string& message) {
+    WriteLog("TRACE", message, LogLevel::TRACE);
 }
 
 void Logger::Debug(const std::string& message) {
-    WriteLog("DEBUG", message);
+    WriteLog("DEBUG", message, LogLevel::DEBUG);
+}
+
+void Logger::Info(const std::string& message) {
+    WriteLog("INFO", message, LogLevel::INFO);
+}
+
+void Logger::Warning(const std::string& message) {
+    WriteLog("WARNING", message, LogLevel::WARNING);
+}
+
+void Logger::Error(const std::string& message) {
+    WriteLog("ERROR", message, LogLevel::ERROR);
+}
+
+void Logger::Critical(const std::string& message) {
+    WriteLog("CRITICAL", message, LogLevel::CRITICAL);
+}
+
+void Logger::Fatal(const std::string& message) {
+    WriteLog("FATAL", message, LogLevel::FATAL);
 }
 
