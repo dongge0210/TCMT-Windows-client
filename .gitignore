@@ -1,4 +1,4 @@
-.DS_Store# Visual Studio directories
+# Visual Studio directories
 .vs/
 ipch/
 [Dd]ebug/
@@ -12,6 +12,8 @@ x86/
 [Aa][Rr][Mm]/
 [Aa][Rr][Mm]64/
 bld/
+Project1/Project1/
+Project1/x64/
 
 # Visual Studio files
 *.vsidx
@@ -74,6 +76,12 @@ bld/
 /Windows Kits
 /Project1/system_monitor.log
 
+
 .fake
+
+#Mac fucking trashes
 .DS_Store
+._*
+
+# History huh..
 /弃用

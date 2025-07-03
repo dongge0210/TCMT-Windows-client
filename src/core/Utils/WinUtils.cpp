@@ -93,3 +93,14 @@ std::string WinUtils::FormatWindowsErrorMessage(DWORD errorCode) {
     LocalFree(buffer);
     return std::string(wideMsg.begin(), wideMsg.end());
 }
+
+std::string WinUtils::GetExecutableDirectory() {
+    char path[MAX_PATH];
+    GetModuleFileNameA(NULL, path, MAX_PATH);
+    std::string fullPath(path);
+    size_t pos = fullPath.find_last_of("\\");
+    if (pos != std::string::npos) {
+        return fullPath.substr(0, pos);
+    }
+    return fullPath;
+}

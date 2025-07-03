@@ -68,8 +68,7 @@ void CpuInfo::InitializeCounter() {
     }
 
     counterInitialized = true;
-    Sleep(100); // 等待首次采样完成
-    updateUsage(); // 初始化采样
+    Logger::Info("CPU性能计数器初始化完成");
 }
 
 double CpuInfo::GetLargeCoreSpeed() const {
@@ -163,6 +162,16 @@ double CpuInfo::updateUsage() {
         return cpuUsage;
     }
 
+    // 检查时间间隔，确保两次采样之间有足够间隔
+    static DWORD lastCollectTime = 0;
+    DWORD currentTime = GetTickCount();
+    
+    if (currentTime - lastCollectTime < 1000) { // 至少1秒间隔
+        return cpuUsage; // 返回上次的值
+    }
+    
+    lastCollectTime = currentTime;
+
     PDH_STATUS status = PdhCollectQueryData(queryHandle);
     if (status != ERROR_SUCCESS) {
         Logger::Error("无法收集CPU使用率数据，错误代码: " + std::to_string(status));
@@ -182,11 +191,18 @@ double CpuInfo::updateUsage() {
 
     // 验证数据有效性
     if (counterValue.CStatus == PDH_CSTATUS_VALID_DATA || counterValue.CStatus == PDH_CSTATUS_NEW_DATA) {
-        cpuUsage = counterValue.doubleValue;
+        double newUsage = counterValue.doubleValue;
         
         // 限制在合理范围内
-        if (cpuUsage < 0.0) cpuUsage = 0.0;
-        if (cpuUsage > 100.0) cpuUsage = 100.0;
+        if (newUsage < 0.0) newUsage = 0.0;
+        if (newUsage > 100.0) newUsage = 100.0;
+        
+        // 应用简单的平滑滤波避免剧烈跳跃
+        if (cpuUsage > 0.0) {
+            cpuUsage = (cpuUsage * 0.8) + (newUsage * 0.2); // 80%旧值 + 20%新值
+        } else {
+            cpuUsage = newUsage; // 首次使用直接赋值
+        }
         
         Logger::Debug("CPU使用率更新: " + std::to_string(cpuUsage) + "%");
     } else {

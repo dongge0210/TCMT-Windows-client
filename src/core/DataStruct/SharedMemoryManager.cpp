@@ -50,10 +50,13 @@ inline std::string FallbackFormatWindowsErrorMessage(DWORD errorCode) {
 }
 #endif
 
+
 // Initialize static members
 HANDLE SharedMemoryManager::hMapFile = NULL;
 SharedMemoryBlock* SharedMemoryManager::pBuffer = nullptr;
 std::string SharedMemoryManager::lastError = "";
+// 跨进程互斥体用于同步共享内存写入
+static HANDLE g_hMutex = NULL;
 
 bool SharedMemoryManager::InitSharedMemory() {
     // Clear any previous error
@@ -68,6 +71,15 @@ bool SharedMemoryManager::InitSharedMemory() {
     } catch(...) {
         Logger::Warning("Exception when enabling SeCreateGlobalPrivilege - attempting to continue anyway");
         // Continue execution as this is not critical
+    }
+
+    // 创建全局互斥体用于多进程同步
+    if (!g_hMutex) {
+        g_hMutex = CreateMutexW(NULL, FALSE, L"Global\\SystemMonitorSharedMemoryMutex");
+        if (!g_hMutex) {
+            Logger::Error("Failed to create global mutex for shared memory sync");
+            return false;
+        }
     }
 
     // Create security attributes to allow sharing between processes
@@ -198,31 +210,8 @@ bool SharedMemoryManager::InitSharedMemory() {
         return false;
     }
 
-    // Initialize critical section (only if not already initialized)
-    static bool csInitialized = false;
-    if (!csInitialized) {
-        if (!InitializeCriticalSectionAndSpinCount(&pBuffer->lock, 4000)) {
-            DWORD errorCode = ::GetLastError();
-            std::stringstream ss;
-            ss << "Failed to initialize critical section in shared memory. Error code: "
-               << errorCode
-               << " ("
-               #ifdef WINUTILS_IMPLEMENTED
-                    << WinUtils::FormatWindowsErrorMessage(errorCode)
-               #else
-                    << FallbackFormatWindowsErrorMessage(errorCode)
-               #endif
-               << ")";
-            lastError = ss.str();
-            Logger::Error(lastError);
-            UnmapViewOfFile(pBuffer);
-            pBuffer = nullptr;
-            CloseHandle(hMapFile);
-            hMapFile = NULL;
-            return false;
-        }
-        csInitialized = true;
-    }
+
+    // 不再在共享内存结构体中初始化CriticalSection
 
     // Zero out the shared memory to avoid dirty data (only on first creation)
     if (errorCode != ERROR_ALREADY_EXISTS) {
@@ -255,7 +244,12 @@ void SharedMemoryManager::WriteToSharedMemory(const SystemInfo& systemInfo) {
         return;
     }
 
-    EnterCriticalSection(&pBuffer->lock);
+    // 跨进程同步：加互斥体
+    DWORD waitResult = WaitForSingleObject(g_hMutex, 5000); // 最多等5秒
+    if (waitResult != WAIT_OBJECT_0) {
+        Logger::Error("Failed to acquire shared memory mutex");
+        return;
+    }
     try {
         // Clear all string fields first to ensure proper null termination
         memset(pBuffer->cpuName, 0, sizeof(pBuffer->cpuName));
@@ -399,5 +393,5 @@ void SharedMemoryManager::WriteToSharedMemory(const SystemInfo& systemInfo) {
         lastError = "Unknown exception in WriteToSharedMemory";
         Logger::Error(lastError);
     }
-    LeaveCriticalSection(&pBuffer->lock);
+    ReleaseMutex(g_hMutex);
 }
