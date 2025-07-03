@@ -535,9 +535,16 @@ void QtWidgetsTCmonitor::updateFromSharedMemory() {
         if (!pBuffer) return;
     }
 
-    if (!TryEnterCriticalSection(&pBuffer->lock)) {
-        // If we can't get the lock immediately, skip this update
-        return;
+    // 使用全局命名Mutex进行同步
+    HANDLE hMutex = OpenMutexW(SYNCHRONIZE, FALSE, L"Global\\SystemMonitorSharedMemoryMutex");
+    if (hMutex == NULL) {
+        return;  // 无法打开Mutex，跳过此次更新
+    }
+
+    DWORD waitResult = WaitForSingleObject(hMutex, 50); // 50ms超时
+    if (waitResult != WAIT_OBJECT_0) {
+        CloseHandle(hMutex);
+        return; // 无法获取锁，跳过此次更新
     }
 
     try {
@@ -560,6 +567,14 @@ void QtWidgetsTCmonitor::updateFromSharedMemory() {
         infoLabels["efficiencyCores"]->setText(QString::number(pBuffer->efficiencyCores));
         infoLabels["hyperThreading"]->setText(pBuffer->hyperThreading ? tr("已启用") : tr("未启用"));
         infoLabels["virtualization"]->setText(pBuffer->virtualization ? tr("已启用") : tr("未启用"));
+
+        // Update memory information
+        infoLabels["totalMemory"]->setText(formatSize(pBuffer->totalMemory));
+        infoLabels["usedMemory"]->setText(formatSize(pBuffer->usedMemory));
+        infoLabels["availableMemory"]->setText(formatSize(pBuffer->availableMemory));
+        
+        double memoryUsagePercent = static_cast<double>(pBuffer->usedMemory) / pBuffer->totalMemory * 100.0;
+        infoLabels["memoryUsage"]->setText(formatPercentage(memoryUsagePercent));
 
         // Update GPU information with virtual GPU indication
         if (pBuffer->gpuCount > 0) {
@@ -639,7 +654,9 @@ void QtWidgetsTCmonitor::updateFromSharedMemory() {
         infoLabels["cpuName"]->setText(tr("未知错误"));
     }
     
-    LeaveCriticalSection(&pBuffer->lock);
+    // 释放Mutex
+    ReleaseMutex(hMutex);
+    CloseHandle(hMutex);
 }
 
 // Add helper method for disk info updates

@@ -18,10 +18,12 @@
 #include <windows.h>
 #include <utility>
 #include <thread>
-#include <QMessageBox> 
 #include <io.h>
 #include <fcntl.h>
 #include <algorithm> // Include for std::transform
+#include <shellapi.h>
+#include <sddl.h>
+#include <Aclapi.h>
 
 //QT已在本体软件因为COM证实为无效，QTUI将单独UI通过内存共享显示
 
@@ -157,6 +159,20 @@ void ConvertToSharedData(const SystemInfo& sysInfo, SharedMemoryBlock& sharedDat
 }
 
 //主要函数
+// 检查是否以管理员身份运行
+bool IsRunAsAdmin() {
+    BOOL isAdmin = FALSE;
+    PSID adminGroup = NULL;
+    SID_IDENTIFIER_AUTHORITY NtAuthority = SECURITY_NT_AUTHORITY;
+    if (AllocateAndInitializeSid(&NtAuthority, 2,
+        SECURITY_BUILTIN_DOMAIN_RID, DOMAIN_ALIAS_RID_ADMINS,
+        0, 0, 0, 0, 0, 0, &adminGroup)) {
+        CheckTokenMembership(NULL, adminGroup, &isAdmin);
+        FreeSid(adminGroup);
+    }
+    return isAdmin == TRUE;
+}
+
 int main(int argc, char* argv[]) {
     try {
         // Set console output to UTF-8
@@ -165,6 +181,28 @@ int main(int argc, char* argv[]) {
         Logger::EnableConsoleOutput(true); // Enable console output for Logger
         Logger::Initialize("system_monitor.log");
         Logger::Info("程序启动");
+
+        // 检查管理员权限
+        if (!IsRunAsAdmin()) {
+    wchar_t szPath[MAX_PATH];
+    GetModuleFileNameW(NULL, szPath, MAX_PATH);
+
+    // 以管理员权限重启自身
+    SHELLEXECUTEINFOW sei = { sizeof(sei) };
+    sei.lpVerb = L"runas";
+    sei.lpFile = szPath;
+    sei.hwnd = NULL;
+    sei.nShow = SW_NORMAL;
+
+    if (ShellExecuteExW(&sei)) {
+        // 启动成功，退出当前进程
+        exit(0);
+    } else {
+        // 启动失败，弹窗提示
+        MessageBoxW(NULL, L"自动提权失败，请右键以管理员身份运行。", L"权限不足", MB_OK | MB_ICONERROR);
+        exit(1);
+    }
+}
 
         // 初始化COM为多线程模式
         HRESULT hr = CoInitializeEx(nullptr, COINIT_MULTITHREADED);
@@ -192,13 +230,17 @@ int main(int argc, char* argv[]) {
         WmiManager wmiManager;
         if (!wmiManager.IsInitialized()) {
             Logger::Error("WMI初始化失败");
-            QMessageBox::critical(nullptr, "错误", "WMI初始化失败，无法获取系统信息。");
+            MessageBoxA(NULL, "WMI初始化失败，无法获取系统信息。", "错误", MB_OK | MB_ICONERROR);
             return 1;
         }
 
         LibreHardwareMonitorBridge::Initialize();
 
+        Logger::Info("后端系统监控程序已启动");
+        Logger::Info("请手动启动 Qt-Widgets-TC-monitor.exe 来查看UI界面");
+
         while (true) {
+            Logger::Debug("Starting main loop iteration");
             // 获取系统信息
             SystemInfo sysInfo;
 
@@ -337,8 +379,10 @@ int main(int argc, char* argv[]) {
                 Logger::Error("Exception writing to shared memory: " + std::string(e.what()));
             }
 
+            Logger::Debug("Main loop iteration completed, sleeping for 1 second");
             // 等待1秒
             std::this_thread::sleep_for(std::chrono::seconds(1));
+            Logger::Debug("Woke up from sleep, starting next iteration");
         }
             
         // 清理资源

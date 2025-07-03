@@ -40,4 +40,7 @@ public:
     
     // Format Windows error code to message string
     static std::string FormatWindowsErrorMessage(DWORD errorCode);
+    
+    // Get the directory of the current executable
+    static std::string GetExecutableDirectory();
 };
