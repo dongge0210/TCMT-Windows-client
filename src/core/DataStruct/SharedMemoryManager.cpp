@@ -45,7 +45,7 @@
 // Fallback implementation for FormatWindowsErrorMessage
 inline std::string FallbackFormatWindowsErrorMessage(DWORD errorCode) {
     std::stringstream ss;
-    ss << "Error code: " << errorCode;
+    ss << "错误码: " << errorCode;
     return ss.str();
 }
 #endif
@@ -66,10 +66,10 @@ bool SharedMemoryManager::InitSharedMemory() {
         // Try to enable privileges needed for creating global objects
         bool hasPrivileges = WinUtils::EnablePrivilege(L"SeCreateGlobalPrivilege");
         if (!hasPrivileges) {
-            Logger::Warn("Failed to enable SeCreateGlobalPrivilege - attempting to continue anyway");
+            Logger::Warn("未能启用 SeCreateGlobalPrivilege - 尝试继续");
         }
     } catch(...) {
-        Logger::Warn("Exception when enabling SeCreateGlobalPrivilege - attempting to continue anyway");
+        Logger::Warn("启用 SeCreateGlobalPrivilege 时发生异常 - 尝试继续");
         // Continue execution as this is not critical
     }
 
@@ -77,7 +77,7 @@ bool SharedMemoryManager::InitSharedMemory() {
     if (!g_hMutex) {
         g_hMutex = CreateMutexW(NULL, FALSE, L"Global\\SystemMonitorSharedMemoryMutex");
         if (!g_hMutex) {
-            Logger::Error("Failed to create global mutex for shared memory sync");
+            Logger::Error("未能创建全局互斥体用于共享内存同步");
             return false;
         }
     }
@@ -90,7 +90,7 @@ bool SharedMemoryManager::InitSharedMemory() {
     if (!InitializeSecurityDescriptor(&securityDescriptor, SECURITY_DESCRIPTOR_REVISION)) {
         DWORD errorCode = ::GetLastError();
         std::stringstream ss;
-        ss << "Failed to initialize security descriptor. Error code: " << errorCode
+        ss << "未能初始化安全描述符。错误码: " << errorCode
            << " ("
            #ifdef WINUTILS_IMPLEMENTED
                 << WinUtils::FormatWindowsErrorMessage(errorCode)
@@ -107,7 +107,7 @@ bool SharedMemoryManager::InitSharedMemory() {
     if (!SetSecurityDescriptorDacl(&securityDescriptor, TRUE, NULL, FALSE)) {
         DWORD errorCode = ::GetLastError();
         std::stringstream ss;
-        ss << "Failed to set security descriptor DACL. Error code: " << errorCode
+        ss << "未能设置安全描述符 DACL。错误码: " << errorCode
            << " ("
            #ifdef WINUTILS_IMPLEMENTED
                 << WinUtils::FormatWindowsErrorMessage(errorCode)
@@ -137,7 +137,7 @@ bool SharedMemoryManager::InitSharedMemory() {
     if (hMapFile == NULL) {
         DWORD errorCode = ::GetLastError();
         // Fallback if Global is not permitted, try Local or no prefix
-        Logger::Warn("Failed to create global shared memory, trying local namespace");
+        Logger::Warn("未能创建全局共享内存，尝试本地命名空间");
 
         hMapFile = CreateFileMapping(
             INVALID_HANDLE_VALUE,
@@ -162,7 +162,7 @@ bool SharedMemoryManager::InitSharedMemory() {
         if (hMapFile == NULL) {
             errorCode = ::GetLastError();
             std::stringstream ss;
-            ss << "Unable to create shared memory. Error code: " << errorCode
+            ss << "未能创建共享内存。错误码: " << errorCode
                << " ("
                #ifdef WINUTILS_IMPLEMENTED
                     << WinUtils::FormatWindowsErrorMessage(errorCode)
@@ -172,7 +172,7 @@ bool SharedMemoryManager::InitSharedMemory() {
                << ")";
             // Possibly shared memory already exists
             if (errorCode == ERROR_ALREADY_EXISTS) {
-                ss << " (Shared memory already exists)";
+                ss << " (共享内存已存在)";
             }
             lastError = ss.str();
             Logger::Error(lastError);
@@ -183,9 +183,9 @@ bool SharedMemoryManager::InitSharedMemory() {
     // Check if we created a new mapping or opened an existing one
     DWORD errorCode = ::GetLastError();
     if (errorCode == ERROR_ALREADY_EXISTS) {
-        Logger::Info("Opened existing shared memory mapping.");
+        Logger::Info("打开了现有的共享内存映射.");
     } else {
-        Logger::Info("Created new shared memory mapping.");
+        Logger::Info("创建了新的共享内存映射.");
     }
 
     // Map to process address space
@@ -195,7 +195,7 @@ bool SharedMemoryManager::InitSharedMemory() {
     if (pBuffer == nullptr) {
         DWORD errorCode = ::GetLastError();
         std::stringstream ss;
-        ss << "Unable to map shared memory view. Error code: " << errorCode
+        ss << "未能映射共享内存视图。错误码: " << errorCode
            << " ("
            #ifdef WINUTILS_IMPLEMENTED
                 << WinUtils::FormatWindowsErrorMessage(errorCode)
@@ -218,7 +218,7 @@ bool SharedMemoryManager::InitSharedMemory() {
         memset(pBuffer, 0, sizeof(SharedMemoryBlock));
     }
 
-    Logger::Info("Shared memory initialized successfully.");
+    Logger::Info("共享内存成功初始化.");
     return true;
 }
 
@@ -239,7 +239,7 @@ std::string SharedMemoryManager::GetLastError() {
 
 void SharedMemoryManager::WriteToSharedMemory(const SystemInfo& systemInfo) {
     if (!pBuffer) {
-        lastError = "Shared memory not initialized";
+        lastError = "共享内存未初始化";
         Logger::Error(lastError);
         return;
     }
@@ -247,7 +247,7 @@ void SharedMemoryManager::WriteToSharedMemory(const SystemInfo& systemInfo) {
     // 跨进程同步：加互斥体
     DWORD waitResult = WaitForSingleObject(g_hMutex, 5000); // 最多等5秒
     if (waitResult != WAIT_OBJECT_0) {
-        Logger::Error("Failed to acquire shared memory mutex");
+        Logger::Error("未能获取共享内存互斥体");
         return;
     }
     try {
@@ -383,14 +383,14 @@ void SharedMemoryManager::WriteToSharedMemory(const SystemInfo& systemInfo) {
         // Update timestamp
         GetSystemTime(&pBuffer->lastUpdate);
         
-        Logger::Info("Successfully wrote system information to shared memory");
+        Logger::Trace("成功写入系统信息到共享内存");
     }
     catch (const std::exception& e) {
-        lastError = "Exception in WriteToSharedMemory: " + std::string(e.what());
+        lastError = "WriteToSharedMemory 中的异常: " + std::string(e.what());
         Logger::Error(lastError);
     }
     catch (...) {
-        lastError = "Unknown exception in WriteToSharedMemory";
+        lastError = "WriteToSharedMemory 中的未知异常";
         Logger::Error(lastError);
     }
     ReleaseMutex(g_hMutex);

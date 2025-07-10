@@ -18,8 +18,9 @@ enum LogLevel {
 
 // 控制台颜色枚举
 enum class ConsoleColor {
-    WHITE = 15,      // 白色 - TRACE
-    GREEN = 10,      // 绿色 - DEBUG  
+    WHITE = 15,      // 白色
+    PURPLE = 13,     // 紫色 - TRACE & DEBUG
+    GREEN = 10,      // 绿色  
     LIGHT_GREEN = 10, // 亮绿色 - INFO
     YELLOW = 14,     // 黄色 - WARNING
     ORANGE = 12,     // 红色(作为橙色) - ERROR
