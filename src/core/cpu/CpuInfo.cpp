@@ -158,7 +158,7 @@ void CpuInfo::UpdateCoreSpeeds() {
 
 double CpuInfo::updateUsage() {
     if (!counterInitialized) {
-        Logger::Warning("CPU性能计数器未初始化");
+        Logger::Warn("CPU性能计数器未初始化");
         return cpuUsage;
     }
 
@@ -204,9 +204,13 @@ double CpuInfo::updateUsage() {
             cpuUsage = newUsage; // 首次使用直接赋值
         }
         
-        Logger::Debug("CPU使用率更新: " + std::to_string(cpuUsage) + "%");
+        // 减少调试日志的频率
+        static int updateCounter = 0;
+        if (++updateCounter % 60 == 0) { // 每60次更新记录一次（约1分钟）
+            Logger::Debug("CPU使用率更新: " + std::to_string(cpuUsage) + "%");
+        }
     } else {
-        Logger::Warning("CPU使用率数据无效，状态: " + std::to_string(counterValue.CStatus));
+        Logger::Warn("CPU使用率数据无效，状态: " + std::to_string(counterValue.CStatus));
     }
 
     return cpuUsage;
@@ -215,9 +219,9 @@ double CpuInfo::updateUsage() {
 double CpuInfo::GetUsage() {
     double currentUsage = updateUsage();
     
-    // 添加调试信息
+    // 减少调试信息的频率
     static int debugCounter = 0;
-    if (++debugCounter % 10 == 0) { // 每10次调用记录一次
+    if (++debugCounter % 30 == 0) { // 每30次调用记录一次（约30秒）
         Logger::Info("CPU使用率: " + std::to_string(currentUsage) + "%");
     }
     

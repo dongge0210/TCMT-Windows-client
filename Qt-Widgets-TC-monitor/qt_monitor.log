@@ -204,3 +204,111 @@
 [2025-07-03 19:11:18][INFO] Opened existing shared memory mapping.
  [2025-07-03 19:11:18][INFO] Shared memory initialized successfully.
 [2025-07-03 19:11:18][INFO] Qt Monitor application started successfully
+﻿[2025-07-10 16:51:16][INFO] Qt Monitor application starting
+[2025-07-10 16:51:16][INFO] Opened existing shared memory mapping.
+ [2025-07-10 16:51:16][INFO] Shared memory initialized successfully.
+[2025-07-10 16:51:16][INFO] Qt Monitor application started successfully
+[2025-07-10 16:51:26][INFO] Qt界面CPU使用率显示: 100%
+ [2025-07-10 16:51:36][INFO] Qt界面CPU使用率显示: 100%
+ [2025-07-10 16:51:46][INFO] Qt界面CPU使用率显示: 100%
+ [2025-07-10 16:51:56][INFO] Qt界面CPU使用率显示: 100%
+ [2025-07-10 16:52:06][INFO] Qt界面CPU使用率显示: 100%
+ [2025-07-10 16:52:16][INFO] Qt界面CPU使用率显示: 100%
+ [2025-07-10 16:52:26][INFO] Qt界面CPU使用率显示: 100%
+ ﻿[2025-07-10 16:52:40][INFO] Qt Monitor application starting
+[2025-07-10 16:52:40][INFO] Opened existing shared memory mapping.
+ [2025-07-10 16:52:40][INFO] Shared memory initialized successfully.
+[2025-07-10 16:52:41][INFO] Qt Monitor application started successfully
+[2025-07-10 16:52:50][INFO] Qt界面CPU使用率显示: 0.0%
+ ﻿[2025-07-10 16:52:59][INFO] Qt Monitor application starting
+[2025-07-10 16:52:59][INFO] Opened existing shared memory mapping.
+ [2025-07-10 16:52:59][INFO] Shared memory initialized successfully.
+[2025-07-10 16:52:59][INFO] Qt Monitor application started successfully
+[2025-07-10 16:53:09][INFO] Qt界面CPU使用率显示: 100%
+ [2025-07-10 16:53:19][INFO] Qt界面CPU使用率显示: 0.0%
+ ﻿[2025-07-10 16:53:28][INFO] Qt Monitor application starting
+[2025-07-10 16:53:28][INFO] Opened existing shared memory mapping.
+ [2025-07-10 16:53:28][INFO] Shared memory initialized successfully.
+[2025-07-10 16:53:28][INFO] Qt Monitor application started successfully
+[2025-07-10 16:53:38][INFO] Qt界面CPU使用率显示: 100%
+ [2025-07-10 16:53:48][INFO] Qt界面CPU使用率显示: 0.0%
+ [2025-07-10 16:53:58][INFO] Qt界面CPU使用率显示: 100%
+ [2025-07-10 16:54:08][INFO] Qt界面CPU使用率显示: 0.0%
+ [2025-07-10 16:54:18][INFO] Qt界面CPU使用率显示: 100%
+ [2025-07-10 16:54:28][INFO] Qt界面CPU使用率显示: 0.0%
+ [2025-07-10 16:54:38][INFO] Qt界面CPU使用率显示: 2.4%
+ [2025-07-10 16:54:48][INFO] Qt界面CPU使用率显示: 0.0%
+ ﻿[2025-07-10 16:54:56][INFO] Qt Monitor application starting
+[2025-07-10 16:54:56][INFO] Opened existing shared memory mapping.
+ [2025-07-10 16:54:56][INFO] Shared memory initialized successfully.
+[2025-07-10 16:54:56][INFO] Qt Monitor application started successfully
+[2025-07-10 16:55:06][INFO] Qt界面CPU使用率显示: 100%
+ [2025-07-10 16:55:16][INFO] Qt界面CPU使用率显示: 0.0%
+ ﻿[2025-07-10 16:55:29][INFO] Qt Monitor application starting
+[2025-07-10 16:55:29][INFO] Opened existing shared memory mapping.
+ [2025-07-10 16:55:29][INFO] Shared memory initialized successfully.
+[2025-07-10 16:55:30][INFO] Qt Monitor application started successfully
+[2025-07-10 16:55:39][INFO] Qt界面CPU使用率显示: 100%
+ [2025-07-10 16:55:49][INFO] Qt界面CPU使用率显示: 100%
+ [2025-07-10 16:55:59][INFO] Qt界面CPU使用率显示: 0.0%
+ [2025-07-10 16:56:09][INFO] Qt界面CPU使用率显示: 100%
+ [2025-07-10 16:56:19][INFO] Qt界面CPU使用率显示: 100%
+ [2025-07-10 16:56:29][INFO] Qt界面CPU使用率显示: 100%
+ [2025-07-10 16:56:39][INFO] Qt界面CPU使用率显示: 100%
+ [2025-07-10 16:56:49][INFO] Qt界面CPU使用率显示: 100%
+ [2025-07-10 16:56:59][INFO] Qt界面CPU使用率显示: 0.0%
+ [2025-07-10 16:57:09][INFO] Qt界面CPU使用率显示: 100%
+ [2025-07-10 16:57:19][INFO] Qt界面CPU使用率显示: 0.0%
+ [2025-07-10 16:57:29][INFO] Qt界面CPU使用率显示: 100%
+ [2025-07-10 16:57:39][INFO] Qt界面CPU使用率显示: 100%
+ [2025-07-10 16:57:49][INFO] Qt界面CPU使用率显示: 0.0%
+ [2025-07-10 16:57:59][INFO] Qt界面CPU使用率显示: 0.0%
+ [2025-07-10 16:58:09][INFO] Qt界面CPU使用率显示: 0.0%
+ [2025-07-10 16:58:19][INFO] Qt界面CPU使用率显示: 56.6%
+[2025-07-10 16:58:29][INFO] Qt界面CPU使用率显示: 100%
+ [2025-07-10 16:58:39][INFO] Qt界面CPU使用率显示: 0.0%
+ [2025-07-10 16:58:49][INFO] Qt界面CPU使用率显示: 100%
+ [2025-07-10 16:58:59][INFO] Qt界面CPU使用率显示: 100%
+ ﻿[2025-07-10 16:59:11][INFO] Qt Monitor application starting
+[2025-07-10 16:59:11][INFO] Created new shared memory mapping.
+ [2025-07-10 16:59:11][INFO] Shared memory initialized successfully.
+[2025-07-10 16:59:12][INFO] Qt Monitor application started successfully
+[2025-07-10 16:59:21][INFO] Qt界面CPU使用率显示: 100%
+ [2025-07-10 16:59:31][INFO] Qt界面CPU使用率显示: 0.0%
+ ﻿[2025-07-10 17:07:32][INFO] Qt Monitor application starting
+[2025-07-10 17:07:32][INFO] Opened existing shared memory mapping.
+ [2025-07-10 17:07:32][INFO] Shared memory initialized successfully.
+[2025-07-10 17:07:33][INFO] Qt Monitor application started successfully
+[2025-07-10 17:07:42][INFO] Qt界面CPU使用率显示: 100%
+ [2025-07-10 17:07:52][INFO] Qt界面CPU使用率显示: 100%
+ [2025-07-10 17:08:02][INFO] Qt界面CPU使用率显示: 100%
+ [2025-07-10 17:08:12][INFO] Qt界面CPU使用率显示: 100%
+ [2025-07-10 17:08:22][INFO] Qt界面CPU使用率显示: 0.0%
+ [2025-07-10 17:08:32][INFO] Qt界面CPU使用率显示: 100%
+ [2025-07-10 17:08:42][INFO] Qt界面CPU使用率显示: 0.0%
+ [2025-07-10 17:08:52][INFO] Qt界面CPU使用率显示: 0.0%
+ [2025-07-10 17:09:02][INFO] Qt界面CPU使用率显示: 100%
+ [2025-07-10 17:09:12][INFO] Qt界面CPU使用率显示: 100%
+ [2025-07-10 17:09:22][INFO] Qt界面CPU使用率显示: 75.0%
+﻿[2025-07-10 17:16:32][INFO] Qt Monitor application starting
+[2025-07-10 17:16:32][INFO] Created new shared memory mapping.
+ [2025-07-10 17:16:32][INFO] Shared memory initialized successfully.
+[2025-07-10 17:16:32][INFO] Qt Monitor application started successfully
+[2025-07-10 17:16:42][INFO] Qt界面CPU使用率显示: 0.0%
+ [2025-07-10 17:16:52][INFO] Qt界面CPU使用率显示: 0.0%
+ [2025-07-10 17:17:02][INFO] Qt界面CPU使用率显示: 0.0%
+ [2025-07-10 17:17:12][INFO] Qt界面CPU使用率显示: 100%
+ [2025-07-10 17:17:22][INFO] Qt界面CPU使用率显示: 0.0%
+ ﻿[2025-07-10 17:27:44][信息] Qt Monitor application starting
+[2025-07-10 17:27:44][信息] Opened existing shared memory mapping.
+ [2025-07-10 17:27:44][信息] Shared memory initialized successfully.
+[2025-07-10 17:27:44][信息] Qt Monitor application started successfully
+[2025-07-10 17:27:54][信息] Qt界面CPU使用率显示: 100%
+ [2025-07-10 17:28:04][信息] Qt界面CPU使用率显示: 0.0%
+ [2025-07-10 17:28:14][信息] Qt界面CPU使用率显示: 0.0%
+ [2025-07-10 17:28:24][信息] Qt界面CPU使用率显示: 100%
+ [2025-07-10 17:28:34][信息] Qt界面CPU使用率显示: 100%
+ [2025-07-10 17:28:44][信息] Qt界面CPU使用率显示: 100%
+ [2025-07-10 17:28:54][信息] Qt界面CPU使用率显示: 74.3%
+[2025-07-10 17:29:04][信息] Qt界面CPU使用率显示: 100%
+ 

@@ -7,7 +7,6 @@
 #define STATUS_SUCCESS ((NTSTATUS)0x00000000L)
 #endif
 
-
 #pragma comment(lib, "ntdll.lib")
 
 extern "C" NTSYSAPI NTSTATUS NTAPI RtlGetVersion(PRTL_OSVERSIONINFOW lpVersionInformation);

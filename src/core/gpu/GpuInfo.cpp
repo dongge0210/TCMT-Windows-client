@@ -40,7 +40,8 @@ bool GpuInfo::IsVirtualGpu(const std::wstring& name) {
         L"Virtual Desktop Infrastructure",
         L"VDI Display",
         L"Cloud Display",
-        L"Remote Graphics"
+        L"Remote Graphics",
+        L"AskLinkIddDriver Device"
     };
 
     std::wstring lowerName = name;
@@ -122,12 +123,8 @@ void GpuInfo::DetectGpusViaWmi() {
         
         gpuList.push_back(data);
         
-        // 记录GPU信息到日志
-        std::string gpuNameStr(data.name.begin(), data.name.end());
-        Logger::Info("检测到GPU: " + gpuNameStr + 
-                    " (虚拟: " + (data.isVirtual ? "是" : "否") + 
-                    ", NVIDIA: " + (data.isNvidia ? "是" : "否") + 
-                    ", 集成: " + (data.isIntegrated ? "是" : "否") + ")");
+        // 不在这里记录GPU信息，避免重复日志
+        // GPU信息将在主程序中统一记录
 
         VariantClear(&vtName);
         VariantClear(&vtPnpId);

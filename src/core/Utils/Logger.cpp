@@ -14,7 +14,8 @@
 std::ofstream Logger::logFile;
 std::mutex Logger::logMutex;
 bool Logger::consoleOutputEnabled = false; // Initialize console output flag
-LogLevel Logger::currentLogLevel = LogLevel::INFO; // 默认日志等级为INFO
+LogLevel Logger::currentLogLevel = LOG_INFO; // 默认日志等级为INFO
+HANDLE Logger::hConsole = GetStdHandle(STD_OUTPUT_HANDLE); // 初始化控制台句柄
 
 void Logger::Initialize(const std::string& logFilePath) {
     logFile.open(logFilePath, std::ios::binary | std::ios::app);
@@ -43,6 +44,18 @@ void Logger::SetLogLevel(LogLevel level) {
 
 LogLevel Logger::GetLogLevel() {
     return currentLogLevel;
+}
+
+void Logger::SetConsoleColor(ConsoleColor color) {
+    if (hConsole != INVALID_HANDLE_VALUE) {
+        SetConsoleTextAttribute(hConsole, static_cast<WORD>(color));
+    }
+}
+
+void Logger::ResetConsoleColor() {
+    if (hConsole != INVALID_HANDLE_VALUE) {
+        SetConsoleTextAttribute(hConsole, 7); // 默认白色
+    }
 }
 
 std::wstring Logger::ConvertToWideString(const std::string& utf8Str) {
@@ -83,7 +96,7 @@ std::wstring Logger::ConvertToWideString(const std::string& utf8Str) {
     return wideStr;
 }
 
-void Logger::WriteLog(const std::string& level, const std::string& message, LogLevel msgLevel) {
+void Logger::WriteLog(const std::string& level, const std::string& message, LogLevel msgLevel, ConsoleColor color) {
     // 检查日志等级过滤
     if (msgLevel < currentLogLevel) {
         return; // 跳过低于当前等级的日志
@@ -92,13 +105,13 @@ void Logger::WriteLog(const std::string& level, const std::string& message, LogL
     std::lock_guard<std::mutex> lock(logMutex);
 
     if (message.empty()) {
-        throw std::invalid_argument("Log message cannot be empty");
+        throw std::invalid_argument("日志消息不能为空");
     }
 
     if (logFile.is_open()) {
         // Validate stream state
         if (!logFile.good()) {
-            throw std::runtime_error("Log file stream is in an invalid state");
+            throw std::runtime_error("日志文件流状态无效");
         }
 
         // Get current time
@@ -127,41 +140,43 @@ void Logger::WriteLog(const std::string& level, const std::string& message, LogL
         logFile.write(logEntry.c_str(), logEntry.size());
         logFile.flush();
 
-        // Optional console output
+        // Optional console output with color
         if (consoleOutputEnabled) {
+            SetConsoleColor(color); // 设置颜色
             std::wstring wideLogEntry = ConvertToWideString(logEntry);
-            std::wcout << wideLogEntry; // Output to console only once
+            std::wcout << wideLogEntry; // Output to console
+            ResetConsoleColor(); // 重置颜色
         }
     } else {
-        throw std::runtime_error("Log file is not open");
+        throw std::runtime_error("日志文件未打开");
     }
 }
 
 void Logger::Trace(const std::string& message) {
-    WriteLog("TRACE", message, LogLevel::TRACE);
+    WriteLog("跟踪", message, LOG_TRACE, ConsoleColor::WHITE);
 }
 
 void Logger::Debug(const std::string& message) {
-    WriteLog("DEBUG", message, LogLevel::DEBUG);
+    WriteLog("调试", message, LOG_DEBUG, ConsoleColor::GREEN);
 }
 
 void Logger::Info(const std::string& message) {
-    WriteLog("INFO", message, LogLevel::INFO);
+    WriteLog("信息", message, LOG_INFO, ConsoleColor::LIGHT_GREEN);
 }
 
-void Logger::Warning(const std::string& message) {
-    WriteLog("WARNING", message, LogLevel::WARNING);
+void Logger::Warn(const std::string& message) {
+    WriteLog("警告", message, LOG_WARNING, ConsoleColor::YELLOW);
 }
 
 void Logger::Error(const std::string& message) {
-    WriteLog("ERROR", message, LogLevel::ERROR);
+    WriteLog("错误", message, LOG_ERROR, ConsoleColor::ORANGE);
 }
 
 void Logger::Critical(const std::string& message) {
-    WriteLog("CRITICAL", message, LogLevel::CRITICAL);
+    WriteLog("严重", message, LOG_CRITICAL, ConsoleColor::RED);
 }
 
 void Logger::Fatal(const std::string& message) {
-    WriteLog("FATAL", message, LogLevel::FATAL);
+    WriteLog("致命", message, LOG_FATAL, ConsoleColor::DARK_RED);
 }
 

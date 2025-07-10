@@ -1,4 +1,4 @@
-// DiskInfo.h
+ï»¿// DiskInfo.h
 #pragma once
 #include <string>
 #include <vector>
@@ -16,10 +16,10 @@ struct DriveInfo {
 
 class DiskInfo {
 public:
-    DiskInfo(); // ÎŞ²ÎÊı¹¹Ôì
+    DiskInfo(); // æ— å‚æ•°æ„é€ 
     const std::vector<DriveInfo>& GetDrives() const;
     void Refresh();
-    std::vector<DiskData> GetDisks(); // ·µ»ØËùÓĞ´ÅÅÌĞÅÏ¢
+    std::vector<DiskData> GetDisks(); // è¿”å›æ‰€æœ‰ç£ç›˜ä¿¡æ¯
 
 private:
     void QueryDrives();
