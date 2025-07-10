@@ -74,7 +74,7 @@ Project1/x64/
 !third_party/**/*.dll
 
 /Windows Kits
-/Project1/system_monitor.log
+**/*.log
 
 
 .fake
@@ -85,5 +85,6 @@ Project1/x64/
 
 # History huh..
 /弃用
+Qt-Widgets-TC-monitor/qt_monitor.log
 Qt-Widgets-TC-monitor/qt_monitor.log
 Qt-Widgets-TC-monitor/qt_monitor.log

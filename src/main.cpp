@@ -180,6 +180,7 @@ int main(int argc, char* argv[]) {
 
         Logger::EnableConsoleOutput(true); // Enable console output for Logger
         Logger::Initialize("system_monitor.log");
+        Logger::SetLogLevel(LOG_INFO); // 设置日志等级为INFO，减少DEBUG日志
         Logger::Info("程序启动");
 
         // 检查管理员权限
@@ -208,7 +209,7 @@ int main(int argc, char* argv[]) {
         HRESULT hr = CoInitializeEx(nullptr, COINIT_MULTITHREADED);
         if (FAILED(hr)) {
             if (hr == RPC_E_CHANGED_MODE) {
-                Logger::Error("COM初始化模式冲突: 线程已初始化为不同的模式");
+                Logger::Warn("COM初始化模式冲突: 线程已初始化为不同的模式");
             }
             else {
                 Logger::Error("COM初始化失败: 0x" + std::to_string(hr));
@@ -236,11 +237,21 @@ int main(int argc, char* argv[]) {
 
         LibreHardwareMonitorBridge::Initialize();
 
-        Logger::Info("后端系统监控程序已启动");
-        Logger::Info("请手动启动 Qt-Widgets-TC-monitor.exe 来查看UI界面");
+        Logger::Info("程序启动");
 
+        // 初始化循环计数器，减少频繁的日志记录
+        int loopCounter = 0;
+        
         while (true) {
-            Logger::Debug("Starting main loop iteration");
+            auto loopStart = std::chrono::high_resolution_clock::now();
+            
+            // 只在每10次循环记录一次详细信息
+            bool isDetailedLogging = (loopCounter % 10 == 0);
+            
+            if (isDetailedLogging) {
+                Logger::Debug("开始主循环第 #" + std::to_string(loopCounter) + " 次迭代");
+            }
+            
             // 获取系统信息
             SystemInfo sysInfo;
 
@@ -258,7 +269,11 @@ int main(int argc, char* argv[]) {
             
             // 确保CPU使用率为double类型
             sysInfo.cpuUsage = cpu.GetUsage();
-            Logger::Debug("主程序CPU使用率: " + std::to_string(sysInfo.cpuUsage) + "%");
+            
+            // 只在详细日志模式下记录CPU使用率
+            if (isDetailedLogging) {
+                Logger::Debug("主程序CPU使用率: " + std::to_string(sysInfo.cpuUsage) + "%");
+            }
             
             sysInfo.hyperThreading = cpu.IsHyperThreadingEnabled();
             sysInfo.virtualization = cpu.IsVirtualizationEnabled();
@@ -271,91 +286,128 @@ int main(int argc, char* argv[]) {
             sysInfo.usedMemory = mem.GetTotalPhysical() - mem.GetAvailablePhysical();
             sysInfo.availableMemory = mem.GetAvailablePhysical();
 
-            // GPU信息 - 改进虚拟显卡处理
-            GpuInfo gpuInfo(wmiManager);
-            const auto& gpus = gpuInfo.GetGpuData();
+            // GPU信息 - 改进虚拟显卡处理（使用缓存机制避免重复检测）
+            static bool gpuInfoInitialized = false;
+            static std::string cachedGpuName = "未检测到GPU";
+            static std::string cachedGpuBrand = "未知";
+            static uint64_t cachedGpuMemory = 0;
+            static uint32_t cachedGpuCoreFreq = 0;
+            static bool cachedGpuIsVirtual = false;
             
-            // 优先选择非虚拟GPU
-            const GpuInfo::GpuData* selectedGpu = nullptr;
-            for (const auto& gpu : gpus) {
-                if (!gpu.isVirtual) {
-                    selectedGpu = &gpu;
-                    break;
-                }
-            }
-            
-            // 如果没有非虚拟GPU，选择第一个GPU
-            if (!selectedGpu && !gpus.empty()) {
-                selectedGpu = &gpus[0];
-            }
-            
-            if (selectedGpu) {
-                sysInfo.gpuName = WinUtils::WstringToString(selectedGpu->name);
-                sysInfo.gpuBrand = GetGpuBrand(selectedGpu->name);
-                sysInfo.gpuMemory = selectedGpu->dedicatedMemory;
-                sysInfo.gpuCoreFreq = selectedGpu->coreClock;
-                sysInfo.gpuIsVirtual = selectedGpu->isVirtual;
+            if (!gpuInfoInitialized) {
+                // 第一次循环时进行GPU检测并记录信息
+                Logger::Info("正在初始化GPU信息（仅执行一次）...");
                 
-                Logger::Info("选择GPU: " + sysInfo.gpuName + 
-                           " (虚拟: " + (sysInfo.gpuIsVirtual ? "是" : "否") + ")");
-            } else {
-                Logger::Warning("未检测到任何GPU");
-                sysInfo.gpuName = "未检测到GPU";
-                sysInfo.gpuBrand = "未知";
-                sysInfo.gpuMemory = 0;
-                sysInfo.gpuCoreFreq = 0;
-                sysInfo.gpuIsVirtual = false;
-            }
-
-            // 添加温度数据采集
-            try {
-                auto temperatures = LibreHardwareMonitorBridge::GetTemperatures();
-                sysInfo.temperatures.clear();
-                for (const auto& temp : temperatures) {
-                    sysInfo.temperatures.push_back({temp.first, temp.second});
+                GpuInfo gpuInfo(wmiManager);
+                const auto& gpus = gpuInfo.GetGpuData();
+                
+                // 记录所有检测到的GPU
+                for (const auto& gpu : gpus) {
+                    std::string gpuName = WinUtils::WstringToString(gpu.name);
+                    Logger::Info("检测到GPU: " + gpuName + 
+                               " (虚拟: " + (gpu.isVirtual ? "是" : "否") + 
+                               ", NVIDIA: " + (gpuName.find("NVIDIA") != std::string::npos ? "是" : "否") + 
+                               ", 集成: " + (gpuName.find("Intel") != std::string::npos || 
+                                           gpuName.find("AMD") != std::string::npos ? "是" : "否") + ")");
                 }
-                Logger::Info("Collected " + std::to_string(temperatures.size()) + " temperature readings");
-            }
-            catch (const std::exception& e) {
-                Logger::Error("Failed to get temperature data: " + std::string(e.what()));
-            }
-
-            // 添加磁盘信息采集
-            try {
-                DiskInfo diskInfo;
-                sysInfo.disks = diskInfo.GetDisks();
-                Logger::Info("Collected " + std::to_string(sysInfo.disks.size()) + " disk entries");
-
-                // Validate disk data
-                if (sysInfo.disks.size() > 8) {
-                    Logger::Error("Disk count exceeds maximum allowed (8). Skipping disk data update.");
-                    continue;
+                
+                // 优先选择非虚拟GPU
+                const GpuInfo::GpuData* selectedGpu = nullptr;
+                for (const auto& gpu : gpus) {
+                    if (!gpu.isVirtual) {
+                        selectedGpu = &gpu;
+                        break;
+                    }
                 }
+                
+                // 如果没有非虚拟GPU，选择第一个GPU
+                if (!selectedGpu && !gpus.empty()) {
+                    selectedGpu = &gpus[0];
+                }
+                
+                if (selectedGpu) {
+                    cachedGpuName = WinUtils::WstringToString(selectedGpu->name);
+                    cachedGpuBrand = GetGpuBrand(selectedGpu->name);
+                    cachedGpuMemory = selectedGpu->dedicatedMemory;
+                    cachedGpuCoreFreq = selectedGpu->coreClock;
+                    cachedGpuIsVirtual = selectedGpu->isVirtual;
+                    
+                    Logger::Info("选择主GPU: " + cachedGpuName + 
+                               " (虚拟: " + (cachedGpuIsVirtual ? "是" : "否") + ")");
+                } else {
+                    Logger::Warn("未检测到任何GPU");
+                }
+                
+                gpuInfoInitialized = true;
+                Logger::Info("GPU信息初始化完成，后续循环将使用缓存信息");
+            }
+            
+            // 使用缓存的GPU信息
+            sysInfo.gpuName = cachedGpuName;
+            sysInfo.gpuBrand = cachedGpuBrand;
+            sysInfo.gpuMemory = cachedGpuMemory;
+            sysInfo.gpuCoreFreq = cachedGpuCoreFreq;
+            sysInfo.gpuIsVirtual = cachedGpuIsVirtual;
 
-                for (size_t i = 0; i < sysInfo.disks.size(); ++i) {
-                    const auto& disk = sysInfo.disks[i];
+            // 添加温度数据采集（减少频率）
+            if (loopCounter % 5 == 0) { // 每5秒采集一次温度数据
+                try {
+                    auto temperatures = LibreHardwareMonitorBridge::GetTemperatures();
+                    sysInfo.temperatures.clear();
+                    for (const auto& temp : temperatures) {
+                        sysInfo.temperatures.push_back({temp.first, temp.second});
+                    }
+                    if (isDetailedLogging) {
+                        Logger::Info("收集到 " + std::to_string(temperatures.size()) + " 个温度读数");
+                    }
+                }
+                catch (const std::exception& e) {
+                    Logger::Error("获取温度数据失败: " + std::string(e.what()));
+                }
+            }
 
-                    // Ensure proper type handling for disk.label and disk.fileSystem
-                    std::wstring labelW = WinUtils::StringToWstring(disk.label);
-                    std::wstring fsW = WinUtils::StringToWstring(disk.fileSystem);
+            // 添加磁盘信息采集（减少频率）
+            if (loopCounter % 10 == 0) { // 每10秒采集一次磁盘数据
+                try {
+                    DiskInfo diskInfo;
+                    sysInfo.disks = diskInfo.GetDisks();
+                    if (isDetailedLogging) {
+                        Logger::Info("收集到 " + std::to_string(sysInfo.disks.size()) + " 个磁盘条目");
+                    }
 
-                    if (labelW.length() >= sizeof(disk.label) / sizeof(wchar_t) ||
-                        fsW.length() >= sizeof(disk.fileSystem) / sizeof(wchar_t)) {
-                        Logger::Error("Invalid disk data detected at index " + std::to_string(i));
+                    // Validate disk data
+                    if (sysInfo.disks.size() > 8) {
+                        Logger::Error("Disk count exceeds maximum allowed (8). Skipping disk data update.");
                         continue;
                     }
 
-                    Logger::Info("Disk " + std::to_string(i) + ": Label=" + disk.label +
-                                 ", FileSystem=" + disk.fileSystem);
+                    if (isDetailedLogging) {
+                        for (size_t i = 0; i < sysInfo.disks.size(); ++i) {
+                            const auto& disk = sysInfo.disks[i];
+
+                            // Ensure proper type handling for disk.label and disk.fileSystem
+                            std::wstring labelW = WinUtils::StringToWstring(disk.label);
+                            std::wstring fsW = WinUtils::StringToWstring(disk.fileSystem);
+
+                            if (labelW.length() >= sizeof(disk.label) / sizeof(wchar_t) ||
+                                fsW.length() >= sizeof(disk.fileSystem) / sizeof(wchar_t)) {
+                                Logger::Error("Invalid disk data detected at index " + std::to_string(i));
+                                continue;
+                            }
+
+                            Logger::Info("Disk " + std::to_string(i) + ": Label=" + disk.label +
+                                         ", FileSystem=" + disk.fileSystem);
+                        }
+                    }
                 }
-            }
-            catch (const std::exception& e) {
-                Logger::Error("Failed to get disk data: " + std::string(e.what()));
+                catch (const std::exception& e) {
+                    Logger::Error("获取磁盘数据失败: " + std::string(e.what()));
+                }
             }
 
             // 写入共享内存前验证数据
             if (sysInfo.cpuUsage < 0.0 || sysInfo.cpuUsage > 100.0) {
-                Logger::Warning("CPU使用率数据异常: " + std::to_string(sysInfo.cpuUsage) + "%, 将重置为0");
+                Logger::Warn("CPU使用率数据异常: " + std::to_string(sysInfo.cpuUsage) + "%, 重置为0");
                 sysInfo.cpuUsage = 0.0;
             }
 
@@ -363,26 +415,43 @@ int main(int argc, char* argv[]) {
             try {
                 if (SharedMemoryManager::GetBuffer()) {
                     SharedMemoryManager::WriteToSharedMemory(sysInfo);
-                    Logger::Info("Successfully updated shared memory");
+                    if (isDetailedLogging) {
+                        Logger::Debug("成功更新共享内存");
+                    }
                 } else {
-                    Logger::Error("Shared memory buffer not available");
+                    Logger::Critical("共享内存缓冲区不可用");
                     // Try to reinitialize
                     if (SharedMemoryManager::InitSharedMemory()) {
                         SharedMemoryManager::WriteToSharedMemory(sysInfo);
-                        Logger::Info("Reinitialized and updated shared memory");
+                        if (isDetailedLogging) {
+                            Logger::Info("重新初始化并更新共享内存");
+                        }
                     } else {
-                        Logger::Error("Failed to reinitialize shared memory: " + SharedMemoryManager::GetLastError());
+                        Logger::Error("重新初始化共享内存失败: " + SharedMemoryManager::GetLastError());
                     }
                 }
             }
             catch (const std::exception& e) {
-                Logger::Error("Exception writing to shared memory: " + std::string(e.what()));
+                Logger::Error("写入共享内存时发生异常: " + std::string(e.what()));
             }
 
-            Logger::Debug("Main loop iteration completed, sleeping for 1 second");
-            // 等待1秒
-            std::this_thread::sleep_for(std::chrono::seconds(1));
-            Logger::Debug("Woke up from sleep, starting next iteration");
+            // 计算循环执行时间并自适应休眠
+            auto loopEnd = std::chrono::high_resolution_clock::now();
+            auto loopDuration = std::chrono::duration_cast<std::chrono::milliseconds>(loopEnd - loopStart);
+            
+            // 确保总循环时间至少为1秒
+            int sleepTime = std::max(1000 - static_cast<int>(loopDuration.count()), 100); // 最少休眠100ms
+            
+            if (isDetailedLogging) {
+                Logger::Debug("第 #" + std::to_string(loopCounter) + " 次循环耗时 " + 
+                            std::to_string(loopDuration.count()) + "毫秒，休眠 " + 
+                            std::to_string(sleepTime) + "毫秒");
+            }
+            
+            // 休眠
+            std::this_thread::sleep_for(std::chrono::milliseconds(sleepTime));
+            
+            loopCounter++;
         }
             
         // 清理资源

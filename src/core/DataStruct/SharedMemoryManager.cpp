@@ -66,10 +66,10 @@ bool SharedMemoryManager::InitSharedMemory() {
         // Try to enable privileges needed for creating global objects
         bool hasPrivileges = WinUtils::EnablePrivilege(L"SeCreateGlobalPrivilege");
         if (!hasPrivileges) {
-            Logger::Warning("Failed to enable SeCreateGlobalPrivilege - attempting to continue anyway");
+            Logger::Warn("Failed to enable SeCreateGlobalPrivilege - attempting to continue anyway");
         }
     } catch(...) {
-        Logger::Warning("Exception when enabling SeCreateGlobalPrivilege - attempting to continue anyway");
+        Logger::Warn("Exception when enabling SeCreateGlobalPrivilege - attempting to continue anyway");
         // Continue execution as this is not critical
     }
 
@@ -137,7 +137,7 @@ bool SharedMemoryManager::InitSharedMemory() {
     if (hMapFile == NULL) {
         DWORD errorCode = ::GetLastError();
         // Fallback if Global is not permitted, try Local or no prefix
-        Logger::Warning("Failed to create global shared memory, trying local namespace");
+        Logger::Warn("Failed to create global shared memory, trying local namespace");
 
         hMapFile = CreateFileMapping(
             INVALID_HANDLE_VALUE,

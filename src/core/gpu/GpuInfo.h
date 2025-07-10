@@ -1,4 +1,4 @@
-#pragma once
+ï»¿#pragma once
 #include <vector>
 #include <string>
 #include <d3d11.h>
@@ -23,7 +23,7 @@ public:
         double coreClock = 0.0;
         bool isNvidia = false;
         bool isIntegrated = false;
-        bool isVirtual = false;  // ĞÂÔö£º±êÊ¶ÊÇ·ñÎªĞéÄâÏÔ¿¨
+        bool isVirtual = false;  // æ–°å¢ï¼šæ ‡è¯†æ˜¯å¦ä¸ºè™šæ‹Ÿæ˜¾å¡
         int computeCapabilityMajor = 0;
         int computeCapabilityMinor = 0;
         unsigned int temperature = 0;
@@ -38,7 +38,7 @@ private:
     void DetectGpusViaWmi();
     void QueryIntelGpuInfo(int index);
     void QueryNvidiaGpuInfo(int index);
-    bool IsVirtualGpu(const std::wstring& name);  // ĞÂÔö£ºĞéÄâÏÔ¿¨¼ì²â·½·¨
+    bool IsVirtualGpu(const std::wstring& name);  // æ–°å¢ï¼šè™šæ‹Ÿæ˜¾å¡æ£€æµ‹æ–¹æ³•
 
     WmiManager& wmiManager;
     IWbemServices* pSvc = nullptr;
