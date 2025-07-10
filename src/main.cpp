@@ -179,8 +179,8 @@ int main(int argc, char* argv[]) {
         _setmode(_fileno(stdout), _O_U8TEXT);
 
         Logger::EnableConsoleOutput(true); // Enable console output for Logger
-        Logger::Initialize("system_monitor.log");
-        Logger::SetLogLevel(LOG_INFO); // 设置日志等级为INFO，减少DEBUG日志
+        Logger::Initialize("system_monitor.log");//后面可以设置的项
+        Logger::SetLogLevel(LOG_DEBUG); // 设置日志等级为DEBUG，查看详细信息，后面可以设置的项
         Logger::Info("程序启动");
 
         // 检查管理员权限
@@ -240,51 +240,79 @@ int main(int argc, char* argv[]) {
         Logger::Info("程序启动");
 
         // 初始化循环计数器，减少频繁的日志记录
-        int loopCounter = 0;
+        int loopCounter = 1; // 从1开始计数，更符合人类习惯
+        bool isFirstRun = true; // 首次运行标志
+        
+        // 缓存静态系统信息（只在首次获取）
+        static bool systemInfoCached = false;
+        static std::string cachedOsVersion;
+        static std::string cachedCpuName;
+        static uint32_t cachedPhysicalCores = 0;
+        static uint32_t cachedLogicalCores = 0;
+        static uint32_t cachedPerformanceCores = 0;
+        static uint32_t cachedEfficiencyCores = 0;
+        static bool cachedHyperThreading = false;
+        static bool cachedVirtualization = false;
+        
+        // 创建CPU对象一次，重复使用（避免重复初始化性能计数器）
+        static CpuInfo cpuInfo;
         
         while (true) {
             auto loopStart = std::chrono::high_resolution_clock::now();
             
-            // 只在每10次循环记录一次详细信息
-            bool isDetailedLogging = (loopCounter % 10 == 0);
+            // 只在每5次循环记录一次详细信息（约15秒）
+            bool isDetailedLogging = (loopCounter % 5 == 1); // 第1, 6, 11, 16, 21... 次循环
             
             if (isDetailedLogging) {
-                Logger::Debug("开始主循环第 #" + std::to_string(loopCounter) + " 次迭代");
+                Logger::Debug("开始执行主监控循环第 #" + std::to_string(loopCounter) + " 次迭代");
             }
             
             // 获取系统信息
             SystemInfo sysInfo;
 
-            // 操作系统信息
-            OSInfo os;
-            sysInfo.osVersion = os.GetVersion();
+            // 静态系统信息（只在首次获取）
+            if (!systemInfoCached) {
+                Logger::Info("正在初始化系统信息");
+                
+                // 操作系统信息
+                OSInfo os;
+                cachedOsVersion = os.GetVersion();
 
-            // CPU信息 - 改进CPU使用率获取
-            CpuInfo cpu;
-            sysInfo.cpuName = cpu.GetName();
-            sysInfo.physicalCores = cpu.GetLargeCores() + cpu.GetSmallCores();
-            sysInfo.logicalCores = cpu.GetTotalCores();
-            sysInfo.performanceCores = cpu.GetLargeCores();
-            sysInfo.efficiencyCores = cpu.GetSmallCores();
-            
-            // 确保CPU使用率为double类型
-            sysInfo.cpuUsage = cpu.GetUsage();
-            
-            // 只在详细日志模式下记录CPU使用率
-            if (isDetailedLogging) {
-                Logger::Debug("主程序CPU使用率: " + std::to_string(sysInfo.cpuUsage) + "%");
+                // CPU基本信息（使用静态cpuInfo对象）
+                cachedCpuName = cpuInfo.GetName();
+                cachedPhysicalCores = cpuInfo.GetLargeCores() + cpuInfo.GetSmallCores();
+                cachedLogicalCores = cpuInfo.GetTotalCores();
+                cachedPerformanceCores = cpuInfo.GetLargeCores();
+                cachedEfficiencyCores = cpuInfo.GetSmallCores();
+                cachedHyperThreading = cpuInfo.IsHyperThreadingEnabled();
+                cachedVirtualization = cpuInfo.IsVirtualizationEnabled();
+                
+                systemInfoCached = true;
+                Logger::Info("系统信息初始化完成");
             }
             
-            sysInfo.hyperThreading = cpu.IsHyperThreadingEnabled();
-            sysInfo.virtualization = cpu.IsVirtualizationEnabled();
-            sysInfo.performanceCoreFreq = cpu.GetLargeCoreSpeed();
-            sysInfo.efficiencyCoreFreq = cpu.GetSmallCoreSpeed() * 0.8;
+            // 使用缓存的静态信息
+            sysInfo.osVersion = cachedOsVersion;
+            sysInfo.cpuName = cachedCpuName;
+            sysInfo.physicalCores = cachedPhysicalCores;
+            sysInfo.logicalCores = cachedLogicalCores;
+            sysInfo.performanceCores = cachedPerformanceCores;
+            sysInfo.efficiencyCores = cachedEfficiencyCores;
+            sysInfo.hyperThreading = cachedHyperThreading;
+            sysInfo.virtualization = cachedVirtualization;
 
-            // 内存信息
-            MemoryInfo mem;
-            sysInfo.totalMemory = mem.GetTotalPhysical();
-            sysInfo.usedMemory = mem.GetTotalPhysical() - mem.GetAvailablePhysical();
-            sysInfo.availableMemory = mem.GetAvailablePhysical();
+            // 动态CPU信息（每次循环都需要获取）
+            sysInfo.cpuUsage = cpuInfo.GetUsage();
+            sysInfo.performanceCoreFreq = cpuInfo.GetLargeCoreSpeed();
+            sysInfo.efficiencyCoreFreq = cpuInfo.GetSmallCoreSpeed() * 0.8;
+
+            // 内存信息（稍微减少频率）
+            if ((loopCounter - 1) % 2 == 0) { // 第1, 3, 5... 次循环获取内存信息（约6秒）
+                MemoryInfo mem;
+                sysInfo.totalMemory = mem.GetTotalPhysical();
+                sysInfo.usedMemory = mem.GetTotalPhysical() - mem.GetAvailablePhysical();
+                sysInfo.availableMemory = mem.GetAvailablePhysical();
+            }
 
             // GPU信息 - 改进虚拟显卡处理（使用缓存机制避免重复检测）
             static bool gpuInfoInitialized = false;
@@ -296,7 +324,7 @@ int main(int argc, char* argv[]) {
             
             if (!gpuInfoInitialized) {
                 // 第一次循环时进行GPU检测并记录信息
-                Logger::Info("正在初始化GPU信息（仅执行一次）...");
+                Logger::Info("正在初始化GPU信息");
                 
                 GpuInfo gpuInfo(wmiManager);
                 const auto& gpus = gpuInfo.GetGpuData();
@@ -307,7 +335,7 @@ int main(int argc, char* argv[]) {
                     Logger::Info("检测到GPU: " + gpuName + 
                                " (虚拟: " + (gpu.isVirtual ? "是" : "否") + 
                                ", NVIDIA: " + (gpuName.find("NVIDIA") != std::string::npos ? "是" : "否") + 
-                               ", 集成: " + (gpuName.find("Intel") != std::string::npos || 
+                               ", 集成: " + (gpuName.find("Intel") != std::string::npos ||
                                            gpuName.find("AMD") != std::string::npos ? "是" : "否") + ")");
                 }
                 
@@ -350,15 +378,15 @@ int main(int argc, char* argv[]) {
             sysInfo.gpuIsVirtual = cachedGpuIsVirtual;
 
             // 添加温度数据采集（减少频率）
-            if (loopCounter % 5 == 0) { // 每5秒采集一次温度数据
+            if ((loopCounter - 1) % 10 == 0) { // 第1, 11, 21... 次循环采集温度数据（约30秒）
                 try {
                     auto temperatures = LibreHardwareMonitorBridge::GetTemperatures();
                     sysInfo.temperatures.clear();
                     for (const auto& temp : temperatures) {
                         sysInfo.temperatures.push_back({temp.first, temp.second});
                     }
-                    if (isDetailedLogging) {
-                        Logger::Info("收集到 " + std::to_string(temperatures.size()) + " 个温度读数");
+                    if (isFirstRun) {
+                        Logger::Debug("收集到 " + std::to_string(temperatures.size()) + " 个温度读数");
                     }
                 }
                 catch (const std::exception& e) {
@@ -367,21 +395,21 @@ int main(int argc, char* argv[]) {
             }
 
             // 添加磁盘信息采集（减少频率）
-            if (loopCounter % 10 == 0) { // 每10秒采集一次磁盘数据
+            if ((loopCounter - 1) % 20 == 0) { // 第1, 21, 41... 次循环采集磁盘数据（约60秒）
                 try {
                     DiskInfo diskInfo;
                     sysInfo.disks = diskInfo.GetDisks();
-                    if (isDetailedLogging) {
-                        Logger::Info("收集到 " + std::to_string(sysInfo.disks.size()) + " 个磁盘条目");
+                    if (isFirstRun) {
+                        Logger::Debug("收集到 " + std::to_string(sysInfo.disks.size()) + " 个磁盘条目");
                     }
 
                     // Validate disk data
                     if (sysInfo.disks.size() > 8) {
-                        Logger::Error("Disk count exceeds maximum allowed (8). Skipping disk data update.");
+                        Logger::Error("磁盘数量超过最大允许值（8）。跳过磁盘数据更新。");
                         continue;
                     }
 
-                    if (isDetailedLogging) {
+                    if (isFirstRun) {
                         for (size_t i = 0; i < sysInfo.disks.size(); ++i) {
                             const auto& disk = sysInfo.disks[i];
 
@@ -391,12 +419,12 @@ int main(int argc, char* argv[]) {
 
                             if (labelW.length() >= sizeof(disk.label) / sizeof(wchar_t) ||
                                 fsW.length() >= sizeof(disk.fileSystem) / sizeof(wchar_t)) {
-                                Logger::Error("Invalid disk data detected at index " + std::to_string(i));
+                                Logger::Error("在索引 " + std::to_string(i) + " 处检测到无效的磁盘数据");
                                 continue;
                             }
 
-                            Logger::Info("Disk " + std::to_string(i) + ": Label=" + disk.label +
-                                         ", FileSystem=" + disk.fileSystem);
+                            Logger::Debug("磁盘 " + std::to_string(i) + ": 标签=" + disk.label +
+                                         ", 文件系统=" + disk.fileSystem);
                         }
                     }
                 }
@@ -439,19 +467,32 @@ int main(int argc, char* argv[]) {
             auto loopEnd = std::chrono::high_resolution_clock::now();
             auto loopDuration = std::chrono::duration_cast<std::chrono::milliseconds>(loopEnd - loopStart);
             
-            // 确保总循环时间至少为1秒
-            int sleepTime = std::max(1000 - static_cast<int>(loopDuration.count()), 100); // 最少休眠100ms
+            // 确保总循环时间至少为3秒，进一步减少CPU占用
+            int targetCycleTime = 3000; // 改为3秒一个循环
+            int sleepTime = std::max(targetCycleTime - static_cast<int>(loopDuration.count()), 1000); // 最少休眠1秒
             
             if (isDetailedLogging) {
-                Logger::Debug("第 #" + std::to_string(loopCounter) + " 次循环耗时 " + 
-                            std::to_string(loopDuration.count()) + "毫秒，休眠 " + 
-                            std::to_string(sleepTime) + "毫秒");
+                // 将毫秒转换为秒，保留2位小数
+                double loopTimeSeconds = loopDuration.count() / 1000.0;
+                double sleepTimeSeconds = sleepTime / 1000.0;
+                
+                std::stringstream ss;
+                ss << std::fixed << std::setprecision(2);
+                ss << "主监控循环第 #" << loopCounter << " 次执行耗时 " 
+                   << loopTimeSeconds << "秒，将休眠 " << sleepTimeSeconds << "秒";
+                
+                Logger::Debug(ss.str());
             }
             
             // 休眠
             std::this_thread::sleep_for(std::chrono::milliseconds(sleepTime));
             
             loopCounter++;
+            
+            // 首次运行后设置标志
+            if (isFirstRun) {
+                isFirstRun = false;
+            }
         }
             
         // 清理资源

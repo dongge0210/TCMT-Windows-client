@@ -65,19 +65,19 @@ int main(int argc, char *argv[])
     // Initialize logger
     Logger::Initialize("qt_monitor.log");
     Logger::EnableConsoleOutput(true);
-    Logger::Info("Qt Monitor application starting");
+    Logger::Info("Qt Monitor应用程序启动中");
 
     // Create and show main window
     QtWidgetsTCmonitor window;
     window.show();
 
-    Logger::Info("Qt Monitor application started successfully");
+    Logger::Info("Qt Monitor应用程序启动成功");
 
     int result = app.exec();
 
     // Cleanup
     SharedMemoryManager::CleanupSharedMemory();
-    Logger::Info("Qt Monitor application exiting");
+    Logger::Info("Qt Monitor应用程序退出中");
 
     return result;
 }

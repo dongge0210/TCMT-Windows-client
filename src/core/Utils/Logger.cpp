@@ -142,10 +142,25 @@ void Logger::WriteLog(const std::string& level, const std::string& message, LogL
 
         // Optional console output with color
         if (consoleOutputEnabled) {
-            SetConsoleColor(color); // 设置颜色
-            std::wstring wideLogEntry = ConvertToWideString(logEntry);
-            std::wcout << wideLogEntry; // Output to console
-            ResetConsoleColor(); // 重置颜色
+            // 构建时间戳部分
+            std::stringstream timeStream;
+            timeStream << "[" << std::put_time(&timeinfo, "%Y-%m-%d %H:%M:%S") << "]";
+            std::string timeStr = timeStream.str();
+            
+            // 输出时间戳（默认白色）
+            std::wstring wideTimeStr = ConvertToWideString(timeStr);
+            std::wcout << wideTimeStr;
+            
+            // 输出等级标签（有颜色）
+            SetConsoleColor(color);
+            std::string levelStr = "[" + level + "] ";
+            std::wstring wideLevelStr = ConvertToWideString(levelStr);
+            std::wcout << wideLevelStr;
+            ResetConsoleColor();
+            
+            // 输出消息内容（默认白色）
+            std::wstring wideMessage = ConvertToWideString(message + "\n");
+            std::wcout << wideMessage;
         }
     } else {
         throw std::runtime_error("日志文件未打开");
@@ -153,30 +168,29 @@ void Logger::WriteLog(const std::string& level, const std::string& message, LogL
 }
 
 void Logger::Trace(const std::string& message) {
-    WriteLog("跟踪", message, LOG_TRACE, ConsoleColor::WHITE);
+    WriteLog("TRACE", message, LOG_TRACE, ConsoleColor::PURPLE);
 }
 
 void Logger::Debug(const std::string& message) {
-    WriteLog("调试", message, LOG_DEBUG, ConsoleColor::GREEN);
+    WriteLog("DEBUG", message, LOG_DEBUG, ConsoleColor::PURPLE);
 }
 
 void Logger::Info(const std::string& message) {
-    WriteLog("信息", message, LOG_INFO, ConsoleColor::LIGHT_GREEN);
+    WriteLog("INFO", message, LOG_INFO, ConsoleColor::LIGHT_GREEN);
 }
 
 void Logger::Warn(const std::string& message) {
-    WriteLog("警告", message, LOG_WARNING, ConsoleColor::YELLOW);
+    WriteLog("WARN", message, LOG_WARNING, ConsoleColor::YELLOW);
 }
 
 void Logger::Error(const std::string& message) {
-    WriteLog("错误", message, LOG_ERROR, ConsoleColor::ORANGE);
+    WriteLog("ERROR", message, LOG_ERROR, ConsoleColor::ORANGE);
 }
 
 void Logger::Critical(const std::string& message) {
-    WriteLog("严重", message, LOG_CRITICAL, ConsoleColor::RED);
+    WriteLog("CRITICAL", message, LOG_CRITICAL, ConsoleColor::RED);//我不知道为什么Critical和Fatal意思一样，之前也看过，但是AI就是给它们分开了?
 }
 
 void Logger::Fatal(const std::string& message) {
-    WriteLog("致命", message, LOG_FATAL, ConsoleColor::DARK_RED);
+    WriteLog("FATAL", message, LOG_FATAL, ConsoleColor::DARK_RED);
 }
-
