@@ -1,83 +1,96 @@
-﻿#include "stdafx.h"  // 放在最前面
+#include "stdafx.h"
 #include "QtWidgetsTCmonitor.h"
-#include "../src/core/DataStruct/SharedMemoryManager.h"
-#include "../src/core/utils/Logger.h"
 #include <QtWidgets/QApplication>
+#include <QStyleFactory>
+#include <QDir>
 #include <QMessageBox>
-
 #include <windows.h>
-#include <shellapi.h>
-
-// 判断当前进程是否以管理员身份运行
-bool IsRunAsAdmin()
-{
-    BOOL isAdmin = FALSE;
-    PSID adminGroup = NULL;
-    SID_IDENTIFIER_AUTHORITY NtAuthority = SECURITY_NT_AUTHORITY;
-    if (AllocateAndInitializeSid(&NtAuthority, 2, SECURITY_BUILTIN_DOMAIN_RID,
-        DOMAIN_ALIAS_RID_ADMINS, 0, 0, 0, 0, 0, 0, &adminGroup))
-    {
-        CheckTokenMembership(NULL, adminGroup, &isAdmin);
-        FreeSid(adminGroup);
-    }
-    return isAdmin == TRUE;
-}
+#include "../src/core/utils/Logger.h"
 
 int main(int argc, char *argv[])
 {
-    // 自动提权：如果不是管理员，则尝试以管理员身份重启自身
-    if (!IsRunAsAdmin()) {
-        wchar_t szPath[MAX_PATH] = {0};
-        GetModuleFileNameW(NULL, szPath, MAX_PATH);
-
-        // 拼接命令行参数
-        std::wstring cmdLine;
-        for (int i = 1; i < argc; ++i) {
-            cmdLine += L" \"";
-            int len = MultiByteToWideChar(CP_UTF8, 0, argv[i], -1, NULL, 0);
-            if (len > 1) {
-                std::wstring warg(len, 0);
-                MultiByteToWideChar(CP_UTF8, 0, argv[i], -1, &warg[0], len);
-                warg.pop_back(); // 去掉多余的\0
-                cmdLine += warg;
-            }
-            cmdLine += L"\"";
-        }
-
-        SHELLEXECUTEINFOW sei = { sizeof(sei) };
-        sei.lpVerb = L"runas";
-        sei.lpFile = szPath;
-        sei.lpParameters = cmdLine.empty() ? NULL : cmdLine.c_str();
-        sei.hwnd = NULL;
-        sei.nShow = SW_NORMAL;
-
-        if (ShellExecuteExW(&sei)) {
-            // 启动成功，退出当前进程
-            return 0;
-        } else {
-            QMessageBox::critical(nullptr, "权限不足", "自动提权失败，请右键以管理员身份运行。", QMessageBox::Ok);
-            return 1;
-        }
-    }
-
     QApplication app(argc, argv);
 
-    // Initialize logger
-    Logger::Initialize("qt_monitor.log");
-    Logger::EnableConsoleOutput(true);
-    Logger::Info("Qt Monitor应用程序启动中");
+    // 设置应用程序信息
+    app.setApplicationName("系统硬件监视器");
+    app.setApplicationVersion("1.0");
+    app.setOrganizationName("TC Monitor");
 
-    // Create and show main window
-    QtWidgetsTCmonitor window;
-    window.show();
+    // 设置应用程序样式
+    app.setStyle(QStyleFactory::create("Fusion"));
 
-    Logger::Info("Qt Monitor应用程序启动成功");
+    // 设置深色主题
+    QPalette darkPalette;
+    darkPalette.setColor(QPalette::Window, QColor(53, 53, 53));
+    darkPalette.setColor(QPalette::WindowText, Qt::white);
+    darkPalette.setColor(QPalette::Base, QColor(25, 25, 25));
+    darkPalette.setColor(QPalette::AlternateBase, QColor(53, 53, 53));
+    darkPalette.setColor(QPalette::ToolTipBase, Qt::white);
+    darkPalette.setColor(QPalette::ToolTipText, Qt::white);
+    darkPalette.setColor(QPalette::Text, Qt::white);
+    darkPalette.setColor(QPalette::Button, QColor(53, 53, 53));
+    darkPalette.setColor(QPalette::ButtonText, Qt::white);
+    darkPalette.setColor(QPalette::BrightText, Qt::red);
+    darkPalette.setColor(QPalette::Link, QColor(42, 130, 218));
+    darkPalette.setColor(QPalette::Highlight, QColor(42, 130, 218));
+    darkPalette.setColor(QPalette::HighlightedText, Qt::black);
+    app.setPalette(darkPalette);
 
-    int result = app.exec();
+    // 初始化日志系统 - 添加异常处理
+    try {
+        Logger::Initialize("qt_monitor.log");
+        Logger::EnableConsoleOutput(false); // QT-UI不需要控制台输出
+        Logger::SetLogLevel(LOG_INFO);
+        
+        Logger::Info("QT-UI 系统监控器启动");
+    }
+    catch (const std::exception& e) {
+        QMessageBox::warning(nullptr, "日志系统警告", 
+            QString("日志系统初始化失败: %1\n程序将继续运行但不记录日志。").arg(e.what()));
+    }
 
-    // Cleanup
-    SharedMemoryManager::CleanupSharedMemory();
-    Logger::Info("Qt Monitor应用程序退出中");
-
-    return result;
+    try {
+        // 创建主窗口 - 添加异常处理
+        QtWidgetsTCmonitor window;
+        
+        // 设置窗口图标（如果有的话）
+        // window.setWindowIcon(QIcon(":/icons/monitor.ico"));
+        
+        // 显示窗口
+        window.show();
+        
+        if (Logger::IsInitialized()) {
+            Logger::Info("QT-UI 主窗口已显示");
+        }
+        
+        // 运行应用程序事件循环
+        int result = app.exec();
+        
+        if (Logger::IsInitialized()) {
+            Logger::Info("QT-UI 正常退出，返回码: " + std::to_string(result));
+        }
+        return result;
+    }
+    catch (const std::exception& e) {
+        QString errorMsg = QString("QT-UI 启动时发生致命错误: %1").arg(e.what());
+        
+        if (Logger::IsInitialized()) {
+            Logger::Error(errorMsg.toStdString());
+        }
+        
+        QMessageBox::critical(nullptr, "启动错误", 
+            errorMsg + "\n\n请检查：\n1. 主程序是否正在运行\n2. 共享内存是否可用\n3. Qt库是否正确安装");
+        return -1;
+    }
+    catch (...) {
+        QString errorMsg = "QT-UI 启动时发生未知错误";
+        
+        if (Logger::IsInitialized()) {
+            Logger::Error(errorMsg.toStdString());
+        }
+        
+        QMessageBox::critical(nullptr, "启动错误", 
+            errorMsg + "\n\n请尝试：\n1. 重新启动主程序\n2. 以管理员权限运行\n3. 重新编译项目");
+        return -1;
+    }
 }
