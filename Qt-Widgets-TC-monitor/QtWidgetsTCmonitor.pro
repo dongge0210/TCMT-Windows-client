@@ -29,10 +29,24 @@ else: unix:!android: target.path = /opt/$${TARGET}/bin
 
 INCLUDEPATH += $$PWD
 INCLUDEPATH += ../src
+INCLUDEPATH += ../src/core
 
 # Add explicit paths for QtCharts
 INCLUDEPATH += $$[QT_INSTALL_HEADERS]/QtCharts
 DEPENDPATH += $$[QT_INSTALL_HEADERS]/QtCharts
 
+# Add Windows libraries for shared memory and system info
+win32 {
+    LIBS += -lkernel32 -luser32 -ladvapi32 -lole32 -loleaut32
+}
+
+# Link to the core library objects (if needed)
+OBJECTS += \
+    ../src/core/DataStruct/SharedMemoryManager.o \
+    ../src/core/utils/Logger.o
+
 # Make sure all files are saved as UTF-8
 CODECFORSRC = UTF-8
+
+# Enable console for debugging (optional)
+CONFIG += console

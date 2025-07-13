@@ -11,6 +11,7 @@
 #include <QtWidgets/QVBoxLayout>
 #include <QtWidgets/QMessageBox>
 #include <QtWidgets/QPushButton>
+#include <QtWidgets/QComboBox>
 #include <QtCharts/QChart>
 #include <QtCharts/QChartView>
 #include <QtCharts/QLineSeries>
@@ -24,8 +25,7 @@
 #include "../src/core/DataStruct/DataStruct.h" // Include header for SystemInfo
 #include "../src/core/utils/Logger.h"
 
-// Add external declaration for pBuffer
-extern struct SharedMemoryBlock* pBuffer;
+// QT-UI uses SharedMemoryManager::GetBuffer() for data access
 
 // Define the maximum number of data points for charts
 constexpr int MAX_DATA_POINTS = 60;
@@ -46,6 +46,13 @@ private slots:
     void updateCharts();
     void on_pushButton_clicked();
     void updateFromSharedMemory();
+    void onGpuSelectionChanged(int index);
+    void onNetworkSelectionChanged(int index);
+    void showSmartDetails(const QString& diskIdentifier);
+    void updateNetworkSelector();
+    void updateGpuSelector();
+    void updateDiskTreeWidget();
+    void tryReconnectSharedMemory();  // 添加重新连接函数
 
 private:
     // UI setup functions
@@ -54,6 +61,7 @@ private:
     void createMemorySection();
     void createGpuSection();
     void createTemperatureSection();
+    void createNetworkSection();
     void createDiskSection();
 
     // Formatting helper functions
@@ -62,11 +70,14 @@ private:
     QString formatTemperature(double value);
     QString formatFrequency(double value);
     
+    // Date/time update function
+    void updateLocalDateTime();
+
     // Safe string conversion helper
     QString safeFromWCharArray(const wchar_t* wstr, size_t maxLen);
     
     // Helper method for disk info updates
-    void updateDiskInfoFromSharedMemory(SharedMemoryBlock* pBuffer);
+    void updateDiskInfoFromSharedMemory();
 
     // UI components
     QTimer *updateTimer;
@@ -77,6 +88,27 @@ private:
     QGroupBox *gpuGroupBox;
     QGroupBox *temperatureGroupBox;
     QGroupBox *diskGroupBox;
+    QGroupBox *networkGroupBox;
+
+    // Network section components
+    QComboBox *gpuSelector;
+    QComboBox *networkSelector;
+    QLabel *networkNameLabel;
+    QLabel *networkStatusLabel;
+    QLabel *networkIpLabel;
+    QLabel *networkMacLabel;
+    QLabel *networkSpeedLabel;
+    QLabel *gpuDriverVersionLabel;
+
+    // Index tracking
+    std::vector<int> gpuIndices;
+    std::vector<int> networkIndices;
+    int currentGpuIndex = 0;
+    int currentNetworkIndex = 0;
+    int cachedGpuCount = -1;
+
+    // UI reference
+    class Ui_QtWidgetsTCmonitorClass *ui;
 
     // Chart components
     QChart *cpuTempChart;

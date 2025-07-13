@@ -30,9 +30,6 @@
     <ClInclude Include="..\src\core\os\OSInfo.h">
       <Filter>头文件</Filter>
     </ClInclude>
-    <ClInclude Include="..\src\core\temperature\LibreHardwareMonitorBridge.h">
-      <Filter>头文件</Filter>
-    </ClInclude>
     <ClInclude Include="..\src\core\Utils\Logger.h">
       <Filter>头文件</Filter>
     </ClInclude>
@@ -58,6 +55,15 @@
       <Filter>头文件</Filter>
     </ClInclude>
     <ClInclude Include="..\src\core\Utils\stdafx.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="..\src\core\temperature\TemperatureWrapper.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="..\src\core\Utils\LibreHardwareMonitorBridge.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="src\B_UI\ConsoleUI.h">
       <Filter>头文件</Filter>
     </ClInclude>
   </ItemGroup>
@@ -95,9 +101,6 @@
     <ClCompile Include="..\src\core\disk\DiskInfo.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
-    <ClCompile Include="..\src\core\temperature\LibreHardwareMonitorBridge.cpp">
-      <Filter>源文件</Filter>
-    </ClCompile>
     <ClCompile Include="..\src\core\DataStruct\Producer.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
@@ -105,6 +108,15 @@
       <Filter>源文件</Filter>
     </ClCompile>
     <ClCompile Include="..\src\core\Utils\ComInitializationHelper.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\core\temperature\TemperatureWrapper.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\core\Utils\LibreHardwareMonitorBridge.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="src\B_UI\ConsoleUI.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
   </ItemGroup>

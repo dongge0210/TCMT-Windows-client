@@ -18,14 +18,28 @@ enum LogLevel {
 
 // 控制台颜色枚举
 enum class ConsoleColor {
-    WHITE = 15,      // 白色
-    PURPLE = 13,     // 紫色 - TRACE & DEBUG
-    GREEN = 10,      // 绿色  
-    LIGHT_GREEN = 10, // 亮绿色 - INFO
-    YELLOW = 14,     // 黄色 - WARNING
-    ORANGE = 12,     // 红色(作为橙色) - ERROR
-    RED = 12,        // 红色 - CRITICAL
-    DARK_RED = 4     // 深红色 - FATAL
+    BLACK = 0,           // 黑色
+    DARK_BLUE = 1,       // 深蓝色
+    DARK_GREEN = 2,      // 深绿色
+    DARK_CYAN = 3,       // 深青色
+    DARK_RED = 4,        // 深红色
+    DARK_MAGENTA = 5,    // 深洋红色
+    DARK_YELLOW = 6,     // 深黄色
+    LIGHT_GRAY = 7,      // 浅灰色
+    DARK_GRAY = 8,       // 深灰色
+    LIGHT_BLUE = 9,      // 亮蓝色
+    LIGHT_GREEN = 10,    // 亮绿色
+    LIGHT_CYAN = 11,     // 亮青色
+    LIGHT_RED = 12,      // 亮红色
+    LIGHT_MAGENTA = 13,  // 亮洋红色
+    YELLOW = 14,         // 黄色
+    WHITE = 15,          // 白色
+    
+    // 特殊用途别名
+    PURPLE = 13,         // 紫色 - TRACE & DEBUG (使用亮洋红色)
+    GREEN = 10,          // 绿色 - INFO
+    ORANGE = 12,         // 橙色 - ERROR (使用亮红色)
+    RED = 12             // 红色 - CRITICAL
 };
 
 class Logger {
@@ -45,6 +59,7 @@ public:
     static void EnableConsoleOutput(bool enable); // Method to enable/disable console output
     static void SetLogLevel(LogLevel level); // 设置日志等级过滤器
     static LogLevel GetLogLevel(); // 获取当前日志等级
+    static bool IsInitialized(); // 检查Logger是否已初始化
     
     // Log level methods (ordered by severity: Trace < Debug < Info < Warning < Error < Critical < Fatal)
     static void Trace(const std::string& message);   // 最详细的信息，通常只在调试时使用 (白色)

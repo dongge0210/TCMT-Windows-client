@@ -46,6 +46,10 @@ LogLevel Logger::GetLogLevel() {
     return currentLogLevel;
 }
 
+bool Logger::IsInitialized() {
+    return logFile.is_open();
+}
+
 void Logger::SetConsoleColor(ConsoleColor color) {
     if (hConsole != INVALID_HANDLE_VALUE) {
         SetConsoleTextAttribute(hConsole, static_cast<WORD>(color));

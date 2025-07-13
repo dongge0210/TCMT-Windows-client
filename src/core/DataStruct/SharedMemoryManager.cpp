@@ -250,6 +250,32 @@ void SharedMemoryManager::WriteToSharedMemory(const SystemInfo& systemInfo) {
         Logger::Error("未能获取共享内存互斥体");
         return;
     }
+    
+    // 安全的宽字符串复制函数
+    auto SafeCopyWideString = [](wchar_t* dest, size_t destSize, const std::wstring& src) {
+        try {
+            if (dest == nullptr || destSize == 0) return;
+            
+            // 清零目标数组
+            memset(dest, 0, destSize * sizeof(wchar_t));
+            
+            if (src.empty()) {
+                dest[0] = L'\0';
+                return;
+            }
+            
+            size_t copyLen = std::min(src.length(), destSize - 1);
+            for (size_t i = 0; i < copyLen; ++i) {
+                dest[i] = src[i];
+            }
+            dest[copyLen] = L'\0';
+        } catch (...) {
+            // 如果发生任何异常，确保字符串为空
+            if (dest && destSize > 0) {
+                dest[0] = L'\0';
+            }
+        }
+    };
     try {
         // Clear all string fields first to ensure proper null termination
         memset(pBuffer->cpuName, 0, sizeof(pBuffer->cpuName));
@@ -266,16 +292,11 @@ void SharedMemoryManager::WriteToSharedMemory(const SystemInfo& systemInfo) {
         
         // Copy CPU information with safe string conversion
         std::wstring cpuNameW = WinUtils::StringToWstring(systemInfo.cpuName);
-        if (!cpuNameW.empty()) {
-            size_t copyLen = std::min(cpuNameW.length(), static_cast<size_t>(127));
-            wcsncpy_s(pBuffer->cpuName, sizeof(pBuffer->cpuName) / sizeof(wchar_t), 
-                     cpuNameW.c_str(), copyLen);
-            pBuffer->cpuName[copyLen] = L'\0'; // Ensure null termination
-        }
+        SafeCopyWideString(pBuffer->cpuName, 128, cpuNameW);
         
         pBuffer->physicalCores = systemInfo.physicalCores;
         pBuffer->logicalCores = systemInfo.logicalCores;
-        pBuffer->cpuUsage = static_cast<float>(systemInfo.cpuUsage);
+        pBuffer->cpuUsage = systemInfo.cpuUsage;  // Keep as double
         pBuffer->performanceCores = systemInfo.performanceCores;
         pBuffer->efficiencyCores = systemInfo.efficiencyCores;
         pBuffer->pCoreFreq = systemInfo.performanceCoreFreq;
@@ -294,19 +315,8 @@ void SharedMemoryManager::WriteToSharedMemory(const SystemInfo& systemInfo) {
             std::wstring gpuNameW = WinUtils::StringToWstring(systemInfo.gpuName);
             std::wstring gpuBrandW = WinUtils::StringToWstring(systemInfo.gpuBrand);
             
-            if (!gpuNameW.empty()) {
-                size_t copyLen = std::min(gpuNameW.length(), static_cast<size_t>(127));
-                wcsncpy_s(pBuffer->gpus[0].name, sizeof(pBuffer->gpus[0].name) / sizeof(wchar_t), 
-                         gpuNameW.c_str(), copyLen);
-                pBuffer->gpus[0].name[copyLen] = L'\0';
-            }
-            
-            if (!gpuBrandW.empty()) {
-                size_t copyLen = std::min(gpuBrandW.length(), static_cast<size_t>(63));
-                wcsncpy_s(pBuffer->gpus[0].brand, sizeof(pBuffer->gpus[0].brand) / sizeof(wchar_t), 
-                         gpuBrandW.c_str(), copyLen);
-                pBuffer->gpus[0].brand[copyLen] = L'\0';
-            }
+            SafeCopyWideString(pBuffer->gpus[0].name, 128, gpuNameW);
+            SafeCopyWideString(pBuffer->gpus[0].brand, 64, gpuBrandW);
             
             pBuffer->gpus[0].memory = systemInfo.gpuMemory;
             pBuffer->gpus[0].coreClock = systemInfo.gpuCoreFreq;
@@ -319,19 +329,8 @@ void SharedMemoryManager::WriteToSharedMemory(const SystemInfo& systemInfo) {
             std::wstring adapterNameW = WinUtils::StringToWstring(systemInfo.networkAdapterName);
             std::wstring adapterMacW = WinUtils::StringToWstring(systemInfo.networkAdapterMac);
             
-            if (!adapterNameW.empty()) {
-                size_t copyLen = std::min(adapterNameW.length(), static_cast<size_t>(127));
-                wcsncpy_s(pBuffer->adapters[0].name, sizeof(pBuffer->adapters[0].name) / sizeof(wchar_t), 
-                         adapterNameW.c_str(), copyLen);
-                pBuffer->adapters[0].name[copyLen] = L'\0';
-            }
-            
-            if (!adapterMacW.empty()) {
-                size_t copyLen = std::min(adapterMacW.length(), static_cast<size_t>(31));
-                wcsncpy_s(pBuffer->adapters[0].mac, sizeof(pBuffer->adapters[0].mac) / sizeof(wchar_t), 
-                         adapterMacW.c_str(), copyLen);
-                pBuffer->adapters[0].mac[copyLen] = L'\0';
-            }
+            SafeCopyWideString(pBuffer->adapters[0].name, 128, adapterNameW);
+            SafeCopyWideString(pBuffer->adapters[0].mac, 32, adapterMacW);
             
             pBuffer->adapters[0].speed = systemInfo.networkAdapterSpeed;
             pBuffer->adapterCount = 1;
@@ -343,21 +342,11 @@ void SharedMemoryManager::WriteToSharedMemory(const SystemInfo& systemInfo) {
             const auto& disk = systemInfo.disks[i];
             pBuffer->disks[i].letter = disk.letter;
             
-            if (!disk.label.empty()) {
-                std::wstring labelW = WinUtils::StringToWstring(disk.label);
-                size_t copyLen = std::min(labelW.length(), static_cast<size_t>(127));
-                wcsncpy_s(pBuffer->disks[i].label, sizeof(pBuffer->disks[i].label) / sizeof(wchar_t), 
-                         labelW.c_str(), copyLen);
-                pBuffer->disks[i].label[copyLen] = L'\0';
-            }
+            std::wstring labelW = WinUtils::StringToWstring(disk.label);
+            std::wstring fileSystemW = WinUtils::StringToWstring(disk.fileSystem);
             
-            if (!disk.fileSystem.empty()) {
-                std::wstring fileSystemW = WinUtils::StringToWstring(disk.fileSystem);
-                size_t copyLen = std::min(fileSystemW.length(), static_cast<size_t>(31));
-                wcsncpy_s(pBuffer->disks[i].fileSystem, sizeof(pBuffer->disks[i].fileSystem) / sizeof(wchar_t), 
-                         fileSystemW.c_str(), copyLen);
-                pBuffer->disks[i].fileSystem[copyLen] = L'\0';
-            }
+            SafeCopyWideString(pBuffer->disks[i].label, 128, labelW);
+            SafeCopyWideString(pBuffer->disks[i].fileSystem, 32, fileSystemW);
             
             pBuffer->disks[i].totalSize = disk.totalSize;
             pBuffer->disks[i].usedSpace = disk.usedSpace;
@@ -369,13 +358,8 @@ void SharedMemoryManager::WriteToSharedMemory(const SystemInfo& systemInfo) {
         for (int i = 0; i < pBuffer->tempCount; ++i) {
             const auto& temp = systemInfo.temperatures[i];
             
-            if (!temp.first.empty()) {
-                std::wstring sensorNameW = WinUtils::StringToWstring(temp.first);
-                size_t copyLen = std::min(sensorNameW.length(), static_cast<size_t>(63));
-                wcsncpy_s(pBuffer->temperatures[i].sensorName, sizeof(pBuffer->temperatures[i].sensorName) / sizeof(wchar_t), 
-                         sensorNameW.c_str(), copyLen);
-                pBuffer->temperatures[i].sensorName[copyLen] = L'\0';
-            }
+            std::wstring sensorNameW = WinUtils::StringToWstring(temp.first);
+            SafeCopyWideString(pBuffer->temperatures[i].sensorName, 64, sensorNameW);
             
             pBuffer->temperatures[i].temperature = temp.second;
         }
