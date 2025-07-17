@@ -10,6 +10,8 @@
 #include <QtWidgets/QGroupBox>
 #include <QtWidgets/QGridLayout>
 #include <QtWidgets/QVBoxLayout>
+#include <QtWidgets/QComboBox>
+#include <QtWidgets/QMessageBox>
 #include <QtCore/QTimer>
 #include <QtCore/QTime>  
 #include <QtGui/QPainter>
@@ -22,6 +24,7 @@
 #include <algorithm> // For std::transform
 #include <cctype>    // For ::tolower
 #include <cstring>   // For memset
+#include <chrono>    // For high_resolution_clock
 
 QtWidgetsTCmonitor::QtWidgetsTCmonitor(QWidget* parent)
     : QMainWindow(parent), 
@@ -57,17 +60,19 @@ QtWidgetsTCmonitor::QtWidgetsTCmonitor(QWidget* parent)
         errorLabel->setStyleSheet("QLabel { color: red; font-size: 16px; font-weight: bold; }");
         setCentralWidget(errorLabel);
         
-        // 设置定时器尝试重新连接
+        // 设置定时器尝试重新连接 - 提高重连频率
         updateTimer = new QTimer(this);
         connect(updateTimer, &QTimer::timeout, this, &QtWidgetsTCmonitor::tryReconnectSharedMemory);
-        updateTimer->start(5000); // 每5秒尝试重新连接
+        updateTimer->start(2000); // 每2秒尝试重新连接（从5秒提升到2秒）
         return;
     }
 
-    // Set up update timer - connect to shared memory reader instead of just charts
+    // Set up update timer - 大幅提升刷新速度
     updateTimer = new QTimer(this);
     connect(updateTimer, &QTimer::timeout, this, &QtWidgetsTCmonitor::updateFromSharedMemory);
-    updateTimer->start(1000); // Update once per second
+    updateTimer->start(250); // 从1000ms（1秒）提升到250ms（0.25秒），实现4倍速度提升
+    
+    Logger::Info("Qt UI 初始化完成，刷新间隔: 250ms");
 }
 
 QtWidgetsTCmonitor::~QtWidgetsTCmonitor()
@@ -115,6 +120,7 @@ void QtWidgetsTCmonitor::setupUI()
     createMemorySection();
     createGpuSection();
     createTemperatureSection();
+    createNetworkSection();  // 确保调用网络部分创建
     createDiskSection();
 
     // Add to main layout
@@ -196,20 +202,29 @@ void QtWidgetsTCmonitor::createGpuSection()
     QGridLayout* layout = new QGridLayout(gpuGroupBox);
 
     int row = 0;
+    
+    // 添加GPU选择器
+    layout->addWidget(new QLabel(tr("GPU选择:"), this), row, 0);
+    gpuSelector = new QComboBox(this);
+    gpuSelector->addItem(tr("正在检测GPU..."));
+    connect(gpuSelector, QOverload<int>::of(&QComboBox::currentIndexChanged), 
+            this, &QtWidgetsTCmonitor::onGpuSelectionChanged);
+    layout->addWidget(gpuSelector, row++, 1);
+    
     layout->addWidget(new QLabel(tr("名称:"), this), row, 0);
-    infoLabels["gpuName"] = new QLabel(this);
+    infoLabels["gpuName"] = new QLabel(tr("未知"), this);
     layout->addWidget(infoLabels["gpuName"], row++, 1);
 
     layout->addWidget(new QLabel(tr("品牌:"), this), row, 0);
-    infoLabels["gpuBrand"] = new QLabel(this);
+    infoLabels["gpuBrand"] = new QLabel(tr("未知"), this);
     layout->addWidget(infoLabels["gpuBrand"], row++, 1);
 
     layout->addWidget(new QLabel(tr("显存:"), this), row, 0);
-    infoLabels["gpuMemory"] = new QLabel(this);
+    infoLabels["gpuMemory"] = new QLabel(tr("未知"), this);
     layout->addWidget(infoLabels["gpuMemory"], row++, 1);
 
     layout->addWidget(new QLabel(tr("核心频率:"), this), row, 0);
-    infoLabels["gpuCoreFreq"] = new QLabel(this);
+    infoLabels["gpuCoreFreq"] = new QLabel(tr("未知"), this);
     layout->addWidget(infoLabels["gpuCoreFreq"], row++, 1);
 }
 
@@ -519,6 +534,8 @@ void QtWidgetsTCmonitor::updateGpuSelector() {
     auto buffer = SharedMemoryManager::GetBuffer();
     if (!buffer) {
         Logger::Warn("updateGpuSelector: 共享内存缓冲区不可用");
+        gpuSelector->clear();
+        gpuSelector->addItem(tr("无法读取GPU信息"));
         return;
     }
     
@@ -528,39 +545,62 @@ void QtWidgetsTCmonitor::updateGpuSelector() {
         memcpy(&localCopy, buffer, sizeof(SharedMemoryBlock));
         
         // 验证GPU数据
-        if (localCopy.gpuCount > 2) {
-            Logger::Warn("GPU数量异常: " + std::to_string(localCopy.gpuCount));
-            return;
+        if (localCopy.gpuCount < 0 || localCopy.gpuCount > 8) {
+            Logger::Warn("GPU数量异常: " + std::to_string(localCopy.gpuCount) + "，重置为0");
+            localCopy.gpuCount = 0;
         }
         
         gpuSelector->clear();
         gpuIndices.clear();
         
         if (localCopy.gpuCount > 0) {
-            for (int i = 0; i < localCopy.gpuCount && i < 2; ++i) {
-                QString gpuName = safeFromWCharArray(localCopy.gpus[i].name, 
-                                                   sizeof(localCopy.gpus[i].name)/sizeof(wchar_t));
-                if (!gpuName.isEmpty()) {
-                    gpuSelector->addItem(QString("GPU %1: %2").arg(i + 1).arg(gpuName));
-                    gpuIndices.push_back(i);
+            for (int i = 0; i < localCopy.gpuCount && i < 8; ++i) {
+                const auto& gpu = localCopy.gpus[i];
+                
+                // 验证GPU名称是否有效
+                if (wcslen(gpu.name) == 0) {
+                    continue; // 跳过空名称的GPU
                 }
+                
+                QString gpuName = QString::fromWCharArray(gpu.name);
+                
+                // 检查是否为异常数据（比如全是数字的异常字符串）
+                bool isValidName = false;
+                for (const QChar& ch : gpuName) {
+                    if (ch.isLetter() || ch.isSpace()) {
+                        isValidName = true;
+                        break;
+                    }
+                }
+                
+                if (!isValidName || gpuName.length() > 100) {
+                    Logger::Warn("检测到异常GPU名称，跳过: " + gpuName.toStdString());
+                    continue;
+                }
+                
+                // 添加有效的GPU到选择器
+                QString displayName = gpuName;
+                if (gpu.isVirtual) {
+                    displayName += tr(" (虚拟)");
+                }
+                
+                gpuSelector->addItem(displayName);
+                gpuIndices.push_back(i);
+                
+                Logger::Debug("已添加GPU到选择器: " + displayName.toStdString());
             }
-            
-            // 如果有GPU，默认选择第一个
-            if (gpuSelector->count() > 0) {
-                gpuSelector->setCurrentIndex(0);
-                currentGpuIndex = 0;
-            }
-        } else {
-            gpuSelector->addItem("未检测到GPU");
-            currentGpuIndex = -1;
         }
         
-    } catch (const std::exception& e) {
-        Logger::Error("更新GPU选择器时发生错误: " + std::string(e.what()));
+        // 如果没有有效的GPU
+        if (gpuSelector->count() == 0) {
+            gpuSelector->addItem(tr("未检测到GPU"));
+            Logger::Info("未检测到有效的GPU设备");
+        }
+    }
+    catch (const std::exception& e) {
+        Logger::Error("updateGpuSelector异常: " + std::string(e.what()));
         gpuSelector->clear();
-        gpuSelector->addItem("GPU数据错误");
-        currentGpuIndex = -1;
+        gpuSelector->addItem(tr("GPU信息读取失败"));
     }
 }
 
@@ -739,7 +779,17 @@ void QtWidgetsTCmonitor::on_pushButton_clicked() {
 }
 
 void QtWidgetsTCmonitor::updateFromSharedMemory() {
-    // 从共享内存更新数据 - 使用本地拷贝避免并发访问问题
+    // 从共享内存更新数据 - 使用优化的高性能版本
+    static auto lastUpdateTime = std::chrono::high_resolution_clock::now();
+    auto currentTime = std::chrono::high_resolution_clock::now();
+    auto timeSinceLastUpdate = std::chrono::duration_cast<std::chrono::milliseconds>(currentTime - lastUpdateTime);
+    
+    // 跳过过于频繁的更新请求（防止UI过载）
+    if (timeSinceLastUpdate.count() < 50) {
+        return; // 最小50ms间隔
+    }
+    lastUpdateTime = currentTime;
+    
     auto buffer = SharedMemoryManager::GetBuffer();
     if (!buffer) {
         Logger::Warn("updateFromSharedMemory: 共享内存缓冲区不可用，尝试重新连接");
@@ -760,39 +810,26 @@ void QtWidgetsTCmonitor::updateFromSharedMemory() {
     }
     
     try {
-        // 创建本地拷贝以避免并发访问问题
+        // 创建本地拷贝以避免并发访问问题 - 快速复制优化
         SharedMemoryBlock localCopy;
         
-        // 安全地复制内存，防止访问冲突
-        memset(&localCopy, 0, sizeof(SharedMemoryBlock)); // 先清零
+        // 高性能内存复制 - 先清零再复制
+        memset(&localCopy, 0, sizeof(SharedMemoryBlock));
         memcpy(&localCopy, buffer, sizeof(SharedMemoryBlock));
         
-        // 验证数据完整性 - 添加更严格的检查
-        if (localCopy.diskCount > 8 || localCopy.diskCount < 0) {
-            Logger::Warn("磁盘数量异常: " + std::to_string(localCopy.diskCount) + "，跳过更新");
+        // 快速数据完整性验证
+        if (localCopy.diskCount < 0 || localCopy.diskCount > 8 ||
+            localCopy.gpuCount < 0 || localCopy.gpuCount > 2 ||
+            localCopy.tempCount < 0 || localCopy.tempCount > 10 ||
+            localCopy.totalMemory == 0 || localCopy.totalMemory > (1ULL << 40)) {
+            Logger::Warn("数据完整性检查失败，跳过更新");
             return;
         }
         
-        if (localCopy.gpuCount > 2 || localCopy.gpuCount < 0) {
-            Logger::Warn("GPU数量异常: " + std::to_string(localCopy.gpuCount) + "，跳过更新");
-            return;
-        }
-        
-        if (localCopy.tempCount > 10 || localCopy.tempCount < 0) {
-            Logger::Warn("温度传感器数量异常: " + std::to_string(localCopy.tempCount) + "，跳过更新");
-            return;
-        }
-        
-        // 检查内存数据是否合理
-        if (localCopy.totalMemory == 0 || localCopy.totalMemory > (1ULL << 40)) { // 超过1TB内存不太可能
-            Logger::Warn("内存数据异常，跳过更新");
-            return;
-        }
-        
-        // 转换共享内存数据为SystemInfo结构
+        // 高效数据转换
         SystemInfo sysInfo;
         
-        // CPU信息 - 使用安全的字符串转换
+        // CPU信息 - 优化字符串转换
         sysInfo.cpuName = safeFromWCharArray(localCopy.cpuName, sizeof(localCopy.cpuName)/sizeof(wchar_t)).toStdString();
         sysInfo.physicalCores = localCopy.physicalCores;
         sysInfo.logicalCores = localCopy.logicalCores;
@@ -807,53 +844,65 @@ void QtWidgetsTCmonitor::updateFromSharedMemory() {
         sysInfo.usedMemory = localCopy.usedMemory;
         sysInfo.availableMemory = localCopy.availableMemory;
         
-        // GPU信息 - 使用安全的字符串转换
-        sysInfo.gpus.clear();
-        for (int i = 0; i < localCopy.gpuCount && i < 2; ++i) {
-            GPUData gpu;
-            QString gpuName = safeFromWCharArray(localCopy.gpus[i].name, sizeof(localCopy.gpus[i].name)/sizeof(wchar_t));
-            QString gpuBrand = safeFromWCharArray(localCopy.gpus[i].brand, sizeof(localCopy.gpus[i].brand)/sizeof(wchar_t));
+        // GPU信息 - 修复显示异常问题
+        if (localCopy.gpuCount > 0 && currentGpuIndex < localCopy.gpuCount) {
+            // 使用当前选中的GPU索引
+            const auto& selectedGpu = localCopy.gpus[currentGpuIndex];
             
-            wcsncpy_s(gpu.name, sizeof(gpu.name)/sizeof(wchar_t), gpuName.toStdWString().c_str(), _TRUNCATE);
-            wcsncpy_s(gpu.brand, sizeof(gpu.brand)/sizeof(wchar_t), gpuBrand.toStdWString().c_str(), _TRUNCATE);
-            gpu.memory = localCopy.gpus[i].memory;
-            gpu.coreClock = localCopy.gpus[i].coreClock;
-            gpu.isVirtual = localCopy.gpus[i].isVirtual;
-            sysInfo.gpus.push_back(gpu);
+            // 安全地转换GPU信息
+            QString gpuName = safeFromWCharArray(selectedGpu.name, sizeof(selectedGpu.name)/sizeof(wchar_t));
+            QString gpuBrand = safeFromWCharArray(selectedGpu.brand, sizeof(selectedGpu.brand)/sizeof(wchar_t));
+            
+            // 验证GPU数据有效性
+            if (!gpuName.isEmpty() && gpuName.length() <= 100) {
+                sysInfo.gpuName = gpuName.toStdString();
+                sysInfo.gpuBrand = gpuBrand.toStdString();
+                sysInfo.gpuMemory = selectedGpu.memory;
+                sysInfo.gpuCoreFreq = selectedGpu.coreClock;
+            } else {
+                // 设置默认值避免显示异常数据
+                sysInfo.gpuName = "GPU信息读取异常";
+                sysInfo.gpuBrand = "未知";
+                sysInfo.gpuMemory = 0;
+                sysInfo.gpuCoreFreq = 0;
+            }
+        } else {
+            // 如果没有GPU或索引无效，设置默认值
+            sysInfo.gpuName = "未检测到GPU";
+            sysInfo.gpuBrand = "未知";
+            sysInfo.gpuMemory = 0;
+            sysInfo.gpuCoreFreq = 0;
         }
         
-        // 温度信息 - 使用安全的字符串转换
+        // 温度信息 - 批量处理优化
         sysInfo.temperatures.clear();
+        sysInfo.temperatures.reserve(localCopy.tempCount); // 预分配内存
         for (int i = 0; i < localCopy.tempCount && i < 10; ++i) {
             QString sensorName = safeFromWCharArray(localCopy.temperatures[i].sensorName, 
                                                    sizeof(localCopy.temperatures[i].sensorName)/sizeof(wchar_t));
-            sysInfo.temperatures.push_back({
-                sensorName.toStdString(),
-                localCopy.temperatures[i].temperature
-            });
+            sysInfo.temperatures.emplace_back(sensorName.toStdString(), localCopy.temperatures[i].temperature);
         }
         
-        // 磁盘信息 - 使用安全的字符串转换和验证
+        // 磁盘信息 - 批量处理优化
         sysInfo.disks.clear();
+        sysInfo.disks.reserve(localCopy.diskCount); // 预分配内存
         for (int i = 0; i < localCopy.diskCount && i < 8; ++i) {
             const auto& diskData = localCopy.disks[i];
             
-            // 验证磁盘数据有效性
+            // 快速验证磁盘数据有效性
             if (diskData.totalSize == 0 && diskData.usedSpace == 0 && diskData.freeSpace == 0) {
-                continue; // 跳过无效的磁盘数据
+                continue;
             }
             
             DiskData disk;
             disk.letter = diskData.letter;
             
-            // 安全转换字符串
+            // 优化字符串转换
             QString label = safeFromWCharArray(diskData.label, sizeof(diskData.label)/sizeof(wchar_t));
             QString fileSystem = safeFromWCharArray(diskData.fileSystem, sizeof(diskData.fileSystem)/sizeof(wchar_t));
             
-            // 直接赋值给 std::string
             disk.label = label.toStdString();
             disk.fileSystem = fileSystem.toStdString();
-            
             disk.totalSize = diskData.totalSize;
             disk.usedSpace = diskData.usedSpace;
             disk.freeSpace = diskData.freeSpace;
@@ -861,14 +910,24 @@ void QtWidgetsTCmonitor::updateFromSharedMemory() {
             sysInfo.disks.push_back(disk);
         }
         
-        // 更新UI显示
+        // 批量更新UI显示 - 一次性更新避免频繁重绘
         updateSystemInfo(sysInfo);
-        updateGpuSelector();
-        updateNetworkSelector();
-        updateDiskTreeWidget();
-        updateCharts(); // 更新图表
         
-        Logger::Debug("共享内存数据更新完成");
+        // 选择性更新辅助组件（降低CPU使用）
+        static int updateCounter = 0;
+        if (++updateCounter % 4 == 0) { // 每4次更新一次选择器（降低频率）
+            updateGpuSelector();
+            updateNetworkSelector();
+        }
+        
+        if (updateCounter % 2 == 0) { // 每2次更新一次磁盘信息
+            updateDiskTreeWidget();
+        }
+        
+        updateCharts(); // 图表每次都更新（用户最关注的实时数据）
+        
+        // 重置计数器防止溢出
+        if (updateCounter >= 100) updateCounter = 0;
         
     } catch (const std::exception& e) {
         Logger::Error("从共享内存更新数据时发生错误: " + std::string(e.what()));
@@ -883,19 +942,38 @@ void QtWidgetsTCmonitor::updateCharts() {
         return;
     }
     
-    // 模拟温度数据更新
-    static int timeCounter = 0;
-    timeCounter++;
+    // 从当前数据获取真实温度（如果有的话）
+    float cpuTemp = 45.0f; // 默认值
+    float gpuTemp = 50.0f; // 默认值
     
-    // CPU温度数据（模拟）
-    float cpuTemp = 45.0f + (rand() % 20); // 45-65度范围
+    // 尝试从当前系统信息获取真实温度
+    for (const auto& temp : currentSysInfo.temperatures) {
+        std::string tempName = temp.first;
+        std::transform(tempName.begin(), tempName.end(), tempName.begin(), ::tolower);
+        
+        if (tempName.find("cpu") != std::string::npos || 
+            tempName.find("package") != std::string::npos ||
+            tempName.find("core") != std::string::npos) {
+            cpuTemp = static_cast<float>(temp.second);
+        }
+        else if (tempName.find("gpu") != std::string::npos ||
+                 tempName.find("graphics") != std::string::npos) {
+            gpuTemp = static_cast<float>(temp.second);
+        }
+    }
+    
+    // 如果没有真实数据，使用模拟数据
+    if (currentSysInfo.temperatures.empty()) {
+        cpuTemp = 45.0f + (rand() % 20); // 45-65度范围
+        gpuTemp = 50.0f + (rand() % 25); // 50-75度范围
+    }
+    
+    // 更新温度历史
     cpuTempHistory.push(cpuTemp);
     if (cpuTempHistory.size() > MAX_DATA_POINTS) {
         cpuTempHistory.pop();
     }
     
-    // GPU温度数据（模拟）
-    float gpuTemp = 50.0f + (rand() % 25); // 50-75度范围
     gpuTempHistory.push(gpuTemp);
     if (gpuTempHistory.size() > MAX_DATA_POINTS) {
         gpuTempHistory.pop();
@@ -916,13 +994,7 @@ void QtWidgetsTCmonitor::updateCharts() {
         gpuTempSeries->append(i, tempQueue.front());
         tempQueue.pop();
     }
-    
-    Logger::Debug("图表数据已更新");
 }
-
-// ============================================================================
-// 磁盘信息更新函数实现
-// ============================================================================
 
 void QtWidgetsTCmonitor::updateDiskInfoFromSharedMemory() {
     // 从SharedMemoryManager获取磁盘信息 - 使用本地拷贝避免并发访问
@@ -1041,10 +1113,6 @@ void QtWidgetsTCmonitor::updateDiskInfoFromSharedMemory() {
     }
 }
 
-// ============================================================================
-// 重新连接共享内存函数实现
-// ============================================================================
-
 void QtWidgetsTCmonitor::tryReconnectSharedMemory() {
     // 尝试重新连接共享内存
     if (SharedMemoryManager::InitSharedMemory()) {
@@ -1054,22 +1122,22 @@ void QtWidgetsTCmonitor::tryReconnectSharedMemory() {
         // 重新创建UI
         setupUI();
         
-        // 更改定时器功能为正常更新
+        // 更改定时器功能为正常更新 - 使用高速刷新
         updateTimer->disconnect(); // 断开重连信号
         connect(updateTimer, &QTimer::timeout, this, &QtWidgetsTCmonitor::updateFromSharedMemory);
-        updateTimer->start(1000); // 每秒更新
+        updateTimer->start(250); // 重连后也使用高速刷新（250ms）
         
-        Logger::Info("QT-UI 成功重新连接到共享内存");
+        Logger::Info("QT-UI 成功重新连接到共享内存，启用高速刷新模式");
         
         // 显示成功消息
         QMessageBox::information(this, tr("连接成功"), 
-            tr("已成功连接到主程序，开始显示系统信息。"));
+            tr("已成功连接到主程序，开始高速显示系统信息。"));
     } else {
         // 连接失败，更新错误信息
         QLabel* errorLabel = qobject_cast<QLabel*>(centralWidget());
         if (errorLabel) {
             QString currentTime = QTime::currentTime().toString("hh:mm:ss");
-            errorLabel->setText(tr("共享内存连接失败\n请启动主程序 Win_x64_sysMonitor.exe\n\n最后尝试时间: %1\n正在每5秒重试...").arg(currentTime));
+            errorLabel->setText(tr("共享内存连接失败\n请启动主程序 Win_x64_sysMonitor.exe\n\n最后尝试时间: %1\n正在每2秒重试...").arg(currentTime));
         }
     }
 }
