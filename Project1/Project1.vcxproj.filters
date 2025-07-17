@@ -63,9 +63,6 @@
     <ClInclude Include="..\src\core\Utils\LibreHardwareMonitorBridge.h">
       <Filter>头文件</Filter>
     </ClInclude>
-    <ClInclude Include="src\B_UI\ConsoleUI.h">
-      <Filter>头文件</Filter>
-    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="..\src\core\Utils\Logger.cpp">
@@ -95,9 +92,6 @@
     <ClCompile Include="..\src\core\cpu\CpuInfo.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
-    <ClCompile Include="..\src\main.cpp">
-      <Filter>源文件</Filter>
-    </ClCompile>
     <ClCompile Include="..\src\core\disk\DiskInfo.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
@@ -116,13 +110,8 @@
     <ClCompile Include="..\src\core\Utils\LibreHardwareMonitorBridge.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
-    <ClCompile Include="src\B_UI\ConsoleUI.cpp">
+    <ClCompile Include="..\src\main.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
-  </ItemGroup>
-  <ItemGroup>
-    <None Include="..\Qt-Widgets-TC-monitor\QtWidgetsTCmonitor.pro" />
-    <None Include="..\Project1.vcxproj.filters" />
-    <None Include="Qt-Widgets-TC-monitor.vcxproj" />
   </ItemGroup>
 </Project>

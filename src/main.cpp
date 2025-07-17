@@ -1,9 +1,12 @@
 ﻿// 使用#pragma unmanaged确保main函数编译为本机代码
 #pragma unmanaged
 
+// ✅ 添加栈大小控制，防止栈溢出
+#pragma comment(linker, "/STACK:8388608")  // 设置栈大小为8MB
+
 /*
 如果出现
-警告	MSB8077	某些文件设置为编译为 C++/CLI，但未定义“为单个文件启用 CLR 支持”属性。有关更多详细信息，请参阅“高级属性页”文档。
+警告	MSB8077	某些文件设置为 C++/CLI，但未定义"为单个文件启用 CLR 支持"属性。有关更多详细信息，请参阅"高级属性页"文档。
 以上警告请忽视，这个项目的结构没法兼容这个情况
 */
 // 首先包含Windows头文件以避免宏重定义警告
@@ -26,6 +29,7 @@
 #include <vector> // Include for std::vector
 #include <mutex>     // 添加线程同步支持
 #include <atomic>    // 添加原子操作支持
+#include <locale>   // 添加locale支持以使用setlocale
 
 // 最后包含项目头文件
 #include "core/cpu/CpuInfo.h"
@@ -41,16 +45,12 @@
 #include "core/DataStruct/DataStruct.h"
 #include "core/DataStruct/SharedMemoryManager.h"  // Include the new shared memory manager
 #include "core/temperature/TemperatureWrapper.h"  // 使用TemperatureWrapper而不是直接调用LibreHardwareMonitorBridge
-#include "B_UI/ConsoleUI.h"  // 添加UI支持
-
-//QT已在本体软件因为COM证实为无效，QTUI将单独UI通过内存共享显示
 
 #pragma comment(lib, "kernel32.lib")
 #pragma comment(lib, "user32.lib")
 
-// 全局变量 - 使用原子类型确保线程安全
-static std::atomic<bool> g_shouldExit{false};
-static std::atomic<bool> g_uiRequested{false};
+// 全局变量
+std::atomic<bool> g_shouldExit{false};
 static std::atomic<bool> g_monitoringStarted{false};
 static std::atomic<bool> g_comInitialized{false};
 
@@ -60,15 +60,13 @@ static std::mutex g_consoleMutex;
 // 函数声明
 bool CheckForKeyPress();
 char GetKeyPress();
-void RunUIThread();
-void RunLoggerWindow();
 void SafeExit(int exitCode);
 
 // 线程安全的控制台输出函数
 void SafeConsoleOutput(const std::string& message);
 void SafeConsoleOutput(const std::string& message, int color);
 
-// 信号处理函数
+// 信号处理函数 - 简化版本
 BOOL WINAPI ConsoleCtrlHandler(DWORD dwCtrlType) {
     switch (dwCtrlType) {
     case CTRL_C_EVENT:
@@ -78,6 +76,7 @@ BOOL WINAPI ConsoleCtrlHandler(DWORD dwCtrlType) {
     case CTRL_SHUTDOWN_EVENT:
         Logger::Info("接收到系统关闭信号，正在安全退出...");
         g_shouldExit = true;
+        SafeConsoleOutput("正在退出程序...\n", 14);
         return TRUE;
     }
     return FALSE;
@@ -87,18 +86,29 @@ BOOL WINAPI ConsoleCtrlHandler(DWORD dwCtrlType) {
 void SafeConsoleOutput(const std::string& message) {
     std::lock_guard<std::mutex> lock(g_consoleMutex);
     try {
-        // 使用 WriteConsoleW 支持Unicode输出
+        // 统一使用UTF-8编码输出，确保中文显示正确
         HANDLE hConsole = GetStdHandle(STD_OUTPUT_HANDLE);
         if (hConsole != INVALID_HANDLE_VALUE) {
-            // 将UTF-8字符串转换为宽字符
+            // 确保输入字符串不为空
+            if (message.empty()) {
+                return;
+            }
+            
+            // 将UTF-8字符串转换为UTF-16 (Wide Character)
             int wideLength = MultiByteToWideChar(CP_UTF8, 0, message.c_str(), -1, nullptr, 0);
             if (wideLength > 0) {
                 std::vector<wchar_t> wideMessage(wideLength);
-                MultiByteToWideChar(CP_UTF8, 0, message.c_str(), -1, wideMessage.data(), wideLength);
-                
-                DWORD written;
-                WriteConsoleW(hConsole, wideMessage.data(), static_cast<DWORD>(wideLength - 1), &written, NULL);
+                if (MultiByteToWideChar(CP_UTF8, 0, message.c_str(), -1, wideMessage.data(), wideLength)) {
+                    // 使用WriteConsoleW直接输出Unicode文本
+                    DWORD written;
+                    WriteConsoleW(hConsole, wideMessage.data(), static_cast<DWORD>(wideLength - 1), &written, NULL);
+                    return;
+                }
             }
+            
+            // 如果UTF-8转换失败，回退到ASCII输出
+            DWORD written;
+            WriteConsoleA(hConsole, message.c_str(), static_cast<DWORD>(message.length()), &written, NULL);
         }
     }
     catch (...) {
@@ -111,22 +121,33 @@ void SafeConsoleOutput(const std::string& message, int color) {
     try {
         HANDLE hConsole = GetStdHandle(STD_OUTPUT_HANDLE);
         if (hConsole != INVALID_HANDLE_VALUE) {
+            // 保存原始颜色
             CONSOLE_SCREEN_BUFFER_INFO csbi;
             GetConsoleScreenBufferInfo(hConsole, &csbi);
             WORD originalColor = csbi.wAttributes;
             
+            // 设置新颜色
             SetConsoleTextAttribute(hConsole, color);
             
-            // 将UTF-8字符串转换为宽字符
-            int wideLength = MultiByteToWideChar(CP_UTF8, 0, message.c_str(), -1, nullptr, 0);
-            if (wideLength > 0) {
-                std::vector<wchar_t> wideMessage(wideLength);
-                MultiByteToWideChar(CP_UTF8, 0, message.c_str(), -1, wideMessage.data(), wideLength);
-                
-                DWORD written;
-                WriteConsoleW(hConsole, wideMessage.data(), static_cast<DWORD>(wideLength - 1), &written, NULL);
+            // 确保输入字符串不为空
+            if (!message.empty()) {
+                // 将UTF-8字符串转换为UTF-16 (Wide Character)
+                int wideLength = MultiByteToWideChar(CP_UTF8, 0, message.c_str(), -1, nullptr, 0);
+                if (wideLength > 0) {
+                    std::vector<wchar_t> wideMessage(wideLength);
+                    if (MultiByteToWideChar(CP_UTF8, 0, message.c_str(), -1, wideMessage.data(), wideLength)) {
+                        // 使用WriteConsoleW直接输出Unicode文本
+                        DWORD written;
+                        WriteConsoleW(hConsole, wideMessage.data(), static_cast<DWORD>(wideLength - 1), &written, NULL);
+                    } else {
+                        // 如果转换失败，回退到ASCII输出
+                        DWORD written;
+                        WriteConsoleA(hConsole, message.c_str(), static_cast<DWORD>(message.length()), &written, NULL);
+                    }
+                }
             }
             
+            // 恢复原始颜色
             SetConsoleTextAttribute(hConsole, originalColor);
         }
     }
@@ -403,53 +424,14 @@ public:
     }
 }; // 添加缺少的分号
 
-// 主函数 - 启动后台监控，支持交互式UI
+// 主函数 - 控制台模式
 int main(int argc, char* argv[]) {
-    // 检查命令行参数 - 如果是Console UI模式，直接启动Console UI
-    if (argc > 1 && std::string(argv[1]) == "--console-ui") {
-        // Console UI模式 - 在独立窗口中运行
-        SetConsoleCtrlHandler(ConsoleCtrlHandler, TRUE);
-        
-        try {
-            // 为Console UI初始化基本的日志系统（不输出到控制台，避免干扰UI）
-            Logger::EnableConsoleOutput(false);
-            Logger::Initialize("console_ui.log");
-            Logger::SetLogLevel(LOG_INFO);
-            Logger::Info("Console UI模式启动");
-            
-            // 设置Console UI窗口标题
-            SetConsoleTitleA("系统监控器 - Console UI");
-            
-            // 初始化COM（Console UI可能需要）
-            HRESULT hr = CoInitializeEx(nullptr, COINIT_MULTITHREADED);
-            if (FAILED(hr) && hr != RPC_E_CHANGED_MODE) {
-                Logger::Error("Console UI模式COM初始化失败");
-                return 1;
-            }
-            
-            // 创建并运行Console UI
-            ConsoleUI ui;
-            if (ui.Initialize()) {
-                Logger::Info("Console UI初始化成功");
-                ui.Run(); // 这将阻塞直到用户退出
-                ui.Shutdown();
-                Logger::Info("Console UI已退出");
-            } else {
-                Logger::Error("Console UI初始化失败");
-                printf("Console UI初始化失败\n");
-                return 1;
-            }
-            
-            // 清理COM
-            CoUninitialize();
-            return 0;
-        }
-        catch (const std::exception& e) {
-            Logger::Error("Console UI模式运行时发生错误: " + std::string(e.what()));
-            printf("Console UI运行错误: %s\n", e.what());
-            return 1;
-        }
-    }
+    // 设置控制台编码为UTF-8，确保中文显示正确
+    SetConsoleCP(65001);
+    SetConsoleOutputCP(65001);
+    
+    // 设置本地化支持UTF-8
+    setlocale(LC_ALL, "en_US.UTF-8");
     
     // 设置控制台信号处理器
     SetConsoleCtrlHandler(ConsoleCtrlHandler, TRUE);
@@ -458,8 +440,8 @@ int main(int argc, char* argv[]) {
         // 初始化日志系统
         try {
             Logger::EnableConsoleOutput(true); // Enable console output for Logger
-            Logger::Initialize("system_monitor.log");//后面可以设置的项
-            Logger::SetLogLevel(LOG_DEBUG); // 设置日志等级为DEBUG，查看详细信息，后面可以设置的项
+            Logger::Initialize("system_monitor.log");
+            Logger::SetLogLevel(LOG_DEBUG); // 设置日志等级为DEBUG，查看详细信息
             Logger::Info("程序启动");
         }
         catch (const std::exception& e) {
@@ -565,25 +547,6 @@ int main(int argc, char* argv[]) {
 
         Logger::Info("程序启动完成");
         
-        // 显示启动信息
-        SafeConsoleOutput("\n" + std::string(60, '=') + "\n", 11);
-        SafeConsoleOutput("  系统监控器 - Logger窗口\n", 11);
-        SafeConsoleOutput("  后台监控服务运行中...\n", 11);
-        SafeConsoleOutput(std::string(60, '=') + "\n", 11);
-        
-        // 启动Console UI线程（在独立窗口中运行）
-        Logger::Info("准备启动独立Console UI窗口");
-        SafeConsoleOutput("正在创建独立Console UI窗口...\n", 14);
-        
-        std::thread uiThread(RunUIThread);
-        uiThread.detach();
-        
-        Logger::Info("Console UI进程启动线程已创建");
-        SafeConsoleOutput("Console UI将在新窗口中启动\n", 10);
-        
-        // 设置Logger终端标题
-        SetConsoleTitleA("系统监控器 - Logger窗口");
-        
         // 初始化循环计数器，减少频繁的日志记录
         int loopCounter = 1; // 从1开始计数，更符合人类习惯
         bool isFirstRun = true; // 首次运行标志
@@ -617,27 +580,11 @@ int main(int argc, char* argv[]) {
             try {
                 auto loopStart = std::chrono::high_resolution_clock::now();
                 
-                // 只在每5次循环记录一次详细信息（约15秒）
+                // 只在每5次循环记录一次详细信息（约5秒）
                 bool isDetailedLogging = (loopCounter % 5 == 1); // 第1, 6, 11, 16, 21... 次循环
                 
                 if (isDetailedLogging) {
                     Logger::Debug("开始执行主监控循环第 #" + std::to_string(loopCounter) + " 次迭代");
-                }
-                
-                // 检查键盘输入
-                if (CheckForKeyPress()) {
-                    char key = GetKeyPress();
-                    switch (key) {
-                        case 'Q':
-                        case 'q':
-                            Logger::Info("用户请求退出程序");
-                            g_shouldExit = true;
-                            continue; // 跳到下一次循环检查，然后退出
-                        case 'H':
-                        case 'h':
-                            // 显示帮助信息保持不变
-                            break;
-                    }
                 }
                 
                 // 在第5次循环后，监控已稳定运行
@@ -725,7 +672,7 @@ int main(int argc, char* argv[]) {
                     // 保持默认值
                 }
 
-                // 内存信息（每次循环都获取以确保UI端数据实时性）
+                // 内存信息（每次循环都获取以确保数据实时性）
                 try {
                     MemoryInfo mem;
                     sysInfo.totalMemory = mem.GetTotalPhysical();
@@ -763,39 +710,75 @@ int main(int argc, char* argv[]) {
                     sysInfo.gpuCoreFreq = cachedGpuCoreFreq;
                     sysInfo.gpuIsVirtual = cachedGpuIsVirtual;
 
-                    // 同时填充GPU数组供QT-UI使用
+                    // 修复GPU数组填充 - 添加数据验证和清理
                     sysInfo.gpus.clear();
                     if (!cachedGpuName.empty() && cachedGpuName != "未检测到GPU") {
                         GPUData gpu;
+                        
+                        // 初始化GPU结构体以避免垃圾数据
+                        memset(&gpu, 0, sizeof(GPUData));
                         
                         // 安全地复制GPU名称和品牌到wchar_t数组
                         std::wstring gpuNameW = WinUtils::StringToWstring(cachedGpuName);
                         std::wstring gpuBrandW = WinUtils::StringToWstring(cachedGpuBrand);
                         
+                        // 限制字符串长度以防止缓冲区溢出
+                        if (gpuNameW.length() >= sizeof(gpu.name)/sizeof(wchar_t)) {
+                            gpuNameW = gpuNameW.substr(0, sizeof(gpu.name)/sizeof(wchar_t) - 1);
+                        }
+                        if (gpuBrandW.length() >= sizeof(gpu.brand)/sizeof(wchar_t)) {
+                            gpuBrandW = gpuBrandW.substr(0, sizeof(gpu.brand)/sizeof(wchar_t) - 1);
+                        }
+                        
                         wcsncpy_s(gpu.name, sizeof(gpu.name)/sizeof(wchar_t), gpuNameW.c_str(), _TRUNCATE);
                         wcsncpy_s(gpu.brand, sizeof(gpu.brand)/sizeof(wchar_t), gpuBrandW.c_str(), _TRUNCATE);
-                        gpu.memory = cachedGpuMemory;
-                        gpu.coreClock = cachedGpuCoreFreq;
+                        
+                        // 验证和清理GPU数据 - 避免异常值
+                        gpu.memory = (cachedGpuMemory > 0 && cachedGpuMemory < UINT64_MAX) ? cachedGpuMemory : 0;
+                        
+                        // 修复GPU核心频率 - 确保在合理范围内
+                        if (cachedGpuCoreFreq > 0 && cachedGpuCoreFreq < 10000) {
+                            gpu.coreClock = cachedGpuCoreFreq;
+                        } else {
+                            gpu.coreClock = 0; // 设置为0而不是异常值
+                            if (isFirstRun && cachedGpuCoreFreq > 10000) {
+                                Logger::Warn("GPU核心频率异常: " + std::to_string(cachedGpuCoreFreq) + "MHz，已重置为0");
+                            }
+                        }
+                        
                         gpu.isVirtual = cachedGpuIsVirtual;
                         
                         sysInfo.gpus.push_back(gpu);
                         
                         if (isFirstRun) {
                             Logger::Debug("已添加GPU到数组: " + cachedGpuName + 
-                                         " (内存: " + std::to_string(cachedGpuMemory) + " 字节)");
+                                         " (内存: " + FormatSize(cachedGpuMemory) + 
+                                         ", 频率: " + std::to_string(gpu.coreClock) + "MHz" +
+                                         ", 虚拟: " + (cachedGpuIsVirtual ? "是" : "否") + ")");
+                        }
+                    } else {
+                        if (isFirstRun) {
+                            Logger::Debug("未检测到有效GPU，跳过GPU数据填充");
                         }
                     }
                 }
                 catch (const std::exception& e) {
                     Logger::Error("获取GPU缓存信息失败: " + std::string(e.what()));
+                    // 清空GPU数据以避免显示错误信息
+                    sysInfo.gpus.clear();
+                    sysInfo.gpuName = "GPU信息获取失败";
+                    sysInfo.gpuBrand = "未知";
+                    sysInfo.gpuMemory = 0;
+                    sysInfo.gpuCoreFreq = 0;
+                    sysInfo.gpuIsVirtual = false;
                 }
 
-                // 初始化网络适配器信息（避免未初始化的字符串导致崩溃）
-                sysInfo.networkAdapterName = "";
-                sysInfo.networkAdapterMac = "";
+                // 初始化网络适配器信息（避免无效数据导致崩溃）
+                sysInfo.networkAdapterName = "未检测到网络适配器";
+                sysInfo.networkAdapterMac = "00-00-00-00-00-00";
                 sysInfo.networkAdapterSpeed = 0;
 
-                // 添加温度数据采集（每次循环都获取以确保UI端数据实时性）
+                // 添加温度数据采集（每次循环都获取以确保数据实时性）
                 try {
                     auto temperatures = TemperatureWrapper::GetTemperatures();
                     sysInfo.temperatures.clear();
@@ -816,7 +799,7 @@ int main(int argc, char* argv[]) {
                     sysInfo.temperatures.clear();
                 }
 
-                // 添加磁盘信息采集（每次循环都获取以确保UI端数据实时性）
+                // 添加磁盘信息采集（每次循环都获取以确保数据实时性）
                 try {
                     DiskInfo diskInfo;
                     auto disks = diskInfo.GetDisks();
@@ -834,17 +817,6 @@ int main(int argc, char* argv[]) {
                         if (isFirstRun) {
                             for (size_t i = 0; i < disks.size(); ++i) {
                                 const auto& disk = disks[i];
-
-                                // Ensure proper type handling for disk.label and disk.fileSystem
-                                std::wstring labelW = WinUtils::StringToWstring(disk.label);
-                                std::wstring fsW = WinUtils::StringToWstring(disk.fileSystem);
-
-                                if (labelW.length() >= sizeof(disk.label) / sizeof(wchar_t) ||
-                                    fsW.length() >= sizeof(disk.fileSystem) / sizeof(wchar_t)) {
-                                    Logger::Error("在索引 " + std::to_string(i) + " 处检测到无效的磁盘数据");
-                                    continue;
-                                }
-
                                 Logger::Debug("磁盘 " + std::to_string(i) + ": 标签=" + disk.label +
                                              ", 文件系统=" + disk.fileSystem);
                             }
@@ -871,7 +843,7 @@ int main(int argc, char* argv[]) {
                         }
                     } else {
                         Logger::Critical("共享内存缓冲区不可用");
-                        // Try to reinitialize
+                        // 尝试重新初始化
                         if (SharedMemoryManager::InitSharedMemory()) {
                             SharedMemoryManager::WriteToSharedMemory(sysInfo);
                             if (isDetailedLogging) {
@@ -890,13 +862,13 @@ int main(int argc, char* argv[]) {
                     Logger::Error("处理系统信息时发生异常: " + std::string(e.what()));
                 }
 
-                // 计算循环执行时间并自适应休眠
+                // 计算循环执行时间并自适应休眠 - 优化刷新速度
                 auto loopEnd = std::chrono::high_resolution_clock::now();
                 auto loopDuration = std::chrono::duration_cast<std::chrono::milliseconds>(loopEnd - loopStart);
                 
-                // 确保总循环时间至少为3秒，进一步减少CPU占用
-                int targetCycleTime = 3000; // 改为3秒一个循环
-                int sleepTime = (std::max)(targetCycleTime - static_cast<int>(loopDuration.count()), 1000); // 最少休眠1秒
+                // 1秒循环时间
+                int targetCycleTime = 1000;
+                int sleepTime = (std::max)(targetCycleTime - static_cast<int>(loopDuration.count()), 100); // 最少休眠100ms
                 
                 if (isDetailedLogging) {
                     // 将毫秒转换为秒，保留2位小数
@@ -911,7 +883,7 @@ int main(int argc, char* argv[]) {
                     Logger::Debug(ss.str());
                 }
                 
-                // 休眠时检查退出标志
+                // 休眠时检查退出标志 - 使用更短的检查间隔提升响应性
                 auto sleepStart = std::chrono::high_resolution_clock::now();
                 while (!g_shouldExit.load()) {
                     auto now = std::chrono::high_resolution_clock::now();
@@ -919,7 +891,7 @@ int main(int argc, char* argv[]) {
                     if (elapsed.count() >= sleepTime) {
                         break;
                     }
-                    std::this_thread::sleep_for(std::chrono::milliseconds(100)); // 检查间隔
+                    std::this_thread::sleep_for(std::chrono::milliseconds(50)); // 50ms检查间隔
                 }
                 
                 loopCounter++;
@@ -977,100 +949,6 @@ char GetKeyPress() {
         // 忽略键盘输入错误
     }
     return 0;
-}
-
-// UI线程函数 - 在独立终端窗口中启动Console UI
-void RunUIThread() {
-    try {
-        Logger::Info("正在启动独立Console UI窗口...");
-        
-        // 等待主程序初始化完成
-        std::this_thread::sleep_for(std::chrono::milliseconds(3000));
-        
-        Logger::Info("开始创建独立Console UI进程");
-        
-        try {
-            // 获取当前程序路径
-            wchar_t szPath[MAX_PATH];
-            GetModuleFileNameW(NULL, szPath, MAX_PATH);
-            
-            // 创建启动信息结构
-            STARTUPINFOW si = { sizeof(si) };
-            PROCESS_INFORMATION pi;
-            
-            // 设置新控制台窗口属性
-            si.dwFlags = STARTF_USESHOWWINDOW;
-            si.wShowWindow = SW_NORMAL;
-            
-            // 构建命令行参数 - 启动Console UI模式
-            std::wstring cmdLine = L"\"" + std::wstring(szPath) + L"\" --console-ui";
-            
-            // 创建新的控制台进程运行Console UI
-            if (CreateProcessW(
-                NULL,                           // 应用程序名称
-                const_cast<wchar_t*>(cmdLine.c_str()), // 命令行
-                NULL,                           // 进程安全属性
-                NULL,                           // 线程安全属性
-                FALSE,                          // 继承句柄
-                CREATE_NEW_CONSOLE,             // 创建新控制台窗口
-                NULL,                           // 环境变量
-                NULL,                           // 当前目录
-                &si,                            // 启动信息
-                &pi                             // 进程信息
-            )) {
-                Logger::Info("Console UI进程创建成功，PID: " + std::to_string(pi.dwProcessId));
-                
-                // 等待Console UI进程结束或程序退出
-                HANDLE handles[] = { pi.hProcess };
-                DWORD waitResult;
-                
-                while (!g_shouldExit.load()) {
-                    waitResult = WaitForMultipleObjects(1, handles, FALSE, 1000); // 等待1秒
-                    if (waitResult == WAIT_OBJECT_0) {
-                        // Console UI进程已结束
-                        DWORD exitCode;
-                        GetExitCodeProcess(pi.hProcess, &exitCode);
-                        Logger::Info("Console UI进程已退出，退出码: " + std::to_string(exitCode));
-                        break;
-                    }
-                    else if (waitResult == WAIT_TIMEOUT) {
-                        // 继续等待
-                        continue;
-                    }
-                    else {
-                        Logger::Error("等待Console UI进程时发生错误");
-                        break;
-                    }
-                }
-                
-                // 清理进程句柄
-                CloseHandle(pi.hProcess);
-                CloseHandle(pi.hThread);
-                
-            } else {
-                DWORD error = GetLastError();
-                Logger::Error("创建Console UI进程失败，错误码: " + std::to_string(error));
-                SafeConsoleOutput("\n=== Console UI 进程创建失败 ===\n", 12);
-                SafeConsoleOutput("将继续使用纯日志模式\n", 11);
-                SafeConsoleOutput("按 Ctrl+C 可以退出程序\n", 11);
-            }
-        }
-        catch (const std::exception& e) {
-            Logger::Error("Console UI进程创建时发生错误: " + std::string(e.what()));
-            SafeConsoleOutput("\n=== Console UI 发生错误 ===\n", 12);
-            SafeConsoleOutput("错误: " + std::string(e.what()) + "\n", 11);
-            SafeConsoleOutput("将继续使用纯日志模式\n", 11);
-            SafeConsoleOutput("按 Ctrl+C 可以退出程序\n", 11);
-        }
-        
-        Logger::Info("Console UI线程已退出");
-    }
-    catch (const std::exception& e) {
-        Logger::Error("Console UI线程发生错误: " + std::string(e.what()));
-    }
-    catch (...) {
-        Logger::Error("Console UI线程发生未知错误");
-    }
 }
 
 
