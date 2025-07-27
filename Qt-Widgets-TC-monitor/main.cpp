@@ -39,10 +39,10 @@ int main(int argc, char *argv[])
     // 初始化日志系统 - 添加异常处理
     try {
         Logger::Initialize("qt_monitor.log");
-        Logger::EnableConsoleOutput(false); // QT-UI不需要控制台输出
-        Logger::SetLogLevel(LOG_INFO);
+        Logger::EnableConsoleOutput(true); 
+        Logger::SetLogLevel(LOG_DEBUG);
         
-        Logger::Info("QT-UI 系统监控器启动");
+        Logger::Info("UI 启动");
     }
     catch (const std::exception& e) {
         QMessageBox::warning(nullptr, "日志系统警告", 
@@ -60,19 +60,19 @@ int main(int argc, char *argv[])
         window.show();
         
         if (Logger::IsInitialized()) {
-            Logger::Info("QT-UI 主窗口已显示");
+            Logger::Info("UI 主窗口已显示");
         }
         
         // 运行应用程序事件循环
         int result = app.exec();
         
         if (Logger::IsInitialized()) {
-            Logger::Info("QT-UI 正常退出，返回码: " + std::to_string(result));
+            Logger::Info("UI 正常退出，返回码: " + std::to_string(result));
         }
         return result;
     }
     catch (const std::exception& e) {
-        QString errorMsg = QString("QT-UI 启动时发生致命错误: %1").arg(e.what());
+        QString errorMsg = QString("UI 启动时发生致命错误: %1").arg(e.what());
         
         if (Logger::IsInitialized()) {
             Logger::Error(errorMsg.toStdString());

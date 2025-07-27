@@ -63,6 +63,9 @@
     <ClInclude Include="..\src\core\Utils\LibreHardwareMonitorBridge.h">
       <Filter>头文件</Filter>
     </ClInclude>
+    <ClInclude Include="src\core\DataStruct\DataStruct.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="..\src\core\Utils\Logger.cpp">

@@ -777,26 +777,82 @@ int main(int argc, char* argv[]) {
                 sysInfo.networkAdapterName = "未检测到网络适配器";
                 sysInfo.networkAdapterMac = "00-00-00-00-00-00";
                 sysInfo.networkAdapterSpeed = 0;
+                sysInfo.networkAdapterIp = "N/A"; // 添加默认IP地址
+                sysInfo.networkAdapterType = "未知"; // 添加默认网卡类型
+
+                // 填充所有网络适配器信息
+                try {
+                    sysInfo.adapters.clear();
+                    NetworkAdapter netAdapter(*wmiManager);
+                    const auto& adapters = netAdapter.GetAdapters();
+                    if (!adapters.empty()) {
+                        for (const auto& adapter : adapters) {
+                            NetworkAdapterData data;
+                            // 名称、MAC、IP和类型为wstring，需转为wchar_t数组
+                            wcsncpy_s(data.name, adapter.name.c_str(), _TRUNCATE);
+                            wcsncpy_s(data.mac, adapter.mac.c_str(), _TRUNCATE);
+                            wcsncpy_s(data.ipAddress, adapter.ip.c_str(), _TRUNCATE); // 添加IP地址
+                            wcsncpy_s(data.adapterType, adapter.adapterType.c_str(), _TRUNCATE); // 添加网卡类型
+                            data.speed = adapter.speed;
+                            sysInfo.adapters.push_back(data);
+                        }
+                        // 兼容旧字段，取第一个适配器
+                        sysInfo.networkAdapterName = WinUtils::WstringToString(adapters[0].name);
+                        sysInfo.networkAdapterMac = WinUtils::WstringToString(adapters[0].mac);
+                        sysInfo.networkAdapterIp = WinUtils::WstringToString(adapters[0].ip); // 添加IP地址
+                        sysInfo.networkAdapterType = WinUtils::WstringToString(adapters[0].adapterType); // 添加网卡类型
+                        sysInfo.networkAdapterSpeed = adapters[0].speed;
+                    } else {
+                        sysInfo.networkAdapterName = "未检测到网络适配器";
+                        sysInfo.networkAdapterMac = "00-00-00-00-00-00";
+                        sysInfo.networkAdapterIp = "N/A"; // 添加默认IP地址
+                        sysInfo.networkAdapterType = "未知"; // 添加默认网卡类型
+                        sysInfo.networkAdapterSpeed = 0;
+                    }
+                } catch (const std::exception& e) {
+                    Logger::Error("获取网络适配器信息失败: " + std::string(e.what()));
+                    sysInfo.adapters.clear();
+                    sysInfo.networkAdapterName = "未检测到网络适配器";
+                    sysInfo.networkAdapterMac = "00-00-00-00-00-00";
+                    sysInfo.networkAdapterIp = "N/A"; // 添加默认IP地址
+                    sysInfo.networkAdapterType = "未知"; // 添加默认网卡类型
+                    sysInfo.networkAdapterSpeed = 0;
+                }
 
                 // 添加温度数据采集（每次循环都获取以确保数据实时性）
                 try {
                     auto temperatures = TemperatureWrapper::GetTemperatures();
                     sysInfo.temperatures.clear();
+                    sysInfo.cpuTemperature = 0;
+                    sysInfo.gpuTemperature = 0;
                     for (const auto& temp : temperatures) {
-                        sysInfo.temperatures.push_back({temp.first, temp.second});
+                        std::string nameLower = temp.first;
+                        std::transform(nameLower.begin(), nameLower.end(), nameLower.begin(), ::tolower);
+                        if (nameLower.find("gpu") != std::string::npos || nameLower.find("graphics") != std::string::npos) {
+                            sysInfo.gpuTemperature = temp.second;
+                            sysInfo.temperatures.push_back({"GPU", temp.second});
+                        } else if (nameLower.find("cpu") != std::string::npos || nameLower.find("package") != std::string::npos) {
+                            sysInfo.cpuTemperature = temp.second;
+                            sysInfo.temperatures.push_back({"CPU", temp.second});
+                        } else {
+                            sysInfo.temperatures.push_back(temp);
+                        }
                     }
                     if (isFirstRun) {
                         Logger::Debug("收集到 " + std::to_string(temperatures.size()) + " 个温度读数");
                         // 添加详细的温度传感器信息输出
-                        for (const auto& temp : temperatures) {
+                        for (const auto& temp : sysInfo.temperatures) {
                             Logger::Debug("温度传感器: " + temp.first + " = " + std::to_string(temp.second) + "°C");
                         }
+                        Logger::Debug("CPU温度: " + std::to_string(sysInfo.cpuTemperature) + ", GPU温度: " + std::to_string(sysInfo.gpuTemperature));
                     }
                 }
                 catch (const std::exception& e) {
                     Logger::Error("获取温度数据失败: " + std::string(e.what()));
                     // 清空温度数据以避免显示过时数据
                     sysInfo.temperatures.clear();
+                    sysInfo.cpuTemperature = 0;
+                    sysInfo.gpuTemperature = 0;
                 }
 
                 // 添加磁盘信息采集（每次循环都获取以确保数据实时性）
@@ -842,7 +898,7 @@ int main(int argc, char* argv[]) {
                             Logger::Debug("成功更新共享内存");
                         }
                     } else {
-                        Logger::Critical("共享内存缓冲区不可用");
+                        Logger::Error("共享内存缓冲区不可用");
                         // 尝试重新初始化
                         if (SharedMemoryManager::InitSharedMemory()) {
                             SharedMemoryManager::WriteToSharedMemory(sysInfo);
@@ -902,13 +958,13 @@ int main(int argc, char* argv[]) {
                 }
             }
             catch (const std::exception& e) {
-                Logger::Error("主循环中发生异常: " + std::string(e.what()));
+                Logger::Critical("主循环中发生异常: " + std::string(e.what()));
                 // 继续循环而不是退出，增强程序稳定性
                 std::this_thread::sleep_for(std::chrono::milliseconds(1000));
                 continue;
             }
             catch (...) {
-                Logger::Error("主循环中发生未知异常");
+                Logger::Fatal("主循环中发生未知异常");
                 // 继续循环而不是退出，增强程序稳定性
                 std::this_thread::sleep_for(std::chrono::milliseconds(1000));
                 continue;
@@ -919,11 +975,11 @@ int main(int argc, char* argv[]) {
         SafeExit(0);
     }
     catch (const std::exception& e) {
-        Logger::Error("程序发生致命错误: " + std::string(e.what()));
+        Logger::Fatal("程序发生致命错误: " + std::string(e.what()));
         SafeExit(1);
     }
     catch (...) {
-        Logger::Error("程序发生未知致命错误");
+        Logger::Fatal("程序发生未知致命错误");
         SafeExit(1);
     }
 }

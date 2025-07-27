@@ -124,6 +124,9 @@ void NetworkAdapter::QueryWmiAdapterInfo() {
         }
         VariantClear(&vtMac);
 
+        // 初始化网卡类型为未知
+        info.adapterType = L"未知";
+
         if (!info.name.empty() && !info.mac.empty()) {
             adapters.push_back(info);
         }
@@ -185,9 +188,23 @@ void NetworkAdapter::UpdateAdapterAddresses() {
                 // 更新连接状态
                 adapterInfo.isConnected = (adapter->OperStatus == IfOperStatusUp);
 
-                // 更新网络速度
-                adapterInfo.speed = adapter->TransmitLinkSpeed;
-                adapterInfo.speedString = FormatSpeed(adapter->TransmitLinkSpeed);
+                // 更新网络速度 - 修复未连接网卡显示异常速度问题
+                if (adapterInfo.isConnected) {
+                    // 仅当连接时记录真实速度
+                    adapterInfo.speed = adapter->TransmitLinkSpeed;
+                    adapterInfo.speedString = FormatSpeed(adapter->TransmitLinkSpeed);
+                } else {
+                    // 未连接时设置为0
+                    adapterInfo.speed = 0;
+                    adapterInfo.speedString = L"未连接";
+                }
+
+                // 确定网卡类型
+                adapterInfo.adapterType = DetermineAdapterType(
+                    adapterInfo.name, 
+                    adapterInfo.description, 
+                    adapter->IfType
+                );
 
                 // 更新IP地址（仅当连接时）
                 if (adapterInfo.isConnected) {
@@ -237,6 +254,60 @@ std::wstring NetworkAdapter::FormatSpeed(uint64_t bitsPerSecond) const {  // 添
     return ss.str();
 }
 
+// 新增：确定网卡类型的方法
+std::wstring NetworkAdapter::DetermineAdapterType(const std::wstring& name, const std::wstring& description, DWORD ifType) const {
+    // 首先根据Windows接口类型判断
+    if (ifType == IF_TYPE_IEEE80211) {
+        return L"无线网卡";
+    }
+    else if (ifType == IF_TYPE_ETHERNET_CSMACD) {
+        return L"有线网卡";
+    }
+    
+    // 如果接口类型不明确，则通过名称和描述判断
+    std::wstring combinedText = name + L" " + description;
+    
+    // 转换为小写进行比较
+    std::wstring lowerText = combinedText;
+    std::transform(lowerText.begin(), lowerText.end(), lowerText.begin(), ::towlower);
+    
+    // 无线网卡关键词
+    const std::wstring wirelessKeywords[] = {
+        L"wi-fi", L"wifi", L"wireless", L"802.11", L"wlan",
+        L"无线", L"wifi", L"ac", L"ax", L"n", L"g",
+        L"realtek 8822ce", L"intel wireless", L"qualcomm atheros",
+        L"broadcom", L"ralink", L"mediatek"
+    };
+    
+    // 有线网卡关键词
+    const std::wstring ethernetKeywords[] = {
+        L"ethernet", L"gigabit", L"fast ethernet", L"lan",
+        L"有线", L"以太网", L"千兆", L"百兆",
+        L"realtek pcie gbe", L"intel ethernet", L"killer ethernet"
+    };
+    
+    // 检查无线关键词
+    for (const auto& keyword : wirelessKeywords) {
+        if (lowerText.find(keyword) != std::wstring::npos) {
+            return L"无线网卡";
+        }
+    }
+    
+    // 检查有线关键词
+    for (const auto& keyword : ethernetKeywords) {
+        if (lowerText.find(keyword) != std::wstring::npos) {
+            return L"有线网卡";
+        }
+    }
+    
+    // 默认情况下，根据接口类型推测
+    if (ifType == IF_TYPE_ETHERNET_CSMACD || ifType == IF_TYPE_FASTETHER || 
+        ifType == IF_TYPE_GIGABITETHERNET) {
+        return L"有线网卡";
+    }
+    
+    return L"未知类型";
+}
 
 void NetworkAdapter::SafeRelease(IUnknown* pInterface) {
     if (pInterface) {

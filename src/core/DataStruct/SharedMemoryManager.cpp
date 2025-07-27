@@ -240,14 +240,14 @@ std::string SharedMemoryManager::GetLastError() {
 void SharedMemoryManager::WriteToSharedMemory(const SystemInfo& systemInfo) {
     if (!pBuffer) {
         lastError = "共享内存未初始化";
-        Logger::Error(lastError);
+        Logger::Critical(lastError);
         return;
     }
 
     // 跨进程同步：加互斥体
     DWORD waitResult = WaitForSingleObject(g_hMutex, 5000); // 最多等5秒
     if (waitResult != WAIT_OBJECT_0) {
-        Logger::Error("未能获取共享内存互斥体");
+        Logger::Critical("未能获取共享内存互斥体");
         return;
     }
     
@@ -325,12 +325,27 @@ void SharedMemoryManager::WriteToSharedMemory(const SystemInfo& systemInfo) {
 
         // Copy network adapter information
         pBuffer->adapterCount = 0;
-        if (!systemInfo.networkAdapterName.empty()) {
+        int adapterWriteCount = static_cast<int>(std::min(systemInfo.adapters.size(), size_t(4)));
+        for (int i = 0; i < adapterWriteCount; ++i) {
+            const auto& src = systemInfo.adapters[i];
+            SafeCopyWideString(pBuffer->adapters[i].name, 128, src.name);
+            SafeCopyWideString(pBuffer->adapters[i].mac, 32, src.mac);
+            SafeCopyWideString(pBuffer->adapters[i].ipAddress, 64, src.ipAddress); // 添加IP地址复制
+            SafeCopyWideString(pBuffer->adapters[i].adapterType, 32, src.adapterType); // 添加网卡类型复制
+            pBuffer->adapters[i].speed = src.speed;
+        }
+        pBuffer->adapterCount = adapterWriteCount;
+        // 兼容旧字段
+        if (adapterWriteCount == 0 && !systemInfo.networkAdapterName.empty()) {
             std::wstring adapterNameW = WinUtils::StringToWstring(systemInfo.networkAdapterName);
             std::wstring adapterMacW = WinUtils::StringToWstring(systemInfo.networkAdapterMac);
+            std::wstring adapterIpW = WinUtils::StringToWstring(systemInfo.networkAdapterIp); // 添加IP地址转换
+            std::wstring adapterTypeW = WinUtils::StringToWstring(systemInfo.networkAdapterType); // 添加网卡类型转换
             
             SafeCopyWideString(pBuffer->adapters[0].name, 128, adapterNameW);
             SafeCopyWideString(pBuffer->adapters[0].mac, 32, adapterMacW);
+            SafeCopyWideString(pBuffer->adapters[0].ipAddress, 64, adapterIpW); // 添加IP地址复制
+            SafeCopyWideString(pBuffer->adapters[0].adapterType, 32, adapterTypeW); // 添加网卡类型复制
             
             pBuffer->adapters[0].speed = systemInfo.networkAdapterSpeed;
             pBuffer->adapterCount = 1;
@@ -353,16 +368,27 @@ void SharedMemoryManager::WriteToSharedMemory(const SystemInfo& systemInfo) {
             pBuffer->disks[i].freeSpace = disk.freeSpace;
         }
 
-        // Copy temperature information with safe string handling
+        // Copy temperature information with safe string handling (保留原有数组写入)
         pBuffer->tempCount = static_cast<int>(std::min(systemInfo.temperatures.size(), static_cast<size_t>(10)));
         for (int i = 0; i < pBuffer->tempCount; ++i) {
             const auto& temp = systemInfo.temperatures[i];
-            
             std::wstring sensorNameW = WinUtils::StringToWstring(temp.first);
             SafeCopyWideString(pBuffer->temperatures[i].sensorName, 64, sensorNameW);
-            
             pBuffer->temperatures[i].temperature = temp.second;
         }
+        // 新增：明确写入CPU和GPU温度
+        double cpuTemp = 0, gpuTemp = 0;
+        for (const auto& temp : systemInfo.temperatures) {
+            std::string name = temp.first;
+            std::transform(name.begin(), name.end(), name.begin(), ::tolower);
+            if (name.find("cpu") != std::string::npos || name.find("package") != std::string::npos) {
+                cpuTemp = temp.second;
+            } else if (name.find("gpu") != std::string::npos || name.find("graphics") != std::string::npos) {
+                gpuTemp = temp.second;
+            }
+        }
+        pBuffer->cpuTemperature = cpuTemp;
+        pBuffer->gpuTemperature = gpuTemp;
 
         // Update timestamp
         GetSystemTime(&pBuffer->lastUpdate);

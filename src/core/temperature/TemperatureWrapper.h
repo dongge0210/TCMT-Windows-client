@@ -3,6 +3,7 @@
 #include <string>
 #include <vector>
 #include <utility>
+#include "../gpu/GpuInfo.h"
 
 // 本机C++包装器类，用于调用托管的LibreHardwareMonitorBridge
 class TemperatureWrapper {
