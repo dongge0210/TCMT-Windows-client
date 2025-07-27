@@ -19,6 +19,8 @@ struct GPUData {
 struct NetworkAdapterData {
     wchar_t name[128];    // 适配器名称
     wchar_t mac[32];      // MAC地址
+    wchar_t ipAddress[64]; // 新增：IP地址
+    wchar_t adapterType[32]; // 新增：网卡类型（无线/有线）
     uint64_t speed;       // 速度（bps）
 };
 
@@ -65,7 +67,11 @@ struct SystemInfo {
     bool gpuIsVirtual;              // 新增：GPU是否为虚拟显卡
     std::string networkAdapterName; // Added
     std::string networkAdapterMac;  // Added
+    std::string networkAdapterIp;   // 新增：网络适配器IP地址
+    std::string networkAdapterType; // 新增：网络适配器类型（无线/有线）
     uint64_t networkAdapterSpeed;   // Added
+    double cpuTemperature; // 新增：CPU温度
+    double gpuTemperature; // 新增：GPU温度
     SYSTEMTIME lastUpdate;
 };
 
@@ -84,6 +90,8 @@ struct SharedMemoryBlock {
     uint64_t totalMemory;     // 总内存（字节）
     uint64_t usedMemory;      // 已用内存（字节）
     uint64_t availableMemory; // 可用内存（字节）
+    double cpuTemperature; // 新增：CPU温度
+    double gpuTemperature; // 新增：GPU温度
 
     // GPU信息（支持最多2个GPU）
     GPUData gpus[2];

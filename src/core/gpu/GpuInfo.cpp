@@ -187,7 +187,14 @@ void GpuInfo::QueryNvidiaGpuInfo(int index) {
     unsigned int clockMHz = 0;
     result = nvmlDeviceGetClockInfo(device, NVML_CLOCK_GRAPHICS, &clockMHz);
     if (NVML_SUCCESS == result) {
-        gpuList[index].coreClock = static_cast<double>(clockMHz); // 直接使用 MHz
+        gpuList[index].coreClock = static_cast<double>(clockMHz);
+    }
+
+    // 获取温度
+    unsigned int temp = 0;
+    nvmlReturn_t tempResult = nvmlDeviceGetTemperature(device, NVML_TEMPERATURE_GPU, &temp);
+    if (NVML_SUCCESS == tempResult) {
+        gpuList[index].temperature = temp;
     }
 
     // 获取计算能力

@@ -48,6 +48,7 @@ private slots:
     void updateFromSharedMemory();
     void onGpuSelectionChanged(int index);
     void onNetworkSelectionChanged(int index);
+    void updateNetworkInfoDisplay(); // 新增：专门更新网络信息显示
     void showSmartDetails(const QString& diskIdentifier);
     void updateNetworkSelector();
     void updateGpuSelector();
@@ -69,6 +70,7 @@ private:
     QString formatPercentage(double value);
     QString formatTemperature(double value);
     QString formatFrequency(double value);
+    QString formatNetworkSpeed(uint64_t speedBps);
     
     // Date/time update function
     void updateLocalDateTime();
@@ -78,6 +80,10 @@ private:
     
     // Helper method for disk info updates
     void updateDiskInfoFromSharedMemory();
+    void updateDiskInfoOptimized(const std::vector<DiskData>& disks); // 新增：优化的磁盘更新方法
+    void rebuildDiskUI(const std::vector<DiskData>& disks); // 重建磁盘UI
+    void updateDiskDataOnly(const std::vector<DiskData>& disks); // 仅更新数据
+    void updateSingleDiskData(const DiskData& disk); // 更新单个磁盘数据
 
     // UI components
     QTimer *updateTimer;
@@ -95,6 +101,7 @@ private:
     QComboBox *networkSelector;
     QLabel *networkNameLabel;
     QLabel *networkStatusLabel;
+    QLabel *networkTypeLabel;  // 新增：网卡类型标签
     QLabel *networkIpLabel;
     QLabel *networkMacLabel;
     QLabel *networkSpeedLabel;
@@ -123,5 +130,9 @@ private:
     std::queue<float> cpuTempHistory;
     std::queue<float> gpuTempHistory;
     SystemInfo currentSysInfo;
+    
+    // 磁盘信息缓存 - 避免频繁重建UI
+    std::vector<QGroupBox*> diskBoxes;
+    std::map<char, std::map<std::string, QLabel*>> diskLabels; // 磁盘盘符 -> 标签类型 -> QLabel指针
 };
 

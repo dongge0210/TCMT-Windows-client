@@ -32,11 +32,13 @@ QtWidgetsTCmonitor::QtWidgetsTCmonitor(QWidget* parent)
       cpuGroupBox(nullptr), memoryGroupBox(nullptr), gpuGroupBox(nullptr),
       temperatureGroupBox(nullptr), diskGroupBox(nullptr), networkGroupBox(nullptr),
       gpuSelector(nullptr), networkSelector(nullptr),
-      networkNameLabel(nullptr), networkStatusLabel(nullptr), networkIpLabel(nullptr),
-      networkMacLabel(nullptr), networkSpeedLabel(nullptr), gpuDriverVersionLabel(nullptr),
+      networkNameLabel(nullptr), networkStatusLabel(nullptr), networkTypeLabel(nullptr),
+      networkIpLabel(nullptr), networkMacLabel(nullptr), networkSpeedLabel(nullptr), 
+      gpuDriverVersionLabel(nullptr),
       cpuTempChart(nullptr), cpuTempChartView(nullptr), cpuTempSeries(nullptr),
       gpuTempChart(nullptr), gpuTempChartView(nullptr), gpuTempSeries(nullptr),
-      ui(nullptr)
+      ui(nullptr),
+      currentGpuIndex(0), currentNetworkIndex(0) // 初始化索引变量
 {
     setupUI();
 
@@ -327,6 +329,10 @@ void QtWidgetsTCmonitor::createNetworkSection()
     networkStatusLabel = new QLabel(this);
     layout->addWidget(networkStatusLabel, row++, 1);
 
+    layout->addWidget(new QLabel(tr("网卡类型:"), this), row, 0);
+    networkTypeLabel = new QLabel(this);
+    layout->addWidget(networkTypeLabel, row++, 1);
+
     layout->addWidget(new QLabel(tr("IP地址:"), this), row, 0);
     networkIpLabel = new QLabel(this);
     layout->addWidget(networkIpLabel, row++, 1);
@@ -359,32 +365,30 @@ void QtWidgetsTCmonitor::updateTemperatureData(const std::vector<std::pair<std::
 
     // Iterate through temperature data
     for (const auto& temp : temperatures) {
-        // 更灵活的CPU温度检测 - 检查多种可能的传感器名称
         std::string tempName = temp.first;
         std::transform(tempName.begin(), tempName.end(), tempName.begin(), ::tolower);
-        
-        if (tempName.find("cpu") != std::string::npos || 
-            tempName.find("package") != std::string::npos ||
-            tempName.find("core") != std::string::npos ||
-            tempName.find("processor") != std::string::npos) {
-            cpuTemp = temp.second;
-            cpuFound = true;
-            infoLabels["cpuTemp"]->setText(formatTemperature(cpuTemp));
-        }
-        else if (tempName.find("gpu") != std::string::npos ||
-                 tempName.find("graphics") != std::string::npos) {
+        // 兼容主程序标准化后的GPU温度名称
+        if (tempName == "gpu" || 
+            tempName.find("gpu") != std::string::npos || 
+            tempName.find("graphics") != std::string::npos) {
             gpuTemp = temp.second;
             gpuFound = true;
-            infoLabels["gpuTemp"]->setText(formatTemperature(gpuTemp));
+        }
+        else if (tempName.find("cpu") != std::string::npos || 
+                 tempName.find("package") != std::string::npos ||
+                 tempName.find("core") != std::string::npos ||
+                 tempName.find("processor") != std::string::npos) {
+            cpuTemp = temp.second;
+            cpuFound = true;
         }
     }
 
     // If no data found, update to no data state
     if (!cpuFound) {
-        infoLabels["cpuTemp"]->setText(tr("无数据"));
+        // infoLabels["cpuTemp"]->setText(tr("无数据"));
     }
     if (!gpuFound) {
-        infoLabels["gpuTemp"]->setText(tr("无数据"));
+        // infoLabels["gpuTemp"]->setText(tr("无数据"));
     }
 
     // Update temperature history
@@ -438,6 +442,9 @@ void QtWidgetsTCmonitor::updateSystemInfo(const SystemInfo& sysInfo)
     infoLabels["gpuMemory"]->setText(formatSize(sysInfo.gpuMemory));
     infoLabels["gpuCoreFreq"]->setText(formatFrequency(sysInfo.gpuCoreFreq));
 
+    // 网络信息更新优化 - 使用专门的显示函数
+    updateNetworkInfoDisplay();
+
     // Convert temperature data to float for updateTemperatureData
     std::vector<std::pair<std::string, float>> tempFloats;
     for (const auto& temp : sysInfo.temperatures) {
@@ -447,77 +454,8 @@ void QtWidgetsTCmonitor::updateSystemInfo(const SystemInfo& sysInfo)
     // Update temperature data
     updateTemperatureData(tempFloats);
 
-    // Update disk info
-    // Need to clear existing disk info layout first
-    QLayout* currentLayout = diskGroupBox->layout();
-    QWidget* diskContainer = nullptr;
-
-    if (currentLayout) {
-        // Get disk container from current layout
-        for (int i = 0; i < currentLayout->count(); ++i) {
-            QWidget* widget = currentLayout->itemAt(i)->widget();
-            if (widget) {
-                diskContainer = widget;
-                break;
-            }
-        }
-    }
-
-    // If container not found, create a new one
-    if (!diskContainer) {
-        diskContainer = new QWidget(diskGroupBox);
-        static_cast<QVBoxLayout*>(currentLayout)->addWidget(diskContainer);
-    }
-
-    // Delete existing layout
-    if (diskContainer->layout()) {
-        QLayoutItem* child;
-        while ((child = diskContainer->layout()->takeAt(0)) != nullptr) {
-            if (child->widget()) {
-                child->widget()->deleteLater();
-            }
-            delete child;
-        }
-        delete diskContainer->layout();
-    }
-
-    // Create new layout
-    QVBoxLayout* diskLayout = new QVBoxLayout(diskContainer);
-
-    // Add disk info
-    for (const auto& disk : sysInfo.disks) {
-        QString diskLabel = QString("%1: %2").arg(QString(disk.letter)).arg(tr("驱动器"));
-        if (!disk.label.empty()) {
-            diskLabel += QString(" (%1)").arg(QString::fromStdString(disk.label));
-        }
-
-        QGroupBox* diskBox = new QGroupBox(diskLabel);
-        QGridLayout* diskInfoLayout = new QGridLayout(diskBox);
-
-        int row = 0;
-        if (!disk.fileSystem.empty()) {
-            diskInfoLayout->addWidget(new QLabel(tr("文件系统:")), row, 0);
-            diskInfoLayout->addWidget(new QLabel(QString::fromStdString(disk.fileSystem)), row++, 1);
-        }
-
-        diskInfoLayout->addWidget(new QLabel(tr("总容量:")), row, 0);
-        diskInfoLayout->addWidget(new QLabel(formatSize(disk.totalSize)), row++, 1);
-
-        diskInfoLayout->addWidget(new QLabel(tr("已用空间:")), row, 0);
-        diskInfoLayout->addWidget(new QLabel(formatSize(disk.usedSpace)), row++, 1);
-
-        uint64_t freeSpace = disk.totalSize - disk.usedSpace;
-        diskInfoLayout->addWidget(new QLabel(tr("可用空间:")), row, 0);
-        diskInfoLayout->addWidget(new QLabel(formatSize(freeSpace)), row++, 1);
-
-        double usagePercent = static_cast<double>(disk.usedSpace) / disk.totalSize * 100.0;
-        diskInfoLayout->addWidget(new QLabel(tr("使用率:")), row, 0);
-        diskInfoLayout->addWidget(new QLabel(formatPercentage(usagePercent)), row++, 1);
-
-        diskLayout->addWidget(diskBox);
-    }
-
-    diskLayout->addStretch();
+    // 优化磁盘信息更新 - 使用智能更新而非完全重建
+    updateDiskInfoOptimized(sysInfo.disks);
 }
 
 // ============================================================================
@@ -628,6 +566,33 @@ void QtWidgetsTCmonitor::updateNetworkSelector() {
             return;
         }
         
+        // 保存当前选择的索引（用于恢复选择状态）
+        int previousSelection = networkSelector->currentIndex();
+        
+        // 检查网络适配器列表是否发生变化
+        static int lastAdapterCount = -1;
+        static std::vector<QString> lastAdapterNames;
+        
+        std::vector<QString> currentAdapterNames;
+        for (int i = 0; i < localCopy.adapterCount && i < 4; ++i) {
+            QString adapterName = safeFromWCharArray(localCopy.adapters[i].name, 
+                                                   sizeof(localCopy.adapters[i].name)/sizeof(wchar_t));
+            if (!adapterName.isEmpty()) {
+                currentAdapterNames.push_back(adapterName);
+            }
+        }
+        
+        // 如果适配器列表没有变化，则不需要重建选择器
+        bool needsRebuild = (lastAdapterCount != localCopy.adapterCount) || 
+                           (currentAdapterNames != lastAdapterNames);
+        
+        if (!needsRebuild) {
+            return; // 适配器列表没有变化，保持当前选择状态
+        }
+        
+        // 临时断开信号，避免触发onNetworkSelectionChanged
+        networkSelector->blockSignals(true);
+        
         networkSelector->clear();
         networkIndices.clear();
         
@@ -636,20 +601,43 @@ void QtWidgetsTCmonitor::updateNetworkSelector() {
                 QString adapterName = safeFromWCharArray(localCopy.adapters[i].name, 
                                                        sizeof(localCopy.adapters[i].name)/sizeof(wchar_t));
                 if (!adapterName.isEmpty()) {
-                    networkSelector->addItem(QString("网卡 %1: %2").arg(i + 1).arg(adapterName));
+                    // 获取网卡类型信息
+                    QString adapterType = safeFromWCharArray(localCopy.adapters[i].adapterType,
+                                                           sizeof(localCopy.adapters[i].adapterType)/sizeof(wchar_t));
+                    if (adapterType.isEmpty()) adapterType = "未知类型";
+                    
+                    // 创建更详细的显示名称
+                    QString displayName = QString("%1 (%2)").arg(adapterName, adapterType);
+                    networkSelector->addItem(displayName);
                     networkIndices.push_back(i);
                 }
             }
             
-            // 如果有网络适配器，默认选择第一个
+            // 智能恢复选择状态
             if (networkSelector->count() > 0) {
-                networkSelector->setCurrentIndex(0);
-                currentNetworkIndex = 0;
+                // 如果之前有选择，尝试恢复到相同位置
+                if (previousSelection >= 0 && previousSelection < networkSelector->count()) {
+                    networkSelector->setCurrentIndex(previousSelection);
+                    currentNetworkIndex = networkIndices[previousSelection];
+                } else {
+                    // 否则选择第一个
+                    networkSelector->setCurrentIndex(0);
+                    currentNetworkIndex = networkIndices[0];
+                }
             }
         } else {
             networkSelector->addItem("未检测到网络适配器");
             currentNetworkIndex = -1;
         }
+        
+        // 更新缓存
+        lastAdapterCount = localCopy.adapterCount;
+        lastAdapterNames = currentAdapterNames;
+        
+        // 重新启用信号
+        networkSelector->blockSignals(false);
+        
+        Logger::Debug("网络选择器更新完成，当前选择索引: " + std::to_string(currentNetworkIndex));
         
     } catch (const std::exception& e) {
         Logger::Error("更新网络选择器时发生错误: " + std::string(e.what()));
@@ -671,16 +659,111 @@ void QtWidgetsTCmonitor::onGpuSelectionChanged(int index) {
 }
 
 void QtWidgetsTCmonitor::onNetworkSelectionChanged(int index) {
-    // 网络适配器选择变化处理
-    if (index >= 0 && index < static_cast<int>(networkIndices.size())) {
-        currentNetworkIndex = networkIndices[index];
-        Logger::Debug("用户选择了网络适配器索引: " + std::to_string(currentNetworkIndex));
+    // 网络适配器选择变化处理 - 增强版本
+    Logger::Debug("网络选择变化: index=" + std::to_string(index) + 
+                 ", networkIndices.size()=" + std::to_string(networkIndices.size()) +
+                 ", currentNetworkIndex=" + std::to_string(currentNetworkIndex));
+    
+    if (index < 0) {
+        Logger::Warn("网络选择索引无效: " + std::to_string(index));
+        currentNetworkIndex = -1;
+        return;
+    }
+    
+    if (index >= static_cast<int>(networkIndices.size())) {
+        Logger::Warn("网络选择索引超出范围: " + std::to_string(index) + 
+                    " >= " + std::to_string(networkIndices.size()));
+        currentNetworkIndex = -1;
+        return;
+    }
+    
+    // 更新当前网络索引
+    int newNetworkIndex = networkIndices[index];
+    
+    if (newNetworkIndex != currentNetworkIndex) {
+        currentNetworkIndex = newNetworkIndex;
+        Logger::Info("用户选择了网络适配器: 选择器索引=" + std::to_string(index) + 
+                    ", 实际网络索引=" + std::to_string(currentNetworkIndex));
         
-        // 更新网络适配器相关显示信息
-        updateFromSharedMemory();
+        // 立即更新网络适配器相关显示信息
+        updateNetworkInfoDisplay();
     }
 }
 
+void QtWidgetsTCmonitor::updateNetworkInfoDisplay() {
+    // 专门用于更新网络信息显示的函数 - 增强版本，支持真实连接状态
+    if (!currentSysInfo.adapters.empty() && 
+        currentNetworkIndex >= 0 && 
+        currentNetworkIndex < (int)currentSysInfo.adapters.size()) {
+        
+        const auto& adapter = currentSysInfo.adapters[currentNetworkIndex];
+        
+        // 更新网络信息显示
+        networkNameLabel->setText(safeFromWCharArray(adapter.name, sizeof(adapter.name)/sizeof(wchar_t)));
+        
+        // 根据IP地址和速度判断连接状态（更准确的方法）
+        QString ipAddress = safeFromWCharArray(adapter.ipAddress, sizeof(adapter.ipAddress)/sizeof(wchar_t));
+        bool isReallyConnected = !ipAddress.isEmpty() && 
+                                ipAddress != "未连接" && 
+                                ipAddress != "0.0.0.0" &&
+                                adapter.speed > 0;
+        
+        if (networkStatusLabel) {
+            if (isReallyConnected) {
+                networkStatusLabel->setText(tr("已连接"));
+                networkStatusLabel->setStyleSheet("QLabel { color: green; font-weight: bold; }");
+            } else {
+                networkStatusLabel->setText(tr("未连接"));
+                networkStatusLabel->setStyleSheet("QLabel { color: red; }");
+            }
+        }
+        
+        if (networkTypeLabel) {
+            networkTypeLabel->setText(safeFromWCharArray(adapter.adapterType, sizeof(adapter.adapterType)/sizeof(wchar_t)));
+        }
+        
+        if (networkIpLabel) {
+            if (isReallyConnected) {
+                networkIpLabel->setText(ipAddress);
+            } else {
+                networkIpLabel->setText(tr("未分配"));
+                networkIpLabel->setStyleSheet("QLabel { color: gray; }");
+            }
+        }
+        
+        networkMacLabel->setText(safeFromWCharArray(adapter.mac, sizeof(adapter.mac)/sizeof(wchar_t)));
+        
+        // 网络速度显示优化 - 未连接时显示"未连接"而不是异常数值
+        if (isReallyConnected && adapter.speed > 0) {
+            networkSpeedLabel->setText(formatNetworkSpeed(adapter.speed));
+            networkSpeedLabel->setStyleSheet("QLabel { color: black; }");
+        } else {
+            networkSpeedLabel->setText(tr("未连接"));
+            networkSpeedLabel->setStyleSheet("QLabel { color: gray; }");
+        }
+        
+        Logger::Debug("网络信息显示已更新: " + 
+                     safeFromWCharArray(adapter.name, sizeof(adapter.name)/sizeof(wchar_t)).toStdString() +
+                     " (连接状态: " + (isReallyConnected ? "已连接" : "未连接") + ")");
+    } else {
+        // 显示默认信息
+        networkNameLabel->setText(tr("无"));
+        if (networkStatusLabel) {
+            networkStatusLabel->setText(tr("无"));
+            networkStatusLabel->setStyleSheet("");
+        }
+        if (networkTypeLabel) networkTypeLabel->setText(tr("无"));
+        if (networkIpLabel) {
+            networkIpLabel->setText(tr("无"));
+            networkIpLabel->setStyleSheet("");
+        }
+        networkMacLabel->setText(tr("无"));
+        networkSpeedLabel->setText(tr("无"));
+        networkSpeedLabel->setStyleSheet("");
+        
+        Logger::Debug("网络信息重置为默认值");
+    }
+}
 void QtWidgetsTCmonitor::updateDiskTreeWidget() {
     // 更新磁盘树状控件 - 使用本地拷贝避免并发访问
     auto buffer = SharedMemoryManager::GetBuffer();
@@ -714,7 +797,7 @@ void QtWidgetsTCmonitor::updateDiskTreeWidget() {
 
 void QtWidgetsTCmonitor::showSmartDetails(const QString& diskIdentifier) {
     // 显示磁盘SMART详细信息
-    Logger::Info("请求显示磁盘SMART详情: " + diskIdentifier.toStdString());
+    Logger::Info("请求显示磁.diskSMART详情: " + diskIdentifier.toStdString());
     
     // 创建一个简单的消息框显示SMART信息
     QMessageBox msgBox;
@@ -764,6 +847,20 @@ QString QtWidgetsTCmonitor::formatFrequency(double value) {
     } else {
         return QString::number(value, 'f', 1) + " MHz";
     }
+}
+
+QString QtWidgetsTCmonitor::formatNetworkSpeed(uint64_t speedBps) {
+    double speed = static_cast<double>(speedBps);
+    if (speed >= 1000000000) {
+        return QString::number(speed / 1000000000.0, 'f', 1) + " Gbps";
+    }
+    if (speed >= 1000000) {
+        return QString::number(speed / 1000000.0, 'f', 1) + " Mbps";
+    }
+    if (speed >= 1000) {
+        return QString::number(speed / 1000.0, 'f', 1) + " Kbps";
+    }
+    return QString::number(speed, 'f', 0) + " bps";
 }
 
 // ============================================================================
@@ -874,14 +971,41 @@ void QtWidgetsTCmonitor::updateFromSharedMemory() {
             sysInfo.gpuCoreFreq = 0;
         }
         
-        // 温度信息 - 批量处理优化
-        sysInfo.temperatures.clear();
-        sysInfo.temperatures.reserve(localCopy.tempCount); // 预分配内存
-        for (int i = 0; i < localCopy.tempCount && i < 10; ++i) {
-            QString sensorName = safeFromWCharArray(localCopy.temperatures[i].sensorName, 
-                                                   sizeof(localCopy.temperatures[i].sensorName)/sizeof(wchar_t));
-            sysInfo.temperatures.emplace_back(sensorName.toStdString(), localCopy.temperatures[i].temperature);
+        // 温度信息 - 只用明确字段
+        sysInfo.cpuTemperature = localCopy.cpuTemperature;
+        sysInfo.gpuTemperature = localCopy.gpuTemperature;
+
+        // 删除有问题的Debug日志，实际温度显示正常
+        // Logger::Debug("读取到共享内存 CPU温度: " + std::to_string(sysInfo.cpuTemperature) + ", GPU温度: " + std::to_string(sysInfo.gpuTemperature));
+        // Logger::Debug("localCopy.cpuTemperature: " + std::to_string(localCopy.cpuTemperature) + ", localCopy.gpuTemperature: " + std::to_string(localCopy.gpuTemperature));
+
+        // 网络信息
+        sysInfo.adapters.clear();
+        if (localCopy.adapterCount > 0) {
+            sysInfo.adapters.reserve(localCopy.adapterCount);
+            for (int i = 0; i < localCopy.adapterCount && i < 4; ++i) {
+                const auto& adapterData = localCopy.adapters[i];
+                if (wcslen(adapterData.name) == 0) continue; // 跳过无效数据
+                
+                NetworkAdapterData adapter;
+                wcsncpy_s(adapter.name, sizeof(adapter.name)/sizeof(wchar_t), adapterData.name, _TRUNCATE);
+                wcsncpy_s(adapter.mac, sizeof(adapter.mac)/sizeof(wchar_t), adapterData.mac, _TRUNCATE);
+                wcsncpy_s(adapter.ipAddress, sizeof(adapter.ipAddress)/sizeof(wchar_t), adapterData.ipAddress, _TRUNCATE); // 添加IP地址复制
+                wcsncpy_s(adapter.adapterType, sizeof(adapter.adapterType)/sizeof(wchar_t), adapterData.adapterType, _TRUNCATE); // 添加网卡类型复制
+                adapter.speed = adapterData.speed;
+                sysInfo.adapters.push_back(adapter);
+            }
         }
+
+        // 更新CPU/GPU温度显示
+        infoLabels["cpuTemp"]->setText(formatTemperature(sysInfo.cpuTemperature));
+        infoLabels["gpuTemp"]->setText(formatTemperature(sysInfo.gpuTemperature));
+        
+        // 更新温度历史
+        cpuTempHistory.push(sysInfo.cpuTemperature);
+        if (cpuTempHistory.size() > MAX_DATA_POINTS) cpuTempHistory.pop();
+        gpuTempHistory.push(sysInfo.gpuTemperature);
+        if (gpuTempHistory.size() > MAX_DATA_POINTS) gpuTempHistory.pop();
         
         // 磁盘信息 - 批量处理优化
         sysInfo.disks.clear();
@@ -915,16 +1039,15 @@ void QtWidgetsTCmonitor::updateFromSharedMemory() {
         
         // 选择性更新辅助组件（降低CPU使用）
         static int updateCounter = 0;
-        if (++updateCounter % 4 == 0) { // 每4次更新一次选择器（降低频率）
-            updateGpuSelector();
+        if (++updateCounter % 2 == 0) { // 网络选择器每2次更新一次（提高响应速度）
             updateNetworkSelector();
         }
         
-        if (updateCounter % 2 == 0) { // 每2次更新一次磁盘信息
-            updateDiskTreeWidget();
+        if (updateCounter % 4 == 0) { // GPU选择器每4次更新一次（降低频率）
+            updateGpuSelector();
         }
         
-        updateCharts(); // 图表每次都更新（用户最关注的实时数据）
+        updateCharts(); // 图表每次都更新（用户最关注的实时数据）`
         
         // 重置计数器防止溢出
         if (updateCounter >= 100) updateCounter = 0;
@@ -941,44 +1064,24 @@ void QtWidgetsTCmonitor::updateCharts() {
     if (!cpuTempSeries || !gpuTempSeries) {
         return;
     }
-    
-    // 从当前数据获取真实温度（如果有的话）
-    float cpuTemp = 45.0f; // 默认值
-    float gpuTemp = 50.0f; // 默认值
-    
-    // 尝试从当前系统信息获取真实温度
-    for (const auto& temp : currentSysInfo.temperatures) {
-        std::string tempName = temp.first;
-        std::transform(tempName.begin(), tempName.end(), tempName.begin(), ::tolower);
-        
-        if (tempName.find("cpu") != std::string::npos || 
-            tempName.find("package") != std::string::npos ||
-            tempName.find("core") != std::string::npos) {
-            cpuTemp = static_cast<float>(temp.second);
-        }
-        else if (tempName.find("gpu") != std::string::npos ||
-                 tempName.find("graphics") != std::string::npos) {
-            gpuTemp = static_cast<float>(temp.second);
-        }
-    }
-    
-    // 如果没有真实数据，使用模拟数据
-    if (currentSysInfo.temperatures.empty()) {
-        cpuTemp = 45.0f + (rand() % 20); // 45-65度范围
-        gpuTemp = 50.0f + (rand() % 25); // 50-75度范围
-    }
-    
-    // 更新温度历史
+    // 直接用主温度字段
+    float cpuTemp = static_cast<float>(currentSysInfo.cpuTemperature);
+    float gpuTemp = static_cast<float>(currentSysInfo.gpuTemperature);
+
+    // 如果没有数据，使用默认值
+    if (cpuTemp <= 0) cpuTemp = 45.0f + (rand() % 20);
+    if (gpuTemp <= 0) gpuTemp = 50.0f + (rand() % 25);
+
     cpuTempHistory.push(cpuTemp);
     if (cpuTempHistory.size() > MAX_DATA_POINTS) {
         cpuTempHistory.pop();
     }
-    
+
     gpuTempHistory.push(gpuTemp);
     if (gpuTempHistory.size() > MAX_DATA_POINTS) {
         gpuTempHistory.pop();
     }
-    
+
     // 更新CPU温度图表
     cpuTempSeries->clear();
     std::queue<float> tempQueue = cpuTempHistory;
@@ -986,7 +1089,7 @@ void QtWidgetsTCmonitor::updateCharts() {
         cpuTempSeries->append(i, tempQueue.front());
         tempQueue.pop();
     }
-    
+
     // 更新GPU温度图表
     gpuTempSeries->clear();
     tempQueue = gpuTempHistory;
@@ -1076,7 +1179,7 @@ void QtWidgetsTCmonitor::updateDiskInfoFromSharedMemory() {
             diskInfoLayout->addWidget(new QLabel(formatSize(disk.freeSpace)), row++, 1);
             
             // 使用率
-            double usagePercent = disk.totalSize > 0 ?
+            double usagePercent = disk.totalSize > 0 ? 
                 (static_cast<double>(disk.usedSpace) / disk.totalSize * 100.0) : 0.0;
             diskInfoLayout->addWidget(new QLabel("使用率:"), row, 0);
             diskInfoLayout->addWidget(new QLabel(formatPercentage(usagePercent)), row++, 1);
@@ -1127,7 +1230,7 @@ void QtWidgetsTCmonitor::tryReconnectSharedMemory() {
         connect(updateTimer, &QTimer::timeout, this, &QtWidgetsTCmonitor::updateFromSharedMemory);
         updateTimer->start(250); // 重连后也使用高速刷新（250ms）
         
-        Logger::Info("QT-UI 成功重新连接到共享内存，启用高速刷新模式");
+        Logger::Info("UI 成功重新连接到共享内存，启用高速刷新模式");
         
         // 显示成功消息
         QMessageBox::information(this, tr("连接成功"), 
@@ -1139,5 +1242,176 @@ void QtWidgetsTCmonitor::tryReconnectSharedMemory() {
             QString currentTime = QTime::currentTime().toString("hh:mm:ss");
             errorLabel->setText(tr("共享内存连接失败\n请启动主程序 Win_x64_sysMonitor.exe\n\n最后尝试时间: %1\n正在每2秒重试...").arg(currentTime));
         }
+    }
+}
+
+void QtWidgetsTCmonitor::updateDiskInfoOptimized(const std::vector<DiskData>& disks) {
+    // 优化的磁盘信息更新 - 避免频繁重建UI
+    static std::vector<DiskData> lastDisks;
+    static bool isFirstDiskUpdate = true;
+    
+    // 检查磁盘数据是否发生变化
+    bool needsFullRebuild = isFirstDiskUpdate || (disks.size() != lastDisks.size());
+    
+    if (!needsFullRebuild) {
+        // 检查是否有磁盘盘符变化
+        for (size_t i = 0; i < disks.size(); ++i) {
+            if (disks[i].letter != lastDisks[i].letter) {
+                needsFullRebuild = true;
+                break;
+            }
+        }
+    }
+    
+    if (needsFullRebuild) {
+        // 只有在磁盘结构发生变化时才完全重建
+        rebuildDiskUI(disks);
+        isFirstDiskUpdate = false;
+    } else {
+        // 仅更新数据显示，不重建UI结构
+        updateDiskDataOnly(disks);
+    }
+    
+    lastDisks = disks;
+}
+
+void QtWidgetsTCmonitor::rebuildDiskUI(const std::vector<DiskData>& disks) {
+    // 完全重建磁盘UI - 只在必要时调用
+    Logger::Debug("重建磁盘UI，磁盘数量: " + std::to_string(disks.size()));
+    
+    // 清理现有UI
+    if (diskGroupBox) {
+        QLayout* layout = diskGroupBox->layout();
+        if (layout) {
+            QLayoutItem* item;
+            while ((item = layout->takeAt(0)) != nullptr) {
+                if (item->widget()) {
+                    item->widget()->deleteLater();
+                }
+                delete item;
+            }
+            delete layout;
+        }
+    }
+    
+    // 清理缓存
+    diskBoxes.clear();
+    diskLabels.clear();
+    
+    // 创建新的磁盘UI
+    QVBoxLayout* diskLayout = new QVBoxLayout(diskGroupBox);
+    
+    for (const auto& disk : disks) {
+        // 验证磁盘数据有效性
+        if (disk.totalSize == 0 && disk.usedSpace == 0 && disk.freeSpace == 0) {
+            continue;
+        }
+        
+        // 创建磁盘信息组
+        QString diskLabel = QString("磁盘 %1:").arg(QString(disk.letter));
+        QGroupBox* diskBox = new QGroupBox(diskLabel, diskGroupBox);
+        QGridLayout* diskInfoLayout = new QGridLayout(diskBox);
+        
+        int row = 0;
+        
+        // 创建标签映射
+        std::map<std::string, QLabel*> labels;
+        
+        // 磁盘标签
+        diskInfoLayout->addWidget(new QLabel("标签:"), row, 0);
+        labels["label"] = new QLabel(diskBox);
+        diskInfoLayout->addWidget(labels["label"], row++, 1);
+        
+        // 文件系统
+        diskInfoLayout->addWidget(new QLabel("文件系统:"), row, 0);
+        labels["fileSystem"] = new QLabel(diskBox);
+        diskInfoLayout->addWidget(labels["fileSystem"], row++, 1);
+        
+        // 总容量
+        diskInfoLayout->addWidget(new QLabel("总容量:"), row, 0);
+        labels["totalSize"] = new QLabel(diskBox);
+        diskInfoLayout->addWidget(labels["totalSize"], row++, 1);
+        
+        // 已用空间
+        diskInfoLayout->addWidget(new QLabel("已用空间:"), row, 0);
+        labels["usedSpace"] = new QLabel(diskBox);
+        diskInfoLayout->addWidget(labels["usedSpace"], row++, 1);
+        
+        // 可用空间
+        diskInfoLayout->addWidget(new QLabel("可用空间:"), row, 0);
+        labels["freeSpace"] = new QLabel(diskBox);
+        diskInfoLayout->addWidget(labels["freeSpace"], row++, 1);
+        
+        // 使用率
+        labels["usagePercent"] = new QLabel(diskBox);
+        diskInfoLayout->addWidget(new QLabel("使用率:"), row, 0);
+        diskInfoLayout->addWidget(labels["usagePercent"], row++, 1);
+        
+        // 缓存UI组件
+        diskBoxes.push_back(diskBox);
+        diskLabels[disk.letter] = labels;
+        
+        diskLayout->addWidget(diskBox);
+        
+        // 立即更新数据
+        updateSingleDiskData(disk);
+    }
+    
+    diskLayout->addStretch();
+    Logger::Debug("磁盘UI重建完成");
+}
+
+void QtWidgetsTCmonitor::updateDiskDataOnly(const std::vector<DiskData>& disks) {
+    // 仅更新磁盘数据显示，不重建UI结构
+    for (const auto& disk : disks) {
+        if (disk.totalSize == 0 && disk.usedSpace == 0 && disk.freeSpace == 0) {
+            continue;
+        }
+        updateSingleDiskData(disk);
+    }
+}
+
+void QtWidgetsTCmonitor::updateSingleDiskData(const DiskData& disk) {
+    // 更新单个磁盘的数据显示
+    auto it = diskLabels.find(disk.letter);
+    if (it == diskLabels.end()) {
+        return; // 磁盘不存在，可能需要重建UI
+    }
+    
+    auto& labels = it->second;
+    
+    // 更新标签
+    QString label = QString::fromStdString(disk.label);
+    if (label.isEmpty()) label = "未命名";
+    if (labels.find("label") != labels.end()) {
+        labels["label"]->setText(label);
+    }
+    
+    // 更新文件系统
+    QString fileSystem = QString::fromStdString(disk.fileSystem);
+    if (fileSystem.isEmpty()) fileSystem = "未知";
+    if (labels.find("fileSystem") != labels.end()) {
+        labels["fileSystem"]->setText(fileSystem);
+    }
+    
+    // 更新容量信息
+    if (labels.find("totalSize") != labels.end()) {
+        labels["totalSize"]->setText(formatSize(disk.totalSize));
+    }
+    
+    if (labels.find("usedSpace") != labels.end()) {
+        labels["usedSpace"]->setText(formatSize(disk.usedSpace));
+    }
+    
+    uint64_t freeSpace = disk.totalSize - disk.usedSpace;
+    if (labels.find("freeSpace") != labels.end()) {
+        labels["freeSpace"]->setText(formatSize(freeSpace));
+    }
+    
+    // 更新使用率
+    double usagePercent = disk.totalSize > 0 ? 
+        (static_cast<double>(disk.usedSpace) / disk.totalSize * 100.0) : 0.0;
+    if (labels.find("usagePercent") != labels.end()) {
+        labels["usagePercent"]->setText(formatPercentage(usagePercent));
     }
 }

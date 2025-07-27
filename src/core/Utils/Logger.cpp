@@ -14,7 +14,7 @@
 
 std::ofstream Logger::logFile;
 std::mutex Logger::logMutex;
-bool Logger::consoleOutputEnabled = false; // Initialize console output flag
+bool Logger::consoleOutputEnabled = true; // Initialize console output flag
 LogLevel Logger::currentLogLevel = LOG_DEBUG; // 默认日志等级为INFO
 HANDLE Logger::hConsole = GetStdHandle(STD_OUTPUT_HANDLE); // 初始化控制台句柄
 
@@ -56,7 +56,7 @@ LogLevel Logger::GetLogLevel() {
     return currentLogLevel;
 }
 
-bool Logger::IsInitialized() {
+[[nodiscard]] bool Logger::IsInitialized() {
     return logFile.is_open();
 }
 
@@ -68,7 +68,7 @@ void Logger::SetConsoleColor(ConsoleColor color) {
 
 void Logger::ResetConsoleColor() {
     if (hConsole != INVALID_HANDLE_VALUE) {
-        SetConsoleTextAttribute(hConsole, 7); // 默认白色
+        SetConsoleTextAttribute(hConsole, static_cast<WORD>(7)); // 默认白色，显式转换WORD，消除C4365
     }
 }
 
@@ -77,36 +77,19 @@ std::wstring Logger::ConvertToWideString(const std::string& utf8Str) {
     if (utf8Str.empty()) {
         return std::wstring();
     }
-    
     // Get required buffer size
     int bufferSize = MultiByteToWideChar(
-        CP_UTF8,                // Code page: UTF-8
-        0,                      // Flags
-        utf8Str.c_str(),        // Source UTF-8 string
-        static_cast<int>(utf8Str.length()), // Source string length
-        nullptr,                // Output buffer (null to get required size)
-        0                       // Output buffer size
-    );
-    
+        CP_UTF8, 0, utf8Str.c_str(), static_cast<int>(utf8Str.length()), nullptr, 0);
     if (bufferSize == 0) {
         throw std::runtime_error("Failed to convert UTF-8 string to wide string");
     }
-    
     // Create buffer to hold the wide string
     std::wstring wideStr(bufferSize, L'\0');
-    
     // Convert the string
     if (!MultiByteToWideChar(
-        CP_UTF8,                // Code page: UTF-8
-        0,                      // Flags
-        utf8Str.c_str(),        // Source UTF-8 string
-        static_cast<int>(utf8Str.length()), // Source string length
-        &wideStr[0],            // Output buffer
-        bufferSize              // Output buffer size
-    )) {
+        CP_UTF8, 0, utf8Str.c_str(), static_cast<int>(utf8Str.length()), &wideStr[0], bufferSize)) {
         throw std::runtime_error("Failed to convert UTF-8 string to wide string");
     }
-    
     return wideStr;
 }
 
@@ -115,87 +98,72 @@ void Logger::WriteLog(const std::string& level, const std::string& message, LogL
     if (msgLevel < currentLogLevel) {
         return; // 跳过低于当前等级的日志
     }
-
     std::lock_guard<std::mutex> lock(logMutex);
-
+    // 限制日志消息长度，防止极端内存占用
+    constexpr size_t MAX_LOG_LENGTH = 4096;
     if (message.empty()) {
         throw std::invalid_argument("日志消息不能为空");
     }
-
+    if (message.length() > MAX_LOG_LENGTH) {
+        throw std::invalid_argument("日志消息过长");
+    }
     if (logFile.is_open()) {
-        // Validate stream state
         if (!logFile.good()) {
             throw std::runtime_error("日志文件流状态无效");
         }
-
         // Get current time
         auto now = std::chrono::system_clock::now();
         auto time_now = std::chrono::system_clock::to_time_t(now);
-
-        // Use safe version of localtime
         std::tm timeinfo;
-        localtime_s(&timeinfo, &time_now);
-
-        // Construct log message
+        if (localtime_s(&timeinfo, &time_now) != 0) {
+            throw std::runtime_error("localtime_s 失败");
+        }
         std::stringstream ss;
         ss << "[" << std::put_time(&timeinfo, "%Y-%m-%d %H:%M:%S") << "]"
            << "[" << level << "] "
            << message
            << std::endl;
-
         std::string logEntry = ss.str();
-
-        // Write to log file (already UTF-8)
-        logFile.write(logEntry.c_str(), logEntry.size());
-        logFile.flush();
-
+        try {
+            logFile.write(logEntry.c_str(), logEntry.size());
+            logFile.flush();
+        } catch (const std::exception& ex) {
+            // 日志写入异常，输出到标准错误
+            std::cerr << "日志写入异常: " << ex.what() << std::endl;
+        }
         // Enhanced console output with proper UTF-8 support and selective coloring
         if (consoleOutputEnabled) {
             HANDLE hConsole = GetStdHandle(STD_OUTPUT_HANDLE);
             if (hConsole != INVALID_HANDLE_VALUE) {
-                // 构建时间戳部分
                 std::stringstream timeStamp;
                 timeStamp << "[" << std::put_time(&timeinfo, "%Y-%m-%d %H:%M:%S") << "]";
                 std::string timeStr = timeStamp.str();
-                
-                // 构建日志等级标签
                 std::string levelTag = "[" + level + "]";
-                
                 DWORD written;
-                
-                // 1. 输出时间戳（默认颜色）
                 int timeWideLength = MultiByteToWideChar(CP_UTF8, 0, timeStr.c_str(), -1, nullptr, 0);
                 if (timeWideLength > 0) {
-                    std::vector<wchar_t> timeWideText(timeWideLength);
+                    std::vector<wchar_t> timeWideText(static_cast<size_t>(timeWideLength));
                     if (MultiByteToWideChar(CP_UTF8, 0, timeStr.c_str(), -1, timeWideText.data(), timeWideLength)) {
                         WriteConsoleW(hConsole, timeWideText.data(), static_cast<DWORD>(timeWideLength - 1), &written, NULL);
                     }
                 }
-                
-                // 2. 输出日志等级标签（带颜色）
                 SetConsoleColor(color);
                 int levelWideLength = MultiByteToWideChar(CP_UTF8, 0, levelTag.c_str(), -1, nullptr, 0);
                 if (levelWideLength > 0) {
-                    std::vector<wchar_t> levelWideText(levelWideLength);
+                    std::vector<wchar_t> levelWideText(static_cast<size_t>(levelWideLength));
                     if (MultiByteToWideChar(CP_UTF8, 0, levelTag.c_str(), -1, levelWideText.data(), levelWideLength)) {
                         WriteConsoleW(hConsole, levelWideText.data(), static_cast<DWORD>(levelWideLength - 1), &written, NULL);
                     }
                 }
-                ResetConsoleColor(); // 立即重置颜色
-                
-                // 3. 输出一个空格
+                ResetConsoleColor();
                 WriteConsoleW(hConsole, L" ", 1, &written, NULL);
-                
-                // 4. 输出消息内容（默认颜色）
                 int msgWideLength = MultiByteToWideChar(CP_UTF8, 0, message.c_str(), -1, nullptr, 0);
                 if (msgWideLength > 0) {
-                    std::vector<wchar_t> msgWideText(msgWideLength);
+                    std::vector<wchar_t> msgWideText(static_cast<size_t>(msgWideLength));
                     if (MultiByteToWideChar(CP_UTF8, 0, message.c_str(), -1, msgWideText.data(), msgWideLength)) {
                         WriteConsoleW(hConsole, msgWideText.data(), static_cast<DWORD>(msgWideLength - 1), &written, NULL);
                     }
                 }
-                
-                // 5. 输出换行
                 WriteConsoleW(hConsole, L"\n", 1, &written, NULL);
             }
         }

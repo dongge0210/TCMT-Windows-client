@@ -25,14 +25,15 @@ public:
         hardware->Update();
         hardware->Traverse(this);
     }
-    virtual void VisitSensor(LibreHardwareMonitor::Hardware::ISensor^ sensor) {}
-    virtual void VisitParameter(LibreHardwareMonitor::Hardware::IParameter^ parameter) {}
+    virtual void VisitSensor(LibreHardwareMonitor::Hardware::ISensor^ /*sensor*/) {}
+    virtual void VisitParameter(LibreHardwareMonitor::Hardware::IParameter^ /*parameter*/) {}
 };
 
 class LibreHardwareMonitorBridge {
 public:
     static void Initialize();
     static void Cleanup();
+    // 日志语义优化：温度传感器数量
     static std::vector<std::pair<std::string, double>> GetTemperatures();
 
 private:
