@@ -139,7 +139,9 @@ Qt6Widgetsd.lib;Qt6Chartsd.lib;Qt6Charts.lib;Qt6Core.lib;Qt6Gui.lib;Qt6Widgets.l
     <ClInclude Include="..\src\core\DataStruct\SharedMemoryManager.h" />
     <ClInclude Include="..\src\core\Utils\Logger.h" />
     <ClInclude Include="..\src\core\Utils\WinUtils.h" />
+    <ClInclude Include="SmartDetailsDialog.h" />
     <ClInclude Include="stdafx.h" />
+    <ClCompile Include="SmartDetailsDialog.cpp" />
     <ClCompile Include="stdafx.cpp">
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)' == 'Debug|x64'">Create</PrecompiledHeader>
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)' == 'Release|x64'">Create</PrecompiledHeader>

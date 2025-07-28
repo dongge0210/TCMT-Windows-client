@@ -25,6 +25,9 @@
 #include "../src/core/DataStruct/DataStruct.h" // Include header for SystemInfo
 #include "../src/core/utils/Logger.h"
 
+// 前向声明
+struct PhysicalDiskSmartData;
+
 // QT-UI uses SharedMemoryManager::GetBuffer() for data access
 
 // Define the maximum number of data points for charts
@@ -48,12 +51,15 @@ private slots:
     void updateFromSharedMemory();
     void onGpuSelectionChanged(int index);
     void onNetworkSelectionChanged(int index);
-    void updateNetworkInfoDisplay(); // 新增：专门更新网络信息显示
+    void onDiskSelectionChanged(int index);  // 新增：磁盘选择变化处理
+    void updateNetworkInfoDisplay(); // 网络信息显示更新
     void showSmartDetails(const QString& diskIdentifier);
+    void showCurrentDiskSmartDetails(); // 新增：显示当前选中磁盘的SMART详情
     void updateNetworkSelector();
     void updateGpuSelector();
+    void updateDiskSelector();  // 新增：更新磁盘选择器
     void updateDiskTreeWidget();
-    void tryReconnectSharedMemory();  // 添加重新连接函数
+    void tryReconnectSharedMemory();  // 重新连接函数
 
 private:
     // UI setup functions
@@ -78,12 +84,19 @@ private:
     // Safe string conversion helper
     QString safeFromWCharArray(const wchar_t* wstr, size_t maxLen);
     
-    // Helper method for disk info updates
+    // 物理磁盘信息更新函数
+    void updateDiskInfoDisplay(); // 新增：更新磁盘信息显示
+    void resetDiskInfoLabels(); // 新增：重置磁盘信息标签
+    
+    // SMART功能支持函数
+    void createDemoSmartData(PhysicalDiskSmartData& smartData, const QString& diskIdentifier);
+    
+    // 保持兼容性的旧函数（标记为废弃）
     void updateDiskInfoFromSharedMemory();
-    void updateDiskInfoOptimized(const std::vector<DiskData>& disks); // 新增：优化的磁盘更新方法
-    void rebuildDiskUI(const std::vector<DiskData>& disks); // 重建磁盘UI
-    void updateDiskDataOnly(const std::vector<DiskData>& disks); // 仅更新数据
-    void updateSingleDiskData(const DiskData& disk); // 更新单个磁盘数据
+    void updateDiskInfoOptimized(const std::vector<DiskData>& disks);
+    void rebuildDiskUI(const std::vector<DiskData>& disks);
+    void updateDiskDataOnly(const std::vector<DiskData>& disks);
+    void updateSingleDiskData(const DiskData& disk);
 
     // UI components
     QTimer *updateTimer;
@@ -99,19 +112,25 @@ private:
     // Network section components
     QComboBox *gpuSelector;
     QComboBox *networkSelector;
+    QComboBox *diskSelector;  // 新增：磁盘选择器
     QLabel *networkNameLabel;
     QLabel *networkStatusLabel;
-    QLabel *networkTypeLabel;  // 新增：网卡类型标签
+    QLabel *networkTypeLabel;  // 网卡类型标签
     QLabel *networkIpLabel;
     QLabel *networkMacLabel;
     QLabel *networkSpeedLabel;
     QLabel *gpuDriverVersionLabel;
 
+    // 逻辑驱动器显示布局
+    QVBoxLayout *logicalDrivesLayout;  // 新增：逻辑驱动器布局
+
     // Index tracking
     std::vector<int> gpuIndices;
     std::vector<int> networkIndices;
+    std::vector<int> diskIndices;  // 新增：磁盘索引
     int currentGpuIndex = 0;
     int currentNetworkIndex = 0;
+    int currentDiskIndex = 0;  // 新增：当前磁盘索引
     int cachedGpuCount = -1;
 
     // UI reference
