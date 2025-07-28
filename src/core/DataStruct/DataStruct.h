@@ -6,6 +6,56 @@
 
 #pragma pack(push, 1) // 确保内存对齐
 
+// SMART属性信息
+struct SmartAttributeData {
+    uint8_t id;                    // 属性ID
+    uint8_t flags;                 // 状态标志
+    uint8_t current;               // 当前值
+    uint8_t worst;                 // 最坏值
+    uint8_t threshold;             // 阈值
+    uint64_t rawValue;             // 原始值
+    wchar_t name[64];              // 属性名称
+    wchar_t description[128];      // 属性描述
+    bool isCritical;               // 是否关键属性
+    double physicalValue;          // 物理值（经过转换）
+    wchar_t units[16];             // 单位
+};
+
+// 物理磁盘SMART信息
+struct PhysicalDiskSmartData {
+    wchar_t model[128];            // 磁盘型号
+    wchar_t serialNumber[64];      // 序列号
+    wchar_t firmwareVersion[32];   // 固件版本
+    wchar_t interfaceType[32];     // 接口类型 (SATA/NVMe/etc)
+    wchar_t diskType[16];          // 磁盘类型 (SSD/HDD)
+    uint64_t capacity;             // 总容量（字节）
+    double temperature;            // 温度
+    uint8_t healthPercentage;      // 健康百分比
+    bool isSystemDisk;             // 是否系统盘
+    bool smartEnabled;             // SMART是否启用
+    bool smartSupported;           // 是否支持SMART
+    
+    // SMART属性数组（最多32个常用属性）
+    SmartAttributeData attributes[32];
+    int attributeCount;            // 实际属性数量
+    
+    // 关键健康指标
+    uint64_t powerOnHours;         // 通电时间（小时）
+    uint64_t powerCycleCount;      // 开机次数
+    uint64_t reallocatedSectorCount; // 重新分配扇区数
+    uint64_t currentPendingSector; // 当前待处理扇区
+    uint64_t uncorrectableErrors;  // 不可纠正错误
+    double wearLeveling;           // 磨损均衡（SSD）
+    uint64_t totalBytesWritten;    // 总写入字节数
+    uint64_t totalBytesRead;       // 总读取字节数
+    
+    // 关联的逻辑驱动器
+    char logicalDriveLetters[8];   // 关联的驱动器盘符
+    int logicalDriveCount;         // 关联驱动器数量
+    
+    SYSTEMTIME lastScanTime;       // 最后扫描时间
+};
+
 // GPU信息
 struct GPUData {
     wchar_t name[128];    // GPU名称
@@ -58,6 +108,7 @@ struct SystemInfo {
     std::vector<GPUData> gpus;
     std::vector<NetworkAdapterData> adapters;
     std::vector<DiskData> disks;
+    std::vector<PhysicalDiskSmartData> physicalDisks; // 新增：物理磁盘SMART数据
     std::vector<std::pair<std::string, double>> temperatures;
     std::string osVersion;
     std::string gpuName;            // Added
@@ -99,7 +150,7 @@ struct SharedMemoryBlock {
     // 网络适配器（支持最多4个适配器）
     NetworkAdapterData adapters[4];
 
-    // 磁盘信息（支持最多8个磁盘）
+    // 逻辑磁盘信息（支持最多8个磁盘）
     struct SharedDiskData {
         char letter;             // 盘符（如'C'）
         wchar_t label[128];      // 卷标 - Using wchar_t array for shared memory
@@ -109,6 +160,9 @@ struct SharedMemoryBlock {
         uint64_t freeSpace;      // 可用空间（字节）
     } disks[8];
 
+    // 物理磁盘SMART信息（支持最多8个物理磁盘）
+    PhysicalDiskSmartData physicalDisks[8];
+
     // 温度数据（支持10个传感器）
     TemperatureData temperatures[10];
 
@@ -116,6 +170,7 @@ struct SharedMemoryBlock {
     int tempCount;
     int gpuCount;
     int diskCount;
+    int physicalDiskCount;       // 新增：物理磁盘数量
     SYSTEMTIME lastUpdate;
     CRITICAL_SECTION lock;
 };
