@@ -29,6 +29,7 @@
 #define NOMINMAX
 #endif
 #include <algorithm>
+#include <cctype>
 
 // Make sure Windows.h is included before any other headers that might redefine GetLastError
 #include <Windows.h>
@@ -55,7 +56,7 @@ inline std::string FallbackFormatWindowsErrorMessage(DWORD errorCode) {
 HANDLE SharedMemoryManager::hMapFile = NULL;
 SharedMemoryBlock* SharedMemoryManager::pBuffer = nullptr;
 std::string SharedMemoryManager::lastError = "";
-// 跨进程互斥体用于同步共享内存写入
+// 跨进程互斥体用于同步共享内存
 static HANDLE g_hMutex = NULL;
 
 bool SharedMemoryManager::InitSharedMemory() {
@@ -244,59 +245,43 @@ void SharedMemoryManager::WriteToSharedMemory(const SystemInfo& systemInfo) {
         return;
     }
 
-    // 跨进程同步：加互斥体
     DWORD waitResult = WaitForSingleObject(g_hMutex, 5000); // 最多等5秒
     if (waitResult != WAIT_OBJECT_0) {
         Logger::Critical("未能获取共享内存互斥体");
         return;
     }
-    
-    // 安全的宽字符串复制函数
     auto SafeCopyWideString = [](wchar_t* dest, size_t destSize, const std::wstring& src) {
         try {
             if (dest == nullptr || destSize == 0) return;
-            
-            // 清零目标数组
             memset(dest, 0, destSize * sizeof(wchar_t));
-            
-            if (src.empty()) {
-                dest[0] = L'\0';
-                return;
-            }
-            
+            if (src.empty()) { dest[0] = L'\0'; return; }
             size_t copyLen = std::min(src.length(), destSize - 1);
-            for (size_t i = 0; i < copyLen; ++i) {
-                dest[i] = src[i];
-            }
+            for (size_t i = 0; i < copyLen; ++i) dest[i] = src[i];
             dest[copyLen] = L'\0';
-        } catch (...) {
-            // 如果发生任何异常，确保字符串为空
-            if (dest && destSize > 0) {
-                dest[0] = L'\0';
-            }
-        }
+        } catch (...) { if (dest && destSize > 0) dest[0] = L'\0'; }
+    };
+    auto SafeCopyFromWideArray = [](wchar_t* dest, size_t destSize, const wchar_t* src, size_t srcCapacity) {
+        if (!dest || destSize == 0) return;
+        memset(dest, 0, destSize * sizeof(wchar_t));
+        if (!src) return;
+        size_t len = 0;
+        while (len < srcCapacity && src[len] != L'\0') ++len;
+        if (len >= destSize) len = destSize - 1;
+        for (size_t i = 0; i < len; ++i) dest[i] = src[i];
+        dest[len] = L'\0';
     };
     try {
-        // Clear all string fields first to ensure proper null termination
+        // 清零主要字符串/数组区域
         memset(pBuffer->cpuName, 0, sizeof(pBuffer->cpuName));
-        for (int i = 0; i < 2; ++i) {
-            memset(pBuffer->gpus[i].name, 0, sizeof(pBuffer->gpus[i].name));
-            memset(pBuffer->gpus[i].brand, 0, sizeof(pBuffer->gpus[i].brand));
-        }
-        for (int i = 0; i < 8; ++i) {
-            memset(&pBuffer->disks[i], 0, sizeof(pBuffer->disks[i]));
-        }
-        for (int i = 0; i < 10; ++i) {
-            memset(pBuffer->temperatures[i].sensorName, 0, sizeof(pBuffer->temperatures[i].sensorName));
-        }
-        
-        // Copy CPU information with safe string conversion
-        std::wstring cpuNameW = WinUtils::StringToWstring(systemInfo.cpuName);
-        SafeCopyWideString(pBuffer->cpuName, 128, cpuNameW);
-        
+        for (int i = 0; i < 2; ++i) { memset(pBuffer->gpus[i].name, 0, sizeof(pBuffer->gpus[i].name)); memset(pBuffer->gpus[i].brand, 0, sizeof(pBuffer->gpus[i].brand)); }
+        for (int i = 0; i < 8; ++i) { memset(&pBuffer->disks[i], 0, sizeof(pBuffer->disks[i])); memset(&pBuffer->physicalDisks[i], 0, sizeof(pBuffer->physicalDisks[i])); }
+        for (int i = 0; i < 10; ++i) { memset(pBuffer->temperatures[i].sensorName, 0, sizeof(pBuffer->temperatures[i].sensorName)); }
+
+        // CPU
+        SafeCopyWideString(pBuffer->cpuName, 128, WinUtils::StringToWstring(systemInfo.cpuName));
         pBuffer->physicalCores = systemInfo.physicalCores;
         pBuffer->logicalCores = systemInfo.logicalCores;
-        pBuffer->cpuUsage = systemInfo.cpuUsage;  // Keep as double
+        pBuffer->cpuUsage = systemInfo.cpuUsage;
         pBuffer->performanceCores = systemInfo.performanceCores;
         pBuffer->efficiencyCores = systemInfo.efficiencyCores;
         pBuffer->pCoreFreq = systemInfo.performanceCoreFreq;
@@ -304,102 +289,123 @@ void SharedMemoryManager::WriteToSharedMemory(const SystemInfo& systemInfo) {
         pBuffer->hyperThreading = systemInfo.hyperThreading;
         pBuffer->virtualization = systemInfo.virtualization;
 
-        // Copy memory information
+        // 内存
         pBuffer->totalMemory = systemInfo.totalMemory;
         pBuffer->usedMemory = systemInfo.usedMemory;
         pBuffer->availableMemory = systemInfo.availableMemory;
 
-        // Copy GPU information with safe string handling
+        // GPU（兼容旧字段）
         pBuffer->gpuCount = 0;
         if (!systemInfo.gpuName.empty()) {
-            std::wstring gpuNameW = WinUtils::StringToWstring(systemInfo.gpuName);
-            std::wstring gpuBrandW = WinUtils::StringToWstring(systemInfo.gpuBrand);
-            
-            SafeCopyWideString(pBuffer->gpus[0].name, 128, gpuNameW);
-            SafeCopyWideString(pBuffer->gpus[0].brand, 64, gpuBrandW);
-            
+            SafeCopyWideString(pBuffer->gpus[0].name, 128, WinUtils::StringToWstring(systemInfo.gpuName));
+            SafeCopyWideString(pBuffer->gpus[0].brand, 64, WinUtils::StringToWstring(systemInfo.gpuBrand));
             pBuffer->gpus[0].memory = systemInfo.gpuMemory;
             pBuffer->gpus[0].coreClock = systemInfo.gpuCoreFreq;
+            pBuffer->gpus[0].isVirtual = systemInfo.gpuIsVirtual;
             pBuffer->gpuCount = 1;
         }
+        // 如后续要支持 vector<GPUData> 可在此扩展
 
-        // Copy network adapter information
+        // 网络适配器（SystemInfo.adapters 里的 NetworkAdapterData 为 wchar_t 数组字段）
         pBuffer->adapterCount = 0;
         int adapterWriteCount = static_cast<int>(std::min(systemInfo.adapters.size(), size_t(4)));
         for (int i = 0; i < adapterWriteCount; ++i) {
             const auto& src = systemInfo.adapters[i];
-            SafeCopyWideString(pBuffer->adapters[i].name, 128, src.name);
-            SafeCopyWideString(pBuffer->adapters[i].mac, 32, src.mac);
-            SafeCopyWideString(pBuffer->adapters[i].ipAddress, 64, src.ipAddress); // 添加IP地址复制
-            SafeCopyWideString(pBuffer->adapters[i].adapterType, 32, src.adapterType); // 添加网卡类型复制
+            SafeCopyFromWideArray(pBuffer->adapters[i].name, 128, src.name, 128);
+            SafeCopyFromWideArray(pBuffer->adapters[i].mac, 32, src.mac, 32);
+            SafeCopyFromWideArray(pBuffer->adapters[i].ipAddress, 64, src.ipAddress, 64);
+            SafeCopyFromWideArray(pBuffer->adapters[i].adapterType, 32, src.adapterType, 32);
             pBuffer->adapters[i].speed = src.speed;
         }
         pBuffer->adapterCount = adapterWriteCount;
-        // 兼容旧字段
         if (adapterWriteCount == 0 && !systemInfo.networkAdapterName.empty()) {
-            std::wstring adapterNameW = WinUtils::StringToWstring(systemInfo.networkAdapterName);
-            std::wstring adapterMacW = WinUtils::StringToWstring(systemInfo.networkAdapterMac);
-            std::wstring adapterIpW = WinUtils::StringToWstring(systemInfo.networkAdapterIp); // 添加IP地址转换
-            std::wstring adapterTypeW = WinUtils::StringToWstring(systemInfo.networkAdapterType); // 添加网卡类型转换
-            
-            SafeCopyWideString(pBuffer->adapters[0].name, 128, adapterNameW);
-            SafeCopyWideString(pBuffer->adapters[0].mac, 32, adapterMacW);
-            SafeCopyWideString(pBuffer->adapters[0].ipAddress, 64, adapterIpW); // 添加IP地址复制
-            SafeCopyWideString(pBuffer->adapters[0].adapterType, 32, adapterTypeW); // 添加网卡类型复制
-            
+            SafeCopyWideString(pBuffer->adapters[0].name, 128, WinUtils::StringToWstring(systemInfo.networkAdapterName));
+            SafeCopyWideString(pBuffer->adapters[0].mac, 32, WinUtils::StringToWstring(systemInfo.networkAdapterMac));
+            SafeCopyWideString(pBuffer->adapters[0].ipAddress, 64, WinUtils::StringToWstring(systemInfo.networkAdapterIp));
+            SafeCopyWideString(pBuffer->adapters[0].adapterType, 32, WinUtils::StringToWstring(systemInfo.networkAdapterType));
             pBuffer->adapters[0].speed = systemInfo.networkAdapterSpeed;
             pBuffer->adapterCount = 1;
         }
 
-        // Copy disk information with safe string handling
+        // 逻辑磁盘（SystemInfo.disks 中 label / fileSystem 是 std::string）
         pBuffer->diskCount = static_cast<int>(std::min(systemInfo.disks.size(), static_cast<size_t>(8)));
         for (int i = 0; i < pBuffer->diskCount; ++i) {
             const auto& disk = systemInfo.disks[i];
             pBuffer->disks[i].letter = disk.letter;
-            
-            std::wstring labelW = WinUtils::StringToWstring(disk.label);
-            std::wstring fileSystemW = WinUtils::StringToWstring(disk.fileSystem);
-            
-            SafeCopyWideString(pBuffer->disks[i].label, 128, labelW);
-            SafeCopyWideString(pBuffer->disks[i].fileSystem, 32, fileSystemW);
-            
+            SafeCopyWideString(pBuffer->disks[i].label, 128, WinUtils::StringToWstring(disk.label));
+            SafeCopyWideString(pBuffer->disks[i].fileSystem, 32, WinUtils::StringToWstring(disk.fileSystem));
             pBuffer->disks[i].totalSize = disk.totalSize;
             pBuffer->disks[i].usedSpace = disk.usedSpace;
             pBuffer->disks[i].freeSpace = disk.freeSpace;
         }
 
-        // Copy temperature information with safe string handling (保留原有数组写入)
+        // 物理磁盘 + SMART（SystemInfo.physicalDisks 里字段已为 wchar_t 数组）
+        pBuffer->physicalDiskCount = static_cast<int>(std::min(systemInfo.physicalDisks.size(), static_cast<size_t>(8)));
+        for (int i = 0; i < pBuffer->physicalDiskCount; ++i) {
+            const auto& src = systemInfo.physicalDisks[i];
+            SafeCopyFromWideArray(pBuffer->physicalDisks[i].model, 128, src.model, 128);
+            SafeCopyFromWideArray(pBuffer->physicalDisks[i].serialNumber, 64, src.serialNumber, 64);
+            SafeCopyFromWideArray(pBuffer->physicalDisks[i].firmwareVersion, 32, src.firmwareVersion, 32);
+            SafeCopyFromWideArray(pBuffer->physicalDisks[i].interfaceType, 32, src.interfaceType, 32);
+            SafeCopyFromWideArray(pBuffer->physicalDisks[i].diskType, 16, src.diskType, 16);
+            pBuffer->physicalDisks[i].capacity = src.capacity;
+            pBuffer->physicalDisks[i].temperature = src.temperature;
+            pBuffer->physicalDisks[i].healthPercentage = src.healthPercentage;
+            pBuffer->physicalDisks[i].isSystemDisk = src.isSystemDisk;
+            pBuffer->physicalDisks[i].smartEnabled = src.smartEnabled;
+            pBuffer->physicalDisks[i].smartSupported = src.smartSupported;
+            pBuffer->physicalDisks[i].powerOnHours = src.powerOnHours;
+            pBuffer->physicalDisks[i].powerCycleCount = src.powerCycleCount;
+            pBuffer->physicalDisks[i].reallocatedSectorCount = src.reallocatedSectorCount;
+            pBuffer->physicalDisks[i].currentPendingSector = src.currentPendingSector;
+            pBuffer->physicalDisks[i].uncorrectableErrors = src.uncorrectableErrors;
+            pBuffer->physicalDisks[i].wearLeveling = src.wearLeveling;
+            pBuffer->physicalDisks[i].totalBytesWritten = src.totalBytesWritten;
+            pBuffer->physicalDisks[i].totalBytesRead = src.totalBytesRead;
+            int ldCount = 0;
+            for (char l : src.logicalDriveLetters) {
+                if (ldCount >= 8 || l == 0) break;
+                if (std::isalpha(static_cast<unsigned char>(l))) pBuffer->physicalDisks[i].logicalDriveLetters[ldCount++] = l;
+            }
+            pBuffer->physicalDisks[i].logicalDriveCount = ldCount;
+            int attrCount = src.attributeCount;
+            if (attrCount < 0) attrCount = 0; if (attrCount > 32) attrCount = 32;
+            pBuffer->physicalDisks[i].attributeCount = attrCount;
+            for (int a = 0; a < attrCount; ++a) {
+                const auto& sa = src.attributes[a];
+                auto& dst = pBuffer->physicalDisks[i].attributes[a];
+                dst.id = sa.id;
+                dst.flags = sa.flags;
+                dst.current = sa.current;
+                dst.worst = sa.worst;
+                dst.threshold = sa.threshold;
+                dst.rawValue = sa.rawValue;
+                dst.isCritical = sa.isCritical;
+                dst.physicalValue = sa.physicalValue;
+                SafeCopyFromWideArray(dst.name, 64, sa.name, 64);
+                SafeCopyFromWideArray(dst.description, 128, sa.description, 128);
+                SafeCopyFromWideArray(dst.units, 16, sa.units, 16);
+            }
+        }
+
+        // 温度数组（传感器名字在 vector<pair<string,double>> 中）
         pBuffer->tempCount = static_cast<int>(std::min(systemInfo.temperatures.size(), static_cast<size_t>(10)));
         for (int i = 0; i < pBuffer->tempCount; ++i) {
             const auto& temp = systemInfo.temperatures[i];
-            std::wstring sensorNameW = WinUtils::StringToWstring(temp.first);
-            SafeCopyWideString(pBuffer->temperatures[i].sensorName, 64, sensorNameW);
+            SafeCopyWideString(pBuffer->temperatures[i].sensorName, 64, WinUtils::StringToWstring(temp.first));
             pBuffer->temperatures[i].temperature = temp.second;
         }
-        // 新增：明确写入CPU和GPU温度
-        double cpuTemp = 0, gpuTemp = 0;
-        for (const auto& temp : systemInfo.temperatures) {
-            std::string name = temp.first;
-            std::transform(name.begin(), name.end(), name.begin(), ::tolower);
-            if (name.find("cpu") != std::string::npos || name.find("package") != std::string::npos) {
-                cpuTemp = temp.second;
-            } else if (name.find("gpu") != std::string::npos || name.find("graphics") != std::string::npos) {
-                gpuTemp = temp.second;
-            }
-        }
-        pBuffer->cpuTemperature = cpuTemp;
-        pBuffer->gpuTemperature = gpuTemp;
 
-        // Update timestamp
+        // 独立 CPU / GPU 温度
+        pBuffer->cpuTemperature = systemInfo.cpuTemperature;
+        pBuffer->gpuTemperature = systemInfo.gpuTemperature;
+
         GetSystemTime(&pBuffer->lastUpdate);
-        
-        Logger::Trace("成功写入系统信息到共享内存");
-    }
-    catch (const std::exception& e) {
-        lastError = "WriteToSharedMemory 中的异常: " + std::string(e.what());
+        Logger::Trace("成功写入系统/磁盘/SMART 信息到共享内存");
+    } catch (const std::exception& e) {
+        lastError = std::string("WriteToSharedMemory 中的异常: ") + e.what();
         Logger::Error(lastError);
-    }
-    catch (...) {
+    } catch (...) {
         lastError = "WriteToSharedMemory 中的未知异常";
         Logger::Error(lastError);
     }
