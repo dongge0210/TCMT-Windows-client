@@ -11,6 +11,7 @@ using SkiaSharp;
 using WPF_UI1.Models;
 using WPF_UI1.Services;
 using Serilog;
+using System.Linq; // 新增: 用于 FirstOrDefault / SequenceEqual
 
 namespace WPF_UI1.ViewModels
 {
@@ -293,13 +294,40 @@ namespace WPF_UI1.ViewModels
 
                 GpuTemperature = ValidateAndSetDouble(systemInfo.GpuTemperature, "GPU温度");
 
+                // 在更新网络适配器前保存当前选择键（避免回弹）
+                string? previousNetKey = SelectedNetworkAdapter != null
+                    ? $"{SelectedNetworkAdapter.Name}|{SelectedNetworkAdapter.Mac}"
+                    : null;
+
                 // 更新网络信息
                 UpdateCollection(NetworkAdapters, systemInfo.Adapters ?? new List<NetworkAdapterData>());
+
+                // 尝试恢复之前的选择
+                if (previousNetKey != null)
+                {
+                    var restored = NetworkAdapters.FirstOrDefault(a => $"{a.Name}|{a.Mac}" == previousNetKey);
+                    if (restored != null)
+                    {
+                        SelectedNetworkAdapter = restored; // 恢复原选择
+                    }
+                }
+
                 if (SelectedNetworkAdapter == null && NetworkAdapters.Count > 0)
                     SelectedNetworkAdapter = NetworkAdapters[0];
 
+                // 在更新磁盘前保存当前选择（可扩展同样逻辑，暂不需要如无回弹问题）
+                string? previousDiskKey = SelectedDisk != null ? $"{SelectedDisk.Letter}:{SelectedDisk.Label}" : null;
+
                 // 更新磁盘信息
                 UpdateCollection(Disks, systemInfo.Disks ?? new List<DiskData>());
+
+                if (previousDiskKey != null)
+                {
+                    var restoredDisk = Disks.FirstOrDefault(d => $"{d.Letter}:{d.Label}" == previousDiskKey);
+                    if (restoredDisk != null)
+                        SelectedDisk = restoredDisk;
+                }
+
                 if (SelectedDisk == null && Disks.Count > 0)
                     SelectedDisk = Disks[0];
 

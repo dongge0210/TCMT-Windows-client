@@ -14,22 +14,22 @@ namespace WPF_UI1.Services
         private readonly object _lock = new();
         private bool _disposed = false;
 
+        // 注意：C++端 CreateFileMapping 使用 sizeof(SharedMemoryBlock) (~>120KB+)
+        // 此处不再使用固定 64KB，而是动态计算结构体大小
         private const string SHARED_MEMORY_NAME = "SystemMonitorSharedMemory";
         private const string GLOBAL_SHARED_MEMORY_NAME = "Global\\SystemMonitorSharedMemory";
         private const string LOCAL_SHARED_MEMORY_NAME = "Local\\SystemMonitorSharedMemory";
-        private const int SHARED_MEMORY_SIZE = 65536; // 64KB
 
         public bool IsInitialized { get; private set; }
         public string LastError { get; private set; } = string.Empty;
 
-        // C++数据结构定义 - 与C++端完全匹配
+        // 与C++结构严格匹配（#pragma pack(1) 且 bool 为1字节）
+        // 统一指定 Pack=1, 并对每个bool加 MarshalAs(UnmanagedType.I1)
         [StructLayout(LayoutKind.Sequential, Pack = 1)]
         public struct SharedMemoryBlock
         {
-            // CPU信息 - 使用wchar_t数组
             [MarshalAs(UnmanagedType.ByValArray, SizeConst = 128)]
-            public ushort[] cpuName; // wchar_t 在Windows上是16位
-            
+            public ushort[] cpuName;
             public int physicalCores;
             public int logicalCores;
             public double cpuUsage;
@@ -37,87 +37,60 @@ namespace WPF_UI1.Services
             public int efficiencyCores;
             public double pCoreFreq;
             public double eCoreFreq;
-            public bool hyperThreading;
-            public bool virtualization;
-            
-            // 内存信息
+            [MarshalAs(UnmanagedType.I1)] public bool hyperThreading;
+            [MarshalAs(UnmanagedType.I1)] public bool virtualization;
             public ulong totalMemory;
             public ulong usedMemory;
             public ulong availableMemory;
-            
-            // 温度信息
             public double cpuTemperature;
             public double gpuTemperature;
-            
-            // GPU信息（支持最多2个GPU）
             [MarshalAs(UnmanagedType.ByValArray, SizeConst = 2)]
             public GPUDataStruct[] gpus;
-            
-            // 网络适配器（支持最多4个适配器）
             [MarshalAs(UnmanagedType.ByValArray, SizeConst = 4)]
             public NetworkAdapterStruct[] adapters;
-            
-            // 逻辑磁盘信息（支持最多8个磁盘）
             [MarshalAs(UnmanagedType.ByValArray, SizeConst = 8)]
             public SharedDiskDataStruct[] disks;
-            
-            // 物理磁盘SMART信息（支持最多8个物理磁盘）
             [MarshalAs(UnmanagedType.ByValArray, SizeConst = 8)]
-            public PhysicalDiskSmartDataStruct[] physicalDisks;
-            
-            // 温度数据（支持10个传感器）
+            public PhysicalDiskSmartDataStruct[] physicalDisks; // 大结构，仅为保持偏移
             [MarshalAs(UnmanagedType.ByValArray, SizeConst = 10)]
             public TemperatureDataStruct[] temperatures;
-            
-            // 计数器
             public int adapterCount;
             public int tempCount;
             public int gpuCount;
             public int diskCount;
             public int physicalDiskCount;
-            
-            // 最后更新时间
             public SYSTEMTIME lastUpdate;
-            
-            // CRITICAL_SECTION (在C#中忽略)
-            [MarshalAs(UnmanagedType.ByValArray, SizeConst = 24)]
+            // CRITICAL_SECTION: 在 Win64 下一般 40 字节（pack=1），用占位符字节数组
+            [MarshalAs(UnmanagedType.ByValArray, SizeConst = 40)]
             public byte[] lockData;
         }
 
         [StructLayout(LayoutKind.Sequential, Pack = 1)]
         public struct GPUDataStruct
         {
-            [MarshalAs(UnmanagedType.ByValArray, SizeConst = 128)]
-            public ushort[] name;
-            [MarshalAs(UnmanagedType.ByValArray, SizeConst = 64)]
-            public ushort[] brand;
+            [MarshalAs(UnmanagedType.ByValArray, SizeConst = 128)] public ushort[] name;
+            [MarshalAs(UnmanagedType.ByValArray, SizeConst = 64)] public ushort[] brand;
             public ulong memory;
             public double coreClock;
-            public bool isVirtual;
+            [MarshalAs(UnmanagedType.I1)] public bool isVirtual;
         }
 
         [StructLayout(LayoutKind.Sequential, Pack = 1)]
         public struct NetworkAdapterStruct
         {
-            [MarshalAs(UnmanagedType.ByValArray, SizeConst = 128)]
-            public ushort[] name;
-            [MarshalAs(UnmanagedType.ByValArray, SizeConst = 32)]
-            public ushort[] mac;
-            [MarshalAs(UnmanagedType.ByValArray, SizeConst = 64)]
-            public ushort[] ipAddress;
-            [MarshalAs(UnmanagedType.ByValArray, SizeConst = 32)]
-            public ushort[] adapterType;
+            [MarshalAs(UnmanagedType.ByValArray, SizeConst = 128)] public ushort[] name;
+            [MarshalAs(UnmanagedType.ByValArray, SizeConst = 32)] public ushort[] mac;
+            [MarshalAs(UnmanagedType.ByValArray, SizeConst = 64)] public ushort[] ipAddress;
+            [MarshalAs(UnmanagedType.ByValArray, SizeConst = 32)] public ushort[] adapterType;
             public ulong speed;
         }
 
         [StructLayout(LayoutKind.Sequential, Pack = 1)]
         public struct SharedDiskDataStruct
         {
-            public byte letter; // char 是8位
-            [MarshalAs(UnmanagedType.ByValArray, SizeConst = 128)]
-            public ushort[] label;
-            [MarshalAs(UnmanagedType.ByValArray, SizeConst = 32)]
-            public ushort[] fileSystem;
+            public byte letter;
+            [MarshalAs(UnmanagedType.ByValArray, SizeConst = 128)] public ushort[] label;
+            [MarshalAs(UnmanagedType.ByValArray, SizeConst = 32)] public ushort[] fileSystem;
             public ulong totalSize;
             public ulong usedSpace;
             public ulong freeSpace;
@@ -126,31 +99,55 @@ namespace WPF_UI1.Services
         [StructLayout(LayoutKind.Sequential, Pack = 1)]
         public struct TemperatureDataStruct
         {
-            [MarshalAs(UnmanagedType.ByValArray, SizeConst = 64)]
-            public ushort[] sensorName;
+            [MarshalAs(UnmanagedType.ByValArray, SizeConst = 64)] public ushort[] sensorName;
             public double temperature;
+        }
+
+        // ------------- SMART 相关子结构（用于保持偏移一致）-------------
+        [StructLayout(LayoutKind.Sequential, Pack = 1)]
+        public struct SmartAttributeDataStruct
+        {
+            public byte id;
+            public byte flags;
+            public byte current;
+            public byte worst;
+            public byte threshold;
+            public ulong rawValue;
+            [MarshalAs(UnmanagedType.ByValArray, SizeConst = 64)] public ushort[] name;
+            [MarshalAs(UnmanagedType.ByValArray, SizeConst = 128)] public ushort[] description;
+            [MarshalAs(UnmanagedType.I1)] public bool isCritical;
+            public double physicalValue;
+            [MarshalAs(UnmanagedType.ByValArray, SizeConst = 16)] public ushort[] units;
         }
 
         [StructLayout(LayoutKind.Sequential, Pack = 1)]
         public struct PhysicalDiskSmartDataStruct
         {
-            [MarshalAs(UnmanagedType.ByValArray, SizeConst = 128)]
-            public ushort[] model;
-            [MarshalAs(UnmanagedType.ByValArray, SizeConst = 64)]
-            public ushort[] serialNumber;
-            [MarshalAs(UnmanagedType.ByValArray, SizeConst = 32)]
-            public ushort[] firmwareVersion;
-            [MarshalAs(UnmanagedType.ByValArray, SizeConst = 32)]
-            public ushort[] interfaceType;
-            [MarshalAs(UnmanagedType.ByValArray, SizeConst = 16)]
-            public ushort[] diskType;
+            [MarshalAs(UnmanagedType.ByValArray, SizeConst = 128)] public ushort[] model;
+            [MarshalAs(UnmanagedType.ByValArray, SizeConst = 64)] public ushort[] serialNumber;
+            [MarshalAs(UnmanagedType.ByValArray, SizeConst = 32)] public ushort[] firmwareVersion;
+            [MarshalAs(UnmanagedType.ByValArray, SizeConst = 32)] public ushort[] interfaceType;
+            [MarshalAs(UnmanagedType.ByValArray, SizeConst = 16)] public ushort[] diskType;
             public ulong capacity;
             public double temperature;
             public byte healthPercentage;
-            public bool isSystemDisk;
-            public bool smartEnabled;
-            public bool smartSupported;
-            // ... 其他SMART数据省略以保持简洁
+            [MarshalAs(UnmanagedType.I1)] public bool isSystemDisk;
+            [MarshalAs(UnmanagedType.I1)] public bool smartEnabled;
+            [MarshalAs(UnmanagedType.I1)] public bool smartSupported;
+            // SMART 属性 32 个
+            [MarshalAs(UnmanagedType.ByValArray, SizeConst = 32)] public SmartAttributeDataStruct[] attributes;
+            public int attributeCount;
+            public ulong powerOnHours;
+            public ulong powerCycleCount;
+            public ulong reallocatedSectorCount;
+            public ulong currentPendingSector;
+            public ulong uncorrectableErrors;
+            public double wearLeveling;
+            public ulong totalBytesWritten;
+            public ulong totalBytesRead;
+            [MarshalAs(UnmanagedType.ByValArray, SizeConst = 8)] public byte[] logicalDriveLetters; // char[8]
+            public int logicalDriveCount;
+            public SYSTEMTIME lastScanTime;
         }
 
         [StructLayout(LayoutKind.Sequential)]
@@ -175,38 +172,35 @@ namespace WPF_UI1.Services
 
                 try
                 {
-                    // 尝试多种命名方式打开共享内存
                     string[] names = { GLOBAL_SHARED_MEMORY_NAME, LOCAL_SHARED_MEMORY_NAME, SHARED_MEMORY_NAME };
-                    
+                    int structSize = Marshal.SizeOf<SharedMemoryBlock>();
+
                     foreach (string name in names)
                     {
                         try
                         {
                             Log.Debug($"尝试打开共享内存: {name}");
-                            
-                            // 尝试打开现有的共享内存
                             _mmf = MemoryMappedFile.OpenExisting(name, MemoryMappedFileRights.Read);
-                            _accessor = _mmf.CreateViewAccessor(0, SHARED_MEMORY_SIZE, MemoryMappedFileAccess.Read);
-                            
+                            // 视图长度使用真实结构体大小
+                            _accessor = _mmf.CreateViewAccessor(0, structSize, MemoryMappedFileAccess.Read);
                             IsInitialized = true;
-                            Log.Information($"? 成功连接到共享内存: {name}");
-                            
+                            Log.Information($"? 成功连接到共享内存: {name}, Size={structSize} bytes");
                             return true;
                         }
                         catch (FileNotFoundException)
                         {
-                            Log.Debug($"? 共享内存不存在: {name}");
+                            Log.Debug($"共享内存不存在: {name}");
                             continue;
                         }
                         catch (Exception ex)
                         {
-                            Log.Warning($"?? 打开共享内存失败 {name}: {ex.Message}");
+                            Log.Warning($"打开共享内存失败 {name}: {ex.Message}");
                             continue;
                         }
                     }
 
                     LastError = "无法找到共享内存，请确保C++主程序正在运行";
-                    Log.Error($"?? {LastError}");
+                    Log.Error(LastError);
                     return false;
                 }
                 catch (Exception ex)
@@ -230,18 +224,14 @@ namespace WPF_UI1.Services
 
                 try
                 {
-                    // 读取完整的共享内存数据
                     return ReadCompleteSystemInfo();
                 }
                 catch (Exception ex)
                 {
                     LastError = $"读取共享内存数据时发生错误: {ex.Message}";
                     Log.Error(ex, LastError);
-                    
-                    // 尝试重新初始化
                     Dispose();
                     IsInitialized = false;
-                    
                     return null;
                 }
             }
@@ -252,110 +242,39 @@ namespace WPF_UI1.Services
             if (_accessor == null)
                 throw new InvalidOperationException("共享内存访问器未初始化");
 
+            int structSize = Marshal.SizeOf<SharedMemoryBlock>();
+            var raw = new byte[structSize];
+            int bytesToRead = (int)Math.Min((long)structSize, _accessor.Capacity);
+            _accessor.ReadArray(0, raw, 0, bytesToRead);
+
+            var handle = GCHandle.Alloc(raw, GCHandleType.Pinned);
             try
             {
-                // 计算结构体大小并读取数据
-                int structSize = Marshal.SizeOf<SharedMemoryBlock>();
-                var buffer = new byte[structSize];
-                
-                // 读取字节数据
-                int bytesToRead = Math.Min(structSize, (int)_accessor.Capacity);
-                _accessor.ReadArray(0, buffer, 0, bytesToRead);
-
-                // 转换为结构体
-                var handle = GCHandle.Alloc(buffer, GCHandleType.Pinned);
-                try
-                {
-                    var sharedData = Marshal.PtrToStructure<SharedMemoryBlock>(handle.AddrOfPinnedObject());
-                    return ConvertToSystemInfo(sharedData);
-                }
-                finally
-                {
-                    handle.Free();
-                }
+                var data = Marshal.PtrToStructure<SharedMemoryBlock>(handle.AddrOfPinnedObject());
+                return ConvertToSystemInfo(data);
             }
-            catch (Exception ex)
+            finally
             {
-                Log.Error(ex, "读取完整系统信息失败，尝试使用简化方法");
-                
-                // 如果结构体解析失败，尝试简化的读取方法
-                return ReadSimplifiedSystemInfo();
+                handle.Free();
             }
         }
 
+        // 简化读取保留（结构匹配后通常不再触发）
         private SystemInfo ReadSimplifiedSystemInfo()
         {
-            var systemInfo = new SystemInfo();
-
-            try
+            var systemInfo = new SystemInfo
             {
-                // 尝试直接读取关键数据字段
-                // CPU名称 (偏移量0，wchar_t[128])
-                string cpuName = ReadWideString(0, 128);
-                if (!string.IsNullOrWhiteSpace(cpuName))
-                {
-                    systemInfo.CpuName = cpuName;
-                }
-                else
-                {
-                    systemInfo.CpuName = "无法读取CPU信息";
-                }
-
-                // 核心数和内存信息（根据C++结构体计算偏移量）
-                int offset = 128 * 2; // 跳过wchar_t[128] cpuName
-                
-                try
-                {
-                    systemInfo.PhysicalCores = _accessor!.ReadInt32(offset);
-                    systemInfo.LogicalCores = _accessor.ReadInt32(offset + 4);
-                    systemInfo.CpuUsage = _accessor.ReadDouble(offset + 8);
-                    systemInfo.PerformanceCores = _accessor.ReadInt32(offset + 16);
-                    systemInfo.EfficiencyCores = _accessor.ReadInt32(offset + 20);
-                    
-                    // 跳到内存数据（大约偏移量 offset + 40）
-                    int memOffset = offset + 40;
-                    systemInfo.TotalMemory = _accessor.ReadUInt64(memOffset);
-                    systemInfo.UsedMemory = _accessor.ReadUInt64(memOffset + 8);
-                    systemInfo.AvailableMemory = _accessor.ReadUInt64(memOffset + 16);
-                    
-                    // 温度数据（大约偏移量 memOffset + 24）
-                    int tempOffset = memOffset + 24;
-                    systemInfo.CpuTemperature = _accessor.ReadDouble(tempOffset);
-                    systemInfo.GpuTemperature = _accessor.ReadDouble(tempOffset + 8);
-                    
-                    Log.Debug($"简化读取成功: CPU={systemInfo.CpuName}, 内存={systemInfo.TotalMemory/(1024*1024*1024)}GB");
-                }
-                catch (Exception ex)
-                {
-                    Log.Warning($"读取数值数据失败: {ex.Message}");
-                    // 保持默认值
-                }
-
-                systemInfo.LastUpdate = DateTime.Now;
-                return systemInfo;
-            }
-            catch (Exception ex)
-            {
-                Log.Error(ex, "简化读取也失败");
-                
-                return new SystemInfo
-                {
-                    CpuName = $"数据读取失败: {ex.Message}",
-                    PhysicalCores = 0,
-                    LogicalCores = 0,
-                    TotalMemory = 0,
-                    LastUpdate = DateTime.Now
-                };
-            }
+                CpuName = "结构不匹配 - 使用降级读取",
+                LastUpdate = DateTime.Now
+            };
+            return systemInfo;
         }
 
         private SystemInfo ConvertToSystemInfo(SharedMemoryBlock sharedData)
         {
             var systemInfo = new SystemInfo();
-            
             try
             {
-                // CPU信息
                 systemInfo.CpuName = SafeWideCharArrayToString(sharedData.cpuName) ?? "未知处理器";
                 systemInfo.PhysicalCores = sharedData.physicalCores;
                 systemInfo.LogicalCores = sharedData.logicalCores;
@@ -366,160 +285,224 @@ namespace WPF_UI1.Services
                 systemInfo.EfficiencyCoreFreq = sharedData.eCoreFreq;
                 systemInfo.HyperThreading = sharedData.hyperThreading;
                 systemInfo.Virtualization = sharedData.virtualization;
-
-                // 内存信息
                 systemInfo.TotalMemory = sharedData.totalMemory;
                 systemInfo.UsedMemory = sharedData.usedMemory;
                 systemInfo.AvailableMemory = sharedData.availableMemory;
-
-                // 温度信息
                 systemInfo.CpuTemperature = sharedData.cpuTemperature;
                 systemInfo.GpuTemperature = sharedData.gpuTemperature;
 
-                // GPU信息
+                // GPU
                 systemInfo.Gpus.Clear();
-                for (int i = 0; i < Math.Min(sharedData.gpuCount, sharedData.gpus?.Length ?? 0); i++)
+                if (sharedData.gpus != null)
                 {
-                    var gpu = sharedData.gpus[i];
-                    systemInfo.Gpus.Add(new GpuData
+                    for (int i = 0; i < Math.Min(sharedData.gpuCount, sharedData.gpus.Length); i++)
                     {
-                        Name = SafeWideCharArrayToString(gpu.name) ?? "未知GPU",
-                        Brand = SafeWideCharArrayToString(gpu.brand) ?? "未知品牌",
-                        Memory = gpu.memory,
-                        CoreClock = gpu.coreClock,
-                        IsVirtual = gpu.isVirtual
-                    });
+                        var g = sharedData.gpus[i];
+                        systemInfo.Gpus.Add(new GpuData
+                        {
+                            Name = SafeWideCharArrayToString(g.name) ?? "未知GPU",
+                            Brand = SafeWideCharArrayToString(g.brand) ?? "未知品牌",
+                            Memory = g.memory,
+                            CoreClock = g.coreClock,
+                            IsVirtual = g.isVirtual
+                        });
+                    }
                 }
-
-                // 网络适配器信息
-                systemInfo.Adapters.Clear();
-                for (int i = 0; i < Math.Min(sharedData.adapterCount, sharedData.adapters?.Length ?? 0); i++)
-                {
-                    var adapter = sharedData.adapters[i];
-                    systemInfo.Adapters.Add(new NetworkAdapterData
-                    {
-                        Name = SafeWideCharArrayToString(adapter.name) ?? "未知网卡",
-                        Mac = SafeWideCharArrayToString(adapter.mac) ?? "00-00-00-00-00-00",
-                        IpAddress = SafeWideCharArrayToString(adapter.ipAddress) ?? "未分配",
-                        AdapterType = SafeWideCharArrayToString(adapter.adapterType) ?? "未知类型",
-                        Speed = adapter.speed
-                    });
-                }
-
-                // 磁盘信息
-                systemInfo.Disks.Clear();
-                for (int i = 0; i < Math.Min(sharedData.diskCount, sharedData.disks?.Length ?? 0); i++)
-                {
-                    var disk = sharedData.disks[i];
-                    systemInfo.Disks.Add(new DiskData
-                    {
-                        Letter = (char)disk.letter,
-                        Label = SafeWideCharArrayToString(disk.label) ?? "未命名",
-                        FileSystem = SafeWideCharArrayToString(disk.fileSystem) ?? "未知",
-                        TotalSize = disk.totalSize,
-                        UsedSpace = disk.usedSpace,
-                        FreeSpace = disk.freeSpace
-                    });
-                }
-
-                // 温度传感器信息
-                systemInfo.Temperatures.Clear();
-                for (int i = 0; i < Math.Min(sharedData.tempCount, sharedData.temperatures?.Length ?? 0); i++)
-                {
-                    var temp = sharedData.temperatures[i];
-                    string sensorName = SafeWideCharArrayToString(temp.sensorName) ?? $"传感器{i}";
-                    systemInfo.Temperatures.Add(new TemperatureData
-                    {
-                        SensorName = sensorName,
-                        Temperature = temp.temperature
-                    });
-                }
-
-                // 设置兼容性字段
                 if (systemInfo.Gpus.Count > 0)
                 {
-                    var firstGpu = systemInfo.Gpus[0];
-                    systemInfo.GpuName = firstGpu.Name;
-                    systemInfo.GpuBrand = firstGpu.Brand;
-                    systemInfo.GpuMemory = firstGpu.Memory;
-                    systemInfo.GpuCoreFreq = firstGpu.CoreClock;
-                    systemInfo.GpuIsVirtual = firstGpu.IsVirtual;
+                    var fg = systemInfo.Gpus[0];
+                    systemInfo.GpuName = fg.Name;
+                    systemInfo.GpuBrand = fg.Brand;
+                    systemInfo.GpuMemory = fg.Memory;
+                    systemInfo.GpuCoreFreq = fg.CoreClock;
+                    systemInfo.GpuIsVirtual = fg.IsVirtual;
                 }
 
+                // 网络
+                systemInfo.Adapters.Clear();
+                if (sharedData.adapters != null)
+                {
+                    for (int i = 0; i < Math.Min(sharedData.adapterCount, sharedData.adapters.Length); i++)
+                    {
+                        var a = sharedData.adapters[i];
+                        systemInfo.Adapters.Add(new NetworkAdapterData
+                        {
+                            Name = SafeWideCharArrayToString(a.name) ?? "未知网卡",
+                            Mac = SafeWideCharArrayToString(a.mac) ?? "00-00-00-00-00-00",
+                            IpAddress = SafeWideCharArrayToString(a.ipAddress) ?? "未分配",
+                            AdapterType = SafeWideCharArrayToString(a.adapterType) ?? "未知类型",
+                            Speed = a.speed
+                        });
+                    }
+                }
                 if (systemInfo.Adapters.Count > 0)
                 {
-                    var firstAdapter = systemInfo.Adapters[0];
-                    systemInfo.NetworkAdapterName = firstAdapter.Name;
-                    systemInfo.NetworkAdapterMac = firstAdapter.Mac;
-                    systemInfo.NetworkAdapterIp = firstAdapter.IpAddress;
-                    systemInfo.NetworkAdapterType = firstAdapter.AdapterType;
-                    systemInfo.NetworkAdapterSpeed = firstAdapter.Speed;
+                    var fa = systemInfo.Adapters[0];
+                    systemInfo.NetworkAdapterName = fa.Name;
+                    systemInfo.NetworkAdapterMac = fa.Mac;
+                    systemInfo.NetworkAdapterIp = fa.IpAddress;
+                    systemInfo.NetworkAdapterType = fa.AdapterType;
+                    systemInfo.NetworkAdapterSpeed = fa.Speed;
+                }
+
+                // 逻辑磁盘
+                systemInfo.Disks.Clear();
+                if (sharedData.disks != null)
+                {
+                    for (int i = 0; i < Math.Min(sharedData.diskCount, sharedData.disks.Length); i++)
+                    {
+                        var d = sharedData.disks[i];
+                        systemInfo.Disks.Add(new DiskData
+                        {
+                            Letter = (char)d.letter,
+                            Label = SafeWideCharArrayToString(d.label) ?? "未命名",
+                            FileSystem = SafeWideCharArrayToString(d.fileSystem) ?? "未知",
+                            TotalSize = d.totalSize,
+                            UsedSpace = d.usedSpace,
+                            FreeSpace = d.freeSpace,
+                            PhysicalDiskIndex = -1 // 初始为未关联
+                        });
+                    }
+                }
+
+                // 物理磁盘 + SMART
+                systemInfo.PhysicalDisks.Clear();
+                if (sharedData.physicalDisks != null)
+                {
+                    for (int i = 0; i < Math.Min(sharedData.physicalDiskCount, sharedData.physicalDisks.Length); i++)
+                    {
+                        var pd = sharedData.physicalDisks[i];
+                        var physicalDisk = new PhysicalDiskSmartData
+                        {
+                            Model = SafeWideCharArrayToString(pd.model) ?? "未知型号",
+                            SerialNumber = SafeWideCharArrayToString(pd.serialNumber) ?? string.Empty,
+                            FirmwareVersion = SafeWideCharArrayToString(pd.firmwareVersion) ?? string.Empty,
+                            InterfaceType = SafeWideCharArrayToString(pd.interfaceType) ?? string.Empty,
+                            DiskType = SafeWideCharArrayToString(pd.diskType) ?? string.Empty,
+                            Capacity = pd.capacity,
+                            Temperature = pd.temperature,
+                            HealthPercentage = pd.healthPercentage,
+                            IsSystemDisk = pd.isSystemDisk,
+                            SmartEnabled = pd.smartEnabled,
+                            SmartSupported = pd.smartSupported,
+                            PowerOnHours = pd.powerOnHours,
+                            PowerCycleCount = pd.powerCycleCount,
+                            ReallocatedSectorCount = pd.reallocatedSectorCount,
+                            CurrentPendingSector = pd.currentPendingSector,
+                            UncorrectableErrors = pd.uncorrectableErrors,
+                            WearLeveling = pd.wearLeveling,
+                            TotalBytesWritten = pd.totalBytesWritten,
+                            TotalBytesRead = pd.totalBytesRead
+                        };
+
+                        // 关联逻辑驱动器字母
+                        if (pd.logicalDriveLetters != null && pd.logicalDriveLetters.Length > 0)
+                        {
+                            for (int b = 0; b < Math.Min(pd.logicalDriveLetters.Length, pd.logicalDriveCount); b++)
+                            {
+                                byte letterByte = pd.logicalDriveLetters[b];
+                                if (letterByte == 0) break;
+                                char letter = (char)letterByte;
+                                if (char.IsLetter(letter))
+                                {
+                                    physicalDisk.LogicalDriveLetters.Add(letter);
+                                }
+                            }
+                        }
+
+                        // SMART 属性
+                        physicalDisk.Attributes.Clear();
+                        if (pd.attributes != null)
+                        {
+                            int attrCount = Math.Min(pd.attributeCount, pd.attributes.Length);
+                            for (int a = 0; a < attrCount; a++)
+                            {
+                                var sa = pd.attributes[a];
+                                var attr = new SmartAttributeData
+                                {
+                                    Id = sa.id,
+                                    Current = sa.current,
+                                    Worst = sa.worst,
+                                    Threshold = sa.threshold,
+                                    RawValue = sa.rawValue,
+                                    Name = SafeWideCharArrayToString(sa.name) ?? $"Attr {sa.id}",
+                                    Description = SafeWideCharArrayToString(sa.description) ?? string.Empty,
+                                    IsCritical = sa.isCritical,
+                                    PhysicalValue = sa.physicalValue,
+                                    Units = SafeWideCharArrayToString(sa.units) ?? string.Empty
+                                };
+                                physicalDisk.Attributes.Add(attr);
+                            }
+                        }
+
+                        systemInfo.PhysicalDisks.Add(physicalDisk);
+                    }
+                }
+
+                // 建立逻辑盘 -> 物理盘索引映射
+                if (systemInfo.PhysicalDisks.Count > 0 && systemInfo.Disks.Count > 0)
+                {
+                    for (int pi = 0; pi < systemInfo.PhysicalDisks.Count; pi++)
+                    {
+                        var pd = systemInfo.PhysicalDisks[pi];
+                        foreach (var drvLetter in pd.LogicalDriveLetters)
+                        {
+                            for (int di = 0; di < systemInfo.Disks.Count; di++)
+                            {
+                                if (char.ToUpperInvariant(systemInfo.Disks[di].Letter) == char.ToUpperInvariant(drvLetter))
+                                {
+                                    systemInfo.Disks[di].PhysicalDiskIndex = pi;
+                                }
+                            }
+                        }
+                    }
+                }
+
+                // 温度传感器
+                systemInfo.Temperatures.Clear();
+                if (sharedData.temperatures != null)
+                {
+                    for (int i = 0; i < Math.Min(sharedData.tempCount, sharedData.temperatures.Length); i++)
+                    {
+                        var t = sharedData.temperatures[i];
+                        systemInfo.Temperatures.Add(new TemperatureData
+                        {
+                            SensorName = SafeWideCharArrayToString(t.sensorName) ?? $"传感器{i}",
+                            Temperature = t.temperature
+                        });
+                    }
                 }
 
                 systemInfo.LastUpdate = DateTime.Now;
-
-                Log.Debug($"? 成功解析系统信息: CPU={systemInfo.CpuName}, 内存={systemInfo.TotalMemory / (1024*1024*1024)}GB, GPU数量={systemInfo.Gpus.Count}, 网卡数量={systemInfo.Adapters.Count}, 磁盘数量={systemInfo.Disks.Count}");
-
+                Log.Debug($"解析共享内存成功: CPU={systemInfo.CpuName}, GPU数={systemInfo.Gpus.Count}, 网卡数={systemInfo.Adapters.Count}, 逻辑盘={systemInfo.Disks.Count}, 物理盘={systemInfo.PhysicalDisks.Count}");
                 return systemInfo;
             }
             catch (Exception ex)
             {
-                Log.Error(ex, "转换系统信息时发生错误，回退到简化方法");
+                Log.Error(ex, "转换共享内存数据失败，回退简化模式");
                 return ReadSimplifiedSystemInfo();
-            }
-        }
-
-        private string ReadWideString(int offset, int maxChars)
-        {
-            try
-            {
-                var chars = new List<char>();
-                for (int i = 0; i < maxChars; i++)
-                {
-                    ushort wchar = _accessor!.ReadUInt16(offset + i * 2);
-                    if (wchar == 0) break;
-                    chars.Add((char)wchar);
-                }
-                return new string(chars.ToArray()).Trim();
-            }
-            catch
-            {
-                return string.Empty;
             }
         }
 
         private string? SafeWideCharArrayToString(ushort[]? wcharArray)
         {
-            if (wcharArray == null || wcharArray.Length == 0)
-                return null;
-
+            if (wcharArray == null || wcharArray.Length == 0) return null;
             try
             {
-                var chars = new List<char>();
-                foreach (ushort wchar in wcharArray)
-                {
-                    if (wchar == 0) break;
-                    chars.Add((char)wchar);
-                }
-                
-                if (chars.Count == 0)
-                    return null;
-
-                string result = new string(chars.ToArray()).Trim();
-                return string.IsNullOrWhiteSpace(result) ? null : result;
+                int len = 0;
+                while (len < wcharArray.Length && wcharArray[len] != 0) len++;
+                if (len == 0) return null;
+                var chars = new char[len];
+                for (int i = 0; i < len; i++) chars[i] = (char)wcharArray[i];
+                var s = new string(chars).Trim();
+                return string.IsNullOrWhiteSpace(s) ? null : s;
             }
-            catch (Exception ex)
-            {
-                Log.Debug($"宽字符数组转换失败: {ex.Message}");
-                return null;
-            }
+            catch { return null; }
         }
 
         public void Dispose()
         {
-            if (_disposed)
-                return;
-
+            if (_disposed) return;
             lock (_lock)
             {
                 _accessor?.Dispose();
@@ -529,13 +512,9 @@ namespace WPF_UI1.Services
                 IsInitialized = false;
                 _disposed = true;
             }
-
             GC.SuppressFinalize(this);
         }
 
-        ~SharedMemoryService()
-        {
-            Dispose();
-        }
+        ~SharedMemoryService() => Dispose();
     }
 }
