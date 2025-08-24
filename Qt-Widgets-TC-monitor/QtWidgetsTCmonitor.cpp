@@ -175,6 +175,11 @@ void QtWidgetsTCmonitor::createCpuSection()
     layout->addWidget(new QLabel(tr("虚拟化:"), this), row, 0);
     infoLabels["virtualization"] = new QLabel(this);
     layout->addWidget(infoLabels["virtualization"], row++, 1);
+
+    // 新增：CPU使用率采样间隔
+    layout->addWidget(new QLabel(tr("采样间隔:"), this), row, 0);
+    infoLabels["cpuSampleInterval"] = new QLabel(tr("N/A"), this);
+    layout->addWidget(infoLabels["cpuSampleInterval"], row++, 1);
 }
 
 void QtWidgetsTCmonitor::createMemorySection()
@@ -765,6 +770,12 @@ void QtWidgetsTCmonitor::updateFromSharedMemory() {
         infoLabels["cpuUsage"]->setText(QString::number(localCopy.cpuUsage, 'f', 1) + "%");
         infoLabels["hyperThreading"]->setText(localCopy.hyperThreading ? tr("启用") : tr("禁用"));
         infoLabels["virtualization"]->setText(localCopy.virtualization ? tr("支持") : tr("不支持"));
+        if (infoLabels.find("cpuSampleInterval") != infoLabels.end()) {
+            if (localCopy.cpuUsageSampleIntervalMs > 0.0 && localCopy.cpuUsageSampleIntervalMs < 60000.0)
+                infoLabels["cpuSampleInterval"]->setText(QString::number(localCopy.cpuUsageSampleIntervalMs, 'f', 0) + " ms");
+            else
+                infoLabels["cpuSampleInterval"]->setText("N/A");
+        }
         
         // 内存信息
         infoLabels["totalMemory"]->setText(formatSize(localCopy.totalMemory));

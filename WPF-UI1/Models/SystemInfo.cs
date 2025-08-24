@@ -43,6 +43,7 @@ namespace WPF_UI1.Models
         public List<TemperatureData> Temperatures { get; set; } = new();
         public double CpuTemperature { get; set; }
         public double GpuTemperature { get; set; }
+        public double CpuUsageSampleIntervalMs { get; set; } // 新增：CPU使用率采样间隔
         public DateTime LastUpdate { get; set; }
     }
 
@@ -150,5 +151,15 @@ namespace WPF_UI1.Models
     {
         public string SensorName { get; set; } = string.Empty;
         public double Temperature { get; set; }
+    }
+
+    // WPF分组包装：物理磁盘 + 其下分区
+    public class PhysicalDiskView : NotifyBase
+    {
+        private PhysicalDiskSmartData _disk;
+        public PhysicalDiskSmartData Disk { get => _disk; set => SetProperty(ref _disk, value); }
+        public ObservableCollection<DiskData> Partitions { get; } = new();
+        public string LettersDisplay => Partitions.Count == 0 ? "无分区" : string.Join(", ", Partitions.Select(p => p.Letter + ":"));
+        public string DisplayName => Disk == null ? "未知磁盘" : $"{Disk.Model} ({LettersDisplay})";
     }
 }

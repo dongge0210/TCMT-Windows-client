@@ -2,7 +2,7 @@
 #include "Logger.h"
 #include "WmiManager.h"
 #include <comutil.h>
-#include <nvml.h>
+#include <C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v12.8\include\nvml.h>
 #include <algorithm>  // Add this header for std::transform
 #include <cctype>     // Add this header for character functions
 #include <cwctype>    // Add this header for wide character functions like towlower

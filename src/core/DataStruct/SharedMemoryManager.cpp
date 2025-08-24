@@ -332,7 +332,18 @@ void SharedMemoryManager::WriteToSharedMemory(const SystemInfo& systemInfo) {
         for (int i = 0; i < pBuffer->diskCount; ++i) {
             const auto& disk = systemInfo.disks[i];
             pBuffer->disks[i].letter = disk.letter;
-            SafeCopyWideString(pBuffer->disks[i].label, 128, WinUtils::StringToWstring(disk.label));
+            std::string safeLabel = disk.label;
+            if (safeLabel.empty()) safeLabel = ""; // 未命名允许为空，在UI端替换
+            else if (!WinUtils::IsLikelyUtf8(safeLabel)) {
+                // 退化处理：按当前ACP转 wide 再回 UTF-8，尽量 salvage
+                std::wstring w = WinUtils::Utf8ToWstring(safeLabel); // 若不是utf8会得到空
+                if (w.empty()) {
+                    int len = MultiByteToWideChar(CP_ACP, 0, safeLabel.c_str(), (int)safeLabel.size(), nullptr, 0);
+                    if (len > 0) { w.resize(len); MultiByteToWideChar(CP_ACP, 0, safeLabel.c_str(), (int)safeLabel.size(), w.data(), len); }
+                }
+                safeLabel = WinUtils::WstringToUtf8(w);
+            }
+            SafeCopyWideString(pBuffer->disks[i].label, 128, WinUtils::StringToWstring(safeLabel));
             SafeCopyWideString(pBuffer->disks[i].fileSystem, 32, WinUtils::StringToWstring(disk.fileSystem));
             pBuffer->disks[i].totalSize = disk.totalSize;
             pBuffer->disks[i].usedSpace = disk.usedSpace;
@@ -399,6 +410,7 @@ void SharedMemoryManager::WriteToSharedMemory(const SystemInfo& systemInfo) {
         // 独立 CPU / GPU 温度
         pBuffer->cpuTemperature = systemInfo.cpuTemperature;
         pBuffer->gpuTemperature = systemInfo.gpuTemperature;
+        pBuffer->cpuUsageSampleIntervalMs = systemInfo.cpuUsageSampleIntervalMs;
 
         GetSystemTime(&pBuffer->lastUpdate);
         Logger::Trace("成功写入系统/磁盘/SMART 信息到共享内存");
