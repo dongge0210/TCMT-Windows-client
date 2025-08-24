@@ -21,6 +21,9 @@ public:
     bool IsHyperThreadingEnabled() const;
     bool IsVirtualizationEnabled() const;
 
+    // 新增：获取最近一次 CPU 使用率采样间隔（毫秒）
+    double GetLastSampleIntervalMs() const { return lastSampleIntervalMs; }
+
 private:
     void DetectCores();
     void InitializeCounter();
@@ -39,7 +42,12 @@ private:
     // 频率信息
     std::vector<DWORD> largeCoresSpeeds; // 性能核心频率
     std::vector<DWORD> smallCoresSpeeds; // 能效核心频率
-    DWORD lastUpdateTime;                // 上次更新时间
+    DWORD lastUpdateTime;                // 上次更新时间（频率）
+
+    // 采样延迟追踪
+    DWORD lastSampleTick = 0;            // 上次成功采样 Tick
+    DWORD prevSampleTick = 0;            // 上一次之前的 Tick
+    double lastSampleIntervalMs = 0.0;   // 最近一次采样间隔(毫秒)
 
     // PDH 计数器相关
     PDH_HQUERY queryHandle;

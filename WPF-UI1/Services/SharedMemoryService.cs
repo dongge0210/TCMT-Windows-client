@@ -44,6 +44,7 @@ namespace WPF_UI1.Services
             public ulong availableMemory;
             public double cpuTemperature;
             public double gpuTemperature;
+            public double cpuUsageSampleIntervalMs; // 新增：CPU采样间隔
             [MarshalAs(UnmanagedType.ByValArray, SizeConst = 2)]
             public GPUDataStruct[] gpus;
             [MarshalAs(UnmanagedType.ByValArray, SizeConst = 4)]
@@ -290,6 +291,7 @@ namespace WPF_UI1.Services
                 systemInfo.AvailableMemory = sharedData.availableMemory;
                 systemInfo.CpuTemperature = sharedData.cpuTemperature;
                 systemInfo.GpuTemperature = sharedData.gpuTemperature;
+                systemInfo.CpuUsageSampleIntervalMs = sharedData.cpuUsageSampleIntervalMs;
 
                 // GPU
                 systemInfo.Gpus.Clear();

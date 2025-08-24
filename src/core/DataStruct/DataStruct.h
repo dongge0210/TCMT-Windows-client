@@ -123,6 +123,7 @@ struct SystemInfo {
     uint64_t networkAdapterSpeed;   // Added
     double cpuTemperature; // 新增：CPU温度
     double gpuTemperature; // 新增：GPU温度
+    double cpuUsageSampleIntervalMs = 0.0; // 新增：CPU使用率采样间隔（毫秒）
     SYSTEMTIME lastUpdate;
 };
 
@@ -143,6 +144,7 @@ struct SharedMemoryBlock {
     uint64_t availableMemory; // 可用内存（字节）
     double cpuTemperature; // 新增：CPU温度
     double gpuTemperature; // 新增：GPU温度
+    double cpuUsageSampleIntervalMs; // 新增：CPU使用率采样间隔（毫秒）
 
     // GPU信息（支持最多2个GPU）
     GPUData gpus[2];

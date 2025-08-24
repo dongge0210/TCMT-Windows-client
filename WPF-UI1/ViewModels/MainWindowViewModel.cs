@@ -103,6 +103,13 @@ namespace WPF_UI1.ViewModels
 
         [ObservableProperty]
         private DiskData? selectedDisk;
+
+        // 新增：物理磁盘分组
+        [ObservableProperty]
+        private ObservableCollection<PhysicalDiskView> physicalDisks = new();
+
+        [ObservableProperty]
+        private PhysicalDiskView? selectedPhysicalDisk;
         #endregion
 
         #region Chart Properties
@@ -248,11 +255,13 @@ namespace WPF_UI1.ViewModels
             Gpus.Clear();
             NetworkAdapters.Clear();
             Disks.Clear();
+            PhysicalDisks.Clear();
             
             // 重置选择
             SelectedGpu = null;
             SelectedNetworkAdapter = null;
             SelectedDisk = null;
+            SelectedPhysicalDisk = null;
         }
 
         private void ShowErrorState(string errorMessage)
@@ -315,11 +324,15 @@ namespace WPF_UI1.ViewModels
                 if (SelectedNetworkAdapter == null && NetworkAdapters.Count > 0)
                     SelectedNetworkAdapter = NetworkAdapters[0];
 
-                // 在更新磁盘前保存当前选择（可扩展同样逻辑，暂不需要如无回弹问题）
+                // 在更新磁盘前保存当前选择
                 string? previousDiskKey = SelectedDisk != null ? $"{SelectedDisk.Letter}:{SelectedDisk.Label}" : null;
+                string? previousPhysicalKey = SelectedPhysicalDisk?.Disk?.SerialNumber;
 
                 // 更新磁盘信息
                 UpdateCollection(Disks, systemInfo.Disks ?? new List<DiskData>());
+
+                // 构建/更新物理磁盘分组
+                BuildOrUpdatePhysicalDisks(systemInfo);
 
                 if (previousDiskKey != null)
                 {
@@ -327,9 +340,17 @@ namespace WPF_UI1.ViewModels
                     if (restoredDisk != null)
                         SelectedDisk = restoredDisk;
                 }
-
                 if (SelectedDisk == null && Disks.Count > 0)
                     SelectedDisk = Disks[0];
+
+                if (previousPhysicalKey != null)
+                {
+                    var restoredPd = PhysicalDisks.FirstOrDefault(p => p.Disk.SerialNumber == previousPhysicalKey);
+                    if (restoredPd != null)
+                        SelectedPhysicalDisk = restoredPd;
+                }
+                if (SelectedPhysicalDisk == null && PhysicalDisks.Count > 0)
+                    SelectedPhysicalDisk = PhysicalDisks[0];
 
                 // 更新温度图表
                 UpdateTemperatureCharts(systemInfo.CpuTemperature, systemInfo.GpuTemperature);
@@ -341,6 +362,75 @@ namespace WPF_UI1.ViewModels
                 Log.Error(ex, "更新系统数据时发生错误");
                 CpuName = $"?? 数据更新失败: {ex.Message}";
             }
+        }
+
+        private void BuildOrUpdatePhysicalDisks(SystemInfo systemInfo)
+        {
+            try
+            {
+                // 先建立 物理磁盘序列号 -> 现有View 映射，便于增量更新
+                var map = PhysicalDisks.ToDictionary(p => p.Disk.SerialNumber, p => p);
+
+                // 标记仍存在的
+                var alive = new HashSet<string>();
+
+                foreach (var pd in systemInfo.PhysicalDisks)
+                {
+                    if (!map.TryGetValue(pd.SerialNumber, out var view))
+                    {
+                        view = new PhysicalDiskView { Disk = pd };
+                        PhysicalDisks.Add(view);
+                    }
+                    else
+                    {
+                        // 更新引用（若对象重建）
+                        view.Disk = pd;
+                    }
+                    alive.Add(pd.SerialNumber);
+
+                    // 更新其分区列表：找所有 Disks 中 PhysicalDiskIndex 对应的
+                    var partitions = systemInfo.Disks.Where(d => d.PhysicalDiskIndex >= 0 && d.PhysicalDiskIndex < systemInfo.PhysicalDisks.Count && systemInfo.PhysicalDisks[d.PhysicalDiskIndex].SerialNumber == pd.SerialNumber).ToList();
+
+                    // 增量同步 view.Partitions
+                    // 删除不存在的
+                    for (int i = view.Partitions.Count - 1; i >= 0; i--)
+                    {
+                        var part = view.Partitions[i];
+                        if (!partitions.Any(p => p.Letter == part.Letter))
+                            view.Partitions.RemoveAt(i);
+                    }
+                    // 添加/更新
+                    foreach (var part in partitions)
+                    {
+                        var existing = view.Partitions.FirstOrDefault(p => p.Letter == part.Letter);
+                        if (existing == null)
+                        {
+                            view.Partitions.Add(part);
+                        }
+                        else
+                        {
+                            // 属性引用已经更新过（同对象），若是不同实例可逐属性复制，这里假设同实例
+                        }
+                    }
+                }
+
+                // 移除已不存在的物理磁盘
+                for (int i = PhysicalDisks.Count - 1; i >= 0; i--)
+                {
+                    if (!alive.Contains(PhysicalDisks[i].Disk.SerialNumber))
+                        PhysicalDisks.RemoveAt(i);
+                }
+            }
+            catch (Exception ex)
+            {
+                Log.Error(ex, "构建物理磁盘分组失败");
+            }
+        }
+
+        private double GetDiskUsagePercent(DiskData disk)
+        {
+            if (disk.TotalSize <= 0) return 0;
+            return (double)disk.UsedSpace / disk.TotalSize * 100.0;
         }
 
         private string ValidateAndSetString(string? value, string fieldName)

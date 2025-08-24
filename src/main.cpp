@@ -665,6 +665,7 @@ int main(int argc, char* argv[]) {
                         sysInfo.cpuUsage = cpuInfo->GetUsage();
                         sysInfo.performanceCoreFreq = cpuInfo->GetLargeCoreSpeed();
                         sysInfo.efficiencyCoreFreq = cpuInfo->GetSmallCoreSpeed() * 0.8;
+                        sysInfo.cpuUsageSampleIntervalMs = cpuInfo->GetLastSampleIntervalMs();
                     }
                 }
                 catch (const std::exception& e) {
@@ -859,29 +860,28 @@ int main(int argc, char* argv[]) {
                 try {
                     DiskInfo diskInfo;
                     auto disks = diskInfo.GetDisks();
-                    
-                    // Validate disk data
                     if (disks.size() > 8) {
                         Logger::Error("磁盘数量超过最大允许值（8）。跳过磁盘数据更新。");
-                        sysInfo.disks.clear(); // 清空磁盘数据
+                        sysInfo.disks.clear();
                     } else {
                         sysInfo.disks = disks;
                         if (isFirstRun) {
                             Logger::Debug("收集到 " + std::to_string(disks.size()) + " 个磁盘条目");
-                        }
-
-                        if (isFirstRun) {
                             for (size_t i = 0; i < disks.size(); ++i) {
                                 const auto& disk = disks[i];
-                                Logger::Debug("磁盘 " + std::to_string(i) + ": 标签=" + disk.label +
-                                             ", 文件系统=" + disk.fileSystem);
+                                Logger::Debug("磁盘 " + std::to_string(i) + ": 标签=" + disk.label + ", 文件系统=" + disk.fileSystem);
                             }
                         }
                     }
+                    // 采集物理磁盘并建立逻辑盘映射
+                    if (wmiManager) {
+                        DiskInfo::CollectPhysicalDisks(*wmiManager, sysInfo.disks, sysInfo);
+                    }
                 }
                 catch (const std::exception& e) {
-                    Logger::Error("获取磁盘数据失败: " + std::string(e.what()));
-                    sysInfo.disks.clear(); // 清空磁盘数据
+                    Logger::Error("获取磁盘/物理磁盘数据失败: " + std::string(e.what()));
+                    sysInfo.disks.clear();
+                    sysInfo.physicalDisks.clear();
                 }
 
                 // 写入共享内存前验证数据

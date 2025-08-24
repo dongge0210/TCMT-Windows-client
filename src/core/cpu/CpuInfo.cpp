@@ -23,7 +23,10 @@ CpuInfo::CpuInfo() :
     smallCores(0),
     cpuUsage(0.0),
     counterInitialized(false),
-    lastUpdateTime(0) {
+    lastUpdateTime(0),
+    lastSampleTick(0),
+    prevSampleTick(0),
+    lastSampleIntervalMs(0.0) {
 
     try {
         DetectCores();
@@ -165,11 +168,11 @@ double CpuInfo::updateUsage() {
     // 检查时间间隔，确保两次采样之间有足够间隔
     static DWORD lastCollectTime = 0;
     DWORD currentTime = GetTickCount();
-    
-    if (currentTime - lastCollectTime < 1000) { // 至少1秒间隔
+    DWORD delta = currentTime - lastCollectTime;
+    if (delta < 1000) { // 至少1秒间隔
         return cpuUsage; // 返回上次的值
     }
-    
+
     lastCollectTime = currentTime;
 
     PDH_STATUS status = PdhCollectQueryData(queryHandle);
@@ -189,30 +192,26 @@ double CpuInfo::updateUsage() {
         return cpuUsage;
     }
 
+    // 记录采样间隔
+    prevSampleTick = lastSampleTick;
+    lastSampleTick = currentTime;
+    if (prevSampleTick != 0) {
+        lastSampleIntervalMs = static_cast<double>(lastSampleTick - prevSampleTick);
+    }
+
     // 验证数据有效性
     if (counterValue.CStatus == PDH_CSTATUS_VALID_DATA || counterValue.CStatus == PDH_CSTATUS_NEW_DATA) {
         double newUsage = counterValue.doubleValue;
-        
-        // 限制在合理范围内
         if (newUsage < 0.0) newUsage = 0.0;
         if (newUsage > 100.0) newUsage = 100.0;
-        
-        // 应用简单的平滑滤波避免剧烈跳跃
-        if (cpuUsage > 0.0) {
-            cpuUsage = (cpuUsage * 0.8) + (newUsage * 0.2); // 80%旧值 + 20%新值
-        } else {
-            cpuUsage = newUsage; // 首次使用直接赋值
-        }
-        
-        // 减少调试日志的频率
+        if (cpuUsage > 0.0) cpuUsage = (cpuUsage * 0.8) + (newUsage * 0.2); else cpuUsage = newUsage;
         static int updateCounter = 0;
-        if (++updateCounter % 60 == 0) { // 每60次更新记录一次（约1分钟）
-            Logger::Debug("CPU使用率更新: " + std::to_string(cpuUsage) + "%");
+        if (++updateCounter % 60 == 0) {
+            Logger::Debug("CPU使用率更新: " + std::to_string(cpuUsage) + "% (采样间隔=" + std::to_string(lastSampleIntervalMs) + "ms)");
         }
     } else {
         Logger::Warn("CPU使用率数据无效，状态: " + std::to_string(counterValue.CStatus));
     }
-
     return cpuUsage;
 }
 

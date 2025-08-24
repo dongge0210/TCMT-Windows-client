@@ -3,6 +3,8 @@ using Microsoft.Extensions.DependencyInjection;
 using WPF_UI1.ViewModels;
 using WPF_UI1.Services;
 using Serilog;
+using System.Windows.Controls; // 事件处理需要
+using WPF_UI1.Models; // DiskData
 
 namespace WPF_UI1
 {
@@ -45,6 +47,14 @@ namespace WPF_UI1
             
             Log.Information("主窗口已关闭");
             base.OnClosed(e);
+        }
+
+        private void RadioButton_Checked(object sender, RoutedEventArgs e)
+        {
+            if (DataContext is MainWindowViewModel vm && sender is RadioButton rb && rb.Tag is DiskData disk)
+            {
+                vm.SelectedDisk = disk;
+            }
         }
     }
 }
