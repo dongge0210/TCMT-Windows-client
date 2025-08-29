@@ -10,8 +10,6 @@ Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "Project1", "Project1.vcxpro
 		{E8EF48AA-9986-4094-B67F-87CD98A593D7} = {E8EF48AA-9986-4094-B67F-87CD98A593D7}
 	EndProjectSection
 EndProject
-Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "Qt-Widgets-TC-monitor", "..\Qt-Widgets-TC-monitor\Qt-Widgets-TC-monitor.vcxproj", "{3E83EE46-6DAF-4904-8AA6-A77AB194AA87}"
-EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "CPP-parsers", "..\src\CPP-parsers\CPP-parsers\CPP-parsers.vcxproj", "{E8EF48AA-9986-4094-B67F-87CD98A593D7}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "LibreHardwareMonitorLib", "..\src\third_party\LibreHardwareMonitor\LibreHardwareMonitorLib\LibreHardwareMonitorLib.csproj", "{60561339-1DBD-7E7F-6C71-88414E3D327F}"
@@ -40,18 +38,6 @@ Global
 		{EB8E0379-D5D5-45E8-9F90-73216725C93A}.Release|x64.Build.0 = Release|x64
 		{EB8E0379-D5D5-45E8-9F90-73216725C93A}.Release|x86.ActiveCfg = Release|Win32
 		{EB8E0379-D5D5-45E8-9F90-73216725C93A}.Release|x86.Build.0 = Release|Win32
-		{3E83EE46-6DAF-4904-8AA6-A77AB194AA87}.Debug|Any CPU.ActiveCfg = Debug|x64
-		{3E83EE46-6DAF-4904-8AA6-A77AB194AA87}.Debug|Any CPU.Build.0 = Debug|x64
-		{3E83EE46-6DAF-4904-8AA6-A77AB194AA87}.Debug|x64.ActiveCfg = Debug|x64
-		{3E83EE46-6DAF-4904-8AA6-A77AB194AA87}.Debug|x64.Build.0 = Debug|x64
-		{3E83EE46-6DAF-4904-8AA6-A77AB194AA87}.Debug|x86.ActiveCfg = Debug|x64
-		{3E83EE46-6DAF-4904-8AA6-A77AB194AA87}.Debug|x86.Build.0 = Debug|x64
-		{3E83EE46-6DAF-4904-8AA6-A77AB194AA87}.Release|Any CPU.ActiveCfg = Release|x64
-		{3E83EE46-6DAF-4904-8AA6-A77AB194AA87}.Release|Any CPU.Build.0 = Release|x64
-		{3E83EE46-6DAF-4904-8AA6-A77AB194AA87}.Release|x64.ActiveCfg = Release|x64
-		{3E83EE46-6DAF-4904-8AA6-A77AB194AA87}.Release|x64.Build.0 = Release|x64
-		{3E83EE46-6DAF-4904-8AA6-A77AB194AA87}.Release|x86.ActiveCfg = Release|x64
-		{3E83EE46-6DAF-4904-8AA6-A77AB194AA87}.Release|x86.Build.0 = Release|x64
 		{E8EF48AA-9986-4094-B67F-87CD98A593D7}.Debug|Any CPU.ActiveCfg = Debug|x64
 		{E8EF48AA-9986-4094-B67F-87CD98A593D7}.Debug|Any CPU.Build.0 = Debug|x64
 		{E8EF48AA-9986-4094-B67F-87CD98A593D7}.Debug|x64.ActiveCfg = Debug|x64
