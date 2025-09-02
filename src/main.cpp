@@ -49,6 +49,9 @@
 #include "core/DataStruct/SharedMemoryManager.h"  // Include the new shared memory manager
 #include "core/temperature/TemperatureWrapper.h"  // 使用TemperatureWrapper而不是直接调用LibreHardwareMonitorBridge
 
+// ✅ 添加TC终端控制库支持 - 跨平台终端控制头文件库
+#include "third_party/TC/include/tc.hpp"
+
 #pragma comment(lib, "kernel32.lib")
 #pragma comment(lib, "user32.lib")
 
@@ -253,6 +256,19 @@ void SafeExit(int exitCode) {
         }
         
         Logger::Info("程序清理完成，退出码: " + std::to_string(exitCode));
+        
+        // ✅ TC终端库 - 彩色输出程序退出信息
+        try {
+            if (exitCode == 0) {
+                tc::println(TCOLOR_GREEN, TFONT_BOLD, "✅ 程序正常退出，感谢使用！");
+                tc::println(TCOLOR_CYAN, "🎯 所有资源已安全释放");
+            } else {
+                tc::println(TCOLOR_RED, TFONT_BOLD, "❌ 程序异常退出，退出码: ", exitCode);
+                tc::println(TCOLOR_YELLOW, "💡 请检查日志文件获取详细信息");
+            }
+        } catch (...) {
+            // TC异常不影响程序退出
+        }
         
         // 给日志系统一点时间完成写入
         std::this_thread::sleep_for(std::chrono::milliseconds(100));
@@ -616,9 +632,26 @@ int main(int argc, char* argv[]) {
             Logger::Initialize("system_monitor.log");
             Logger::SetLogLevel(LOG_DEBUG); // 设置日志等级为DEBUG，查看详细信息
             Logger::Info("程序启动");
+
+            // ✅ TC终端控制库演示 - 彩色输出程序启动信息
+            try {
+                tc::println(TCOLOR_GREEN, TFONT_BOLD, "✨ TC Windows System Monitor 启动中...");
+                tc::println(TCOLOR_CYAN, "🖥️  系统监控程序已就绪");
+                tc::println(TCOLOR_YELLOW, "📊 正在初始化硬件监控组件...");
+                tc::tsleep(500); // 延时500ms增加启动仪式感
+            }
+            catch (...) {
+                // TC库异常不影响主程序运行
+                Logger::Warn("TC终端库初始化异常，继续使用标准输出");
+            }
         }
         catch (const std::exception& e) {
-            printf("日志系统初始化失败: %s\n", e.what());
+            // TC库回退处理 - 如果Logger未初始化，使用TC库输出错误
+            try {
+                tc::println(TCOLOR_RED, TFONT_BOLD, "❌ 日志系统初始化失败: ", e.what());
+            } catch (...) {
+                printf("日志系统初始化失败: %s\n", e.what());
+            }
             return 1;
         }
 
@@ -788,6 +821,15 @@ int main(int argc, char* argv[]) {
                 if (loopCounter == 5) {
                     g_monitoringStarted = true;
                     Logger::Info("程序已稳定运行");
+                    
+                    // ✅ TC终端库 - 彩色输出程序稳定运行状态
+                    try {
+                        tc::println(TCOLOR_GREEN, TFONT_BOLD, "🚀 系统监控已稳定运行！");
+                        tc::println(TCOLOR_BLUE, "📈 实时硬件数据监控中...");
+                        tc::println(TCOLOR_MAGENTA, "⚡ 按 'q' 或 Ctrl+C 退出程序");
+                    } catch (...) {
+                        // TC异常不影响主程序功能
+                    }
                 }
                 
                 // 获取系统信息
@@ -1355,6 +1397,14 @@ int main(int argc, char* argv[]) {
         }
         
         Logger::Info("程序收到退出信号，开始清理");
+        
+        // ✅ TC终端库 - 彩色输出退出信号提示
+        try {
+            tc::println(TCOLOR_YELLOW, TFONT_BOLD, "🛑 接收到退出信号，正在安全关闭...");
+        } catch (...) {
+            // TC异常不影响程序功能
+        }
+        
         SafeExit(0);
     }
     catch (const std::exception& e) {
