@@ -52,6 +52,9 @@
 // ✅ 添加TC终端控制库支持 - 跨平台终端控制头文件库
 #include "third_party/TC/include/tc.hpp"
 
+// ✅ 添加USBMonitor库支持 - USB设备插拔监控头文件库
+#include "third_party/USBMonitor-cpp/include/USBMonitor.h"
+
 #pragma comment(lib, "kernel32.lib")
 #pragma comment(lib, "user32.lib")
 
@@ -59,6 +62,7 @@
 std::atomic<bool> g_shouldExit{false};
 static std::atomic<bool> g_monitoringStarted{false};
 static std::atomic<bool> g_comInitialized{false};
+static std::unique_ptr<USBMonitor> g_usbMonitor; // USB监控器全局指针
 
 // 线程安全的控制台输出互斥锁
 static std::mutex g_consoleMutex;
@@ -224,6 +228,20 @@ void SafeExit(int exitCode) {
         
         // 设置退出标志
         g_shouldExit = true;
+        
+        // 清理USB监控器
+        try {
+            if (g_usbMonitor) {
+                g_usbMonitor.reset(); // 销毁USB监控器，停止监控线程
+                Logger::Debug("USB监控器清理完成");
+            }
+        }
+        catch (const std::exception& e) {
+            Logger::Error("清理USB监控器时发生错误: " + std::string(e.what()));
+        }
+        catch (...) {
+            Logger::Error("清理USB监控器时发生未知错误");
+        }
         
         // 清理硬件监控桥接
         try {
@@ -805,6 +823,72 @@ int main(int argc, char* argv[]) {
         
         // 线程安全的GPU缓存
         ThreadSafeGpuCache gpuCache;
+        
+        // ✅ USB监控集成 - 初始化USB设备插拔监控
+        try {
+            g_usbMonitor = std::make_unique<USBMonitor>([](UsbState state, std::string path) {
+                try {
+                    switch (state) {
+                        case UsbState::Removed:
+                            Logger::Info("USB设备移除: " + path);
+                            try {
+                                tc::println(TCOLOR_RED, "🔌 USB设备移除: ", path);
+                            } catch (...) {
+                                // TC异常不影响USB监控功能
+                                printf("USB设备移除: %s\n", path.c_str());
+                            }
+                            break;
+                        case UsbState::Inserted:
+                            Logger::Info("USB设备插入: " + path);
+                            try {
+                                tc::println(TCOLOR_GREEN, "🔌 USB设备插入: ", path);
+                            } catch (...) {
+                                // TC异常不影响USB监控功能
+                                printf("USB设备插入: %s\n", path.c_str());
+                            }
+                            break;
+                        case UsbState::UpdateReady:
+                            Logger::Info("USB设备就绪: " + path);
+                            try {
+                                tc::println(TCOLOR_CYAN, "🔌 USB设备就绪: ", path);
+                            } catch (...) {
+                                // TC异常不影响USB监控功能
+                                printf("USB设备就绪: %s\n", path.c_str());
+                            }
+                            break;
+                    }
+                } catch (const std::exception& e) {
+                    // USB监控回调异常处理，确保不影响主程序
+                    if (Logger::IsInitialized()) {
+                        Logger::Warn("USB监控回调异常: " + std::string(e.what()));
+                    }
+                } catch (...) {
+                    // 防止未知异常传播到USB库
+                    if (Logger::IsInitialized()) {
+                        Logger::Warn("USB监控回调发生未知异常");
+                    }
+                }
+            });
+            
+            if (g_usbMonitor) {
+                g_usbMonitor->startMonitoring();
+                Logger::Info("USB设备监控已启动");
+                try {
+                    tc::println(TCOLOR_YELLOW, "📱 USB设备监控已启动");
+                } catch (...) {
+                    // TC异常不影响USB监控启动
+                }
+            }
+        } catch (const std::bad_alloc& e) {
+            Logger::Error("USB监控器创建失败 - 内存分配失败: " + std::string(e.what()));
+            // USB监控失败不应终止主程序
+        } catch (const std::exception& e) {
+            Logger::Error("USB监控器初始化失败: " + std::string(e.what()));
+            // USB监控失败不应终止主程序
+        } catch (...) {
+            Logger::Error("USB监控器初始化发生未知异常");
+            // USB监控失败不应终止主程序
+        }
         
         while (!g_shouldExit.load()) {
             try {
