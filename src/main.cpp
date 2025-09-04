@@ -1029,24 +1029,12 @@ int main(int argc, char* argv[]) {
                     switch (state) {
                         case UsbState::Removed:
                             Logger::Info("USB设备移除: " + path);
-                            UpdateLogDisplay("USB设备移除: " + path);
-                            if (g_uiState == UIState::RUNNING) {
-                                ClearLogArea();
-                            }
                             break;
                         case UsbState::Inserted:
                             Logger::Info("USB设备插入: " + path);
-                            UpdateLogDisplay("USB设备插入: " + path);
-                            if (g_uiState == UIState::RUNNING) {
-                                ClearLogArea();
-                            }
                             break;
                         case UsbState::UpdateReady:
                             Logger::Info("USB设备就绪: " + path);
-                            UpdateLogDisplay("USB设备就绪: " + path);
-                            if (g_uiState == UIState::RUNNING) {
-                                ClearLogArea();
-                            }
                             break;
                     }
                 } catch (const std::exception& e) {
