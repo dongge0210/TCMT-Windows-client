@@ -1,0 +1,31 @@
+# To get started with Dependabot version updates, you'll need to specify which
+# package ecosystems to update and where the package manifests are located.
+# Please see the documentation for all configuration options:
+# https://docs.github.com/code-security/dependabot/dependabot-version-updates/configuration-options-for-the-dependabot.yml-file
+
+version: 2
+updates:
+  # NuGet 自动依赖更新（适用于 .NET/C++ 项目，Visual Studio/VS Code）
+  - package-ecosystem: "nuget"
+    directory: "/"             # 项目根目录
+    schedule:
+      interval: "weekly"       # 每周自动检查，可以改成 daily/monthly
+    open-pull-requests-limit: 10
+    # 可以加 ignore 或 allow 字段来定制包管理
+    # ignore:
+    #   - dependency-name: "某个包名"
+    #     versions: ["版本号"]
+
+  # vcpkg 自动依赖更新（适用于 C++ 跨平台包管理器）
+  - package-ecosystem: "vcpkg"
+    directory: "/"             # 项目根目录
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 10
+
+  # GitHub Actions 自动更新（适用于 CI/CD 工作流）
+  - package-ecosystem: "github-actions"
+    directory: "/"             # .github/workflows 目录下的action
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 5
