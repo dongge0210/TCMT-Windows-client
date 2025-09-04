@@ -67,6 +67,19 @@ static std::unique_ptr<USBMonitor> g_usbMonitor; // USB监控器全局指针
 // 线程安全的控制台输出互斥锁
 static std::mutex g_consoleMutex;
 
+// UI状态管理
+enum class UIState {
+    LOADING,
+    TRANSITIONING,
+    RUNNING,
+    SHUTDOWN
+};
+
+static std::atomic<UIState> g_uiState{UIState::LOADING};
+static std::vector<std::string> g_recentLogs;
+static std::mutex g_logMutex;
+static constexpr size_t MAX_LOG_DISPLAY = 10;
+
 // 函数声明
 bool CheckForKeyPress();
 char GetKeyPress();
@@ -79,6 +92,13 @@ std::string GetSEHExceptionName(DWORD exceptionCode);
 // 线程安全的控制台输出函数
 void SafeConsoleOutput(const std::string& message);
 void SafeConsoleOutput(const std::string& message, int color);
+
+// UI管理函数
+void UpdateLogDisplay(const std::string& message);
+void ShowLoadingInterface(double progress, const std::string& message);
+void ShowTransitionScreen();
+void ShowRunningInterface();
+void ClearLogArea();
 
 // 信号处理函数 - 简化版本
 BOOL WINAPI ConsoleCtrlHandler(DWORD dwCtrlType) {
@@ -275,14 +295,20 @@ void SafeExit(int exitCode) {
         
         Logger::Info("程序清理完成，退出码: " + std::to_string(exitCode));
         
-        // ✅ TC终端库 - 彩色输出程序退出信息
+        // 设置UI状态为关闭中
+        g_uiState = UIState::SHUTDOWN;
+        
+        // 清屏并显示退出信息
         try {
+            tc::terminal::clear();
+            tc::printer().moveCursor(1, 1);
+            
             if (exitCode == 0) {
-                tc::println(TCOLOR_GREEN, TFONT_BOLD, "✅ 程序正常退出，感谢使用！");
-                tc::println(TCOLOR_CYAN, "🎯 所有资源已安全释放");
+                tc::println(TCOLOR_GREEN, TFONT_BOLD, "程序正常退出，感谢使用！");
+                tc::println(TCOLOR_CYAN, "所有资源已安全释放");
             } else {
-                tc::println(TCOLOR_RED, TFONT_BOLD, "❌ 程序异常退出，退出码: ", exitCode);
-                tc::println(TCOLOR_YELLOW, "💡 请检查日志文件获取详细信息");
+                tc::println(TCOLOR_RED, TFONT_BOLD, "程序异常退出，退出码: ", exitCode);
+                tc::println(TCOLOR_YELLOW, "请检查日志文件获取详细信息");
             }
         } catch (...) {
             // TC异常不影响程序退出
@@ -622,6 +648,144 @@ public:
     }
 }; // 添加缺少的分号
 
+// UI管理函数实现
+void UpdateLogDisplay(const std::string& message) {
+    std::lock_guard<std::mutex> lock(g_logMutex);
+    g_recentLogs.push_back(message);
+    if (g_recentLogs.size() > MAX_LOG_DISPLAY) {
+        g_recentLogs.erase(g_recentLogs.begin());
+    }
+}
+
+void ShowLoadingInterface(double progress, const std::string& message) {
+    if (g_uiState != UIState::LOADING) return;
+    
+    try {
+        auto [width, height] = tc::terminal::getSize();
+        
+        // 清屏并隐藏光标
+        tc::terminal::clear();
+        tc::printer().hideCursor();
+        
+        // 标题区域 (第1-3行)
+        tc::printer().moveCursor(1, 1);
+        tc::println(TCOLOR_CYAN, TFONT_BOLD, "TC Windows System Monitor");
+        tc::printer().moveCursor(1, 2);
+        tc::println(TCOLOR_WHITE, "版本 1.0.0 - 系统监控程序启动中");
+        
+        // 进度条区域 (第5行)
+        tc::printer().moveCursor(1, 5);
+        tc::ProgressBar progressBar(width - 20, "=", "-", TCOLOR_GREEN);
+        progressBar.show(progress, message);
+        
+        // 日志分隔线 (第7行)
+        tc::printer().moveCursor(1, 7);
+        tc::println(TCOLOR_DARK_GRAY, std::string(width, '-'));
+        tc::printer().moveCursor(1, 8);
+        tc::println(TCOLOR_YELLOW, "日志输出:");
+        
+        // 显示最近日志 (第9行开始)
+        std::lock_guard<std::mutex> lock(g_logMutex);
+        int logLine = 10;
+        for (const auto& log : g_recentLogs) {
+            if (logLine >= height - 2) break;
+            tc::printer().moveCursor(1, logLine++);
+            tc::println(TCOLOR_WHITE, log);
+        }
+        
+        tc::terminal::flush();
+    } catch (...) {
+        // 忽略TC库异常
+    }
+}
+
+void ShowTransitionScreen() {
+    g_uiState = UIState::TRANSITIONING;
+    
+    try {
+        auto [width, height] = tc::terminal::getSize();
+        
+        tc::terminal::clear();
+        tc::printer().moveCursor(width/2 - 15, height/2 - 2);
+        tc::println(TCOLOR_GREEN, TFONT_BOLD, "系统监控启动完成");
+        
+        tc::printer().moveCursor(width/2 - 10, height/2);
+        tc::println(TCOLOR_CYAN, "正在切换到运行模式...");
+        
+        // 过渡动画
+        for (int i = 0; i < 3; i++) {
+            tc::wait(0.5);
+            tc::print(TCOLOR_YELLOW, ".");
+        }
+        tc::wait(0.5);
+        
+        tc::terminal::flush();
+    } catch (...) {
+        // 忽略TC库异常
+    }
+}
+
+void ShowRunningInterface() {
+    g_uiState = UIState::RUNNING;
+    
+    try {
+        auto [width, height] = tc::terminal::getSize();
+        
+        tc::terminal::clear();
+        tc::printer().showCursor();
+        
+        // 标题区域
+        tc::printer().moveCursor(1, 1);
+        tc::println(TCOLOR_GREEN, TFONT_BOLD, "TC Windows System Monitor - 运行中");
+        tc::printer().moveCursor(1, 2);
+        tc::println(TCOLOR_CYAN, "实时硬件数据监控 | 按 'q' 或 Ctrl+C 退出程序");
+        
+        // 分隔线
+        tc::printer().moveCursor(1, 3);
+        tc::println(TCOLOR_DARK_GRAY, std::string(width, '='));
+        
+        // 显示最近日志
+        std::lock_guard<std::mutex> lock(g_logMutex);
+        int logLine = 5;
+        for (const auto& log : g_recentLogs) {
+            if (logLine >= height - 2) break;
+            tc::printer().moveCursor(1, logLine++);
+            tc::println(TCOLOR_WHITE, log);
+        }
+        
+        tc::terminal::flush();
+    } catch (...) {
+        // 忽略TC库异常
+    }
+}
+
+void ClearLogArea() {
+    if (g_uiState != UIState::RUNNING) return;
+    
+    try {
+        auto [width, height] = tc::terminal::getSize();
+        
+        // 清除日志区域但保留标题
+        for (int i = 5; i < height; i++) {
+            tc::printer().moveCursor(1, i);
+            tc::print(std::string(width, ' '));
+        }
+        
+        // 重新显示日志
+        std::lock_guard<std::mutex> lock(g_logMutex);
+        int logLine = 5;
+        for (const auto& log : g_recentLogs) {
+            if (logLine >= height - 2) break;
+            tc::printer().moveCursor(1, logLine++);
+            tc::println(TCOLOR_WHITE, log);
+        }
+        
+        tc::terminal::flush();
+    } catch (...) {
+        // 忽略TC库异常
+    }
+}
+
 // 主函数 - 控制台模式
 int main(int argc, char* argv[]) {
     // 设置结构化异常处理
@@ -651,27 +815,31 @@ int main(int argc, char* argv[]) {
             Logger::SetLogLevel(LOG_DEBUG); // 设置日志等级为DEBUG，查看详细信息
             Logger::Info("程序启动");
 
-            // ✅ TC终端控制库演示 - 彩色输出程序启动信息
-            try {
-                tc::println(TCOLOR_GREEN, TFONT_BOLD, "✨ TC Windows System Monitor 启动中...");
-                tc::println(TCOLOR_CYAN, "🖥️  系统监控程序已就绪");
-                tc::println(TCOLOR_YELLOW, "📊 正在初始化硬件监控组件...");
-                tc::tsleep(500); // 延时500ms增加启动仪式感
-            }
-            catch (...) {
-                // TC库异常不影响主程序运行
-                Logger::Warn("TC终端库初始化异常，继续使用标准输出");
-            }
+            // 初始化UI - 显示加载界面
+            g_uiState = UIState::LOADING;
+            ShowLoadingInterface(0.1, "初始化日志系统...");
+            UpdateLogDisplay("程序启动");
+            tc::wait(0.3);
+            
+            ShowLoadingInterface(0.2, "配置终端控制库...");
+            UpdateLogDisplay("TC终端控制库初始化完成");
+            tc::wait(0.3);
         }
         catch (const std::exception& e) {
-            // TC库回退处理 - 如果Logger未初始化，使用TC库输出错误
+            // 日志系统初始化失败 - 清屏并显示错误
             try {
-                tc::println(TCOLOR_RED, TFONT_BOLD, "❌ 日志系统初始化失败: ", e.what());
+                tc::terminal::clear();
+                tc::println(TCOLOR_RED, TFONT_BOLD, "日志系统初始化失败: ", e.what());
             } catch (...) {
                 printf("日志系统初始化失败: %s\n", e.what());
             }
             return 1;
         }
+
+        // 更新加载进度 - 检查管理员权限
+        ShowLoadingInterface(0.3, "检查管理员权限...");
+        UpdateLogDisplay("检查管理员权限");
+        tc::wait(0.2);
 
         // 检查管理员权限
         if (!IsRunAsAdmin()) {
@@ -695,6 +863,11 @@ int main(int argc, char* argv[]) {
             }
         }
 
+        // 更新加载进度 - 初始化COM
+        ShowLoadingInterface(0.4, "初始化COM组件...");
+        UpdateLogDisplay("开始COM初始化");
+        tc::wait(0.2);
+
         // 安全初始化COM为多线程模式
         try {
             HRESULT hr = CoInitializeEx(nullptr, COINIT_MULTITHREADED);
@@ -715,11 +888,19 @@ int main(int argc, char* argv[]) {
             }
             g_comInitialized = true;
             Logger::Debug("COM初始化成功");
+            UpdateLogDisplay("COM初始化成功");
+            ShowLoadingInterface(0.5, "COM组件初始化完成");
+            tc::wait(0.2);
         }
         catch (const std::exception& e) {
             Logger::Error("COM初始化过程中发生异常: " + std::string(e.what()));
             return -1;
         }
+
+        // 更新加载进度 - 初始化共享内存
+        ShowLoadingInterface(0.6, "初始化共享内存...");
+        UpdateLogDisplay("开始共享内存初始化");
+        tc::wait(0.2);
 
         // 初始化共享内存 - 增强错误处理
         try {
@@ -737,11 +918,20 @@ int main(int argc, char* argv[]) {
                 }
             }
             Logger::Info("共享内存初始化成功");
+            UpdateLogDisplay("共享内存初始化成功");
+            ShowLoadingInterface(0.7, "共享内存初始化完成");
+            tc::wait(0.2);
         }
         catch (const std::exception& e) {
             Logger::Error("共享内存初始化过程中发生异常: " + std::string(e.what()));
+            UpdateLogDisplay("共享内存初始化失败");
             SafeExit(1);
         }
+
+        // 更新加载进度 - 初始化WMI
+        ShowLoadingInterface(0.75, "初始化WMI管理器...");
+        UpdateLogDisplay("开始WMI管理器初始化");
+        tc::wait(0.2);
 
         // 创建WMI管理器并初始化 - 增强内存分配异常处理
         std::unique_ptr<WmiManager> wmiManager;
@@ -757,6 +947,9 @@ int main(int argc, char* argv[]) {
                 SafeExit(1);
             }
             Logger::Debug("WMI管理器初始化成功");
+            UpdateLogDisplay("WMI管理器初始化成功");
+            ShowLoadingInterface(0.8, "WMI管理器初始化完成");
+            tc::wait(0.2);
         }
         catch (const std::bad_alloc& e) {
             Logger::Fatal("WMI管理器创建失败 - 内存分配失败: " + std::string(e.what()));
@@ -824,36 +1017,35 @@ int main(int argc, char* argv[]) {
         // 线程安全的GPU缓存
         ThreadSafeGpuCache gpuCache;
         
-        // ✅ USB监控集成 - 初始化USB设备插拔监控
+        // 更新加载进度 - 初始化USB监控
+        ShowLoadingInterface(0.85, "初始化USB设备监控...");
+        UpdateLogDisplay("开始USB监控初始化");
+        tc::wait(0.2);
+        
+        // USB监控集成 - 初始化USB设备插拔监控
         try {
             g_usbMonitor = std::make_unique<USBMonitor>([](UsbState state, std::string path) {
                 try {
                     switch (state) {
                         case UsbState::Removed:
                             Logger::Info("USB设备移除: " + path);
-                            try {
-                                tc::println(TCOLOR_RED, "🔌 USB设备移除: ", path);
-                            } catch (...) {
-                                // TC异常不影响USB监控功能
-                                printf("USB设备移除: %s\n", path.c_str());
+                            UpdateLogDisplay("USB设备移除: " + path);
+                            if (g_uiState == UIState::RUNNING) {
+                                ClearLogArea();
                             }
                             break;
                         case UsbState::Inserted:
                             Logger::Info("USB设备插入: " + path);
-                            try {
-                                tc::println(TCOLOR_GREEN, "🔌 USB设备插入: ", path);
-                            } catch (...) {
-                                // TC异常不影响USB监控功能
-                                printf("USB设备插入: %s\n", path.c_str());
+                            UpdateLogDisplay("USB设备插入: " + path);
+                            if (g_uiState == UIState::RUNNING) {
+                                ClearLogArea();
                             }
                             break;
                         case UsbState::UpdateReady:
                             Logger::Info("USB设备就绪: " + path);
-                            try {
-                                tc::println(TCOLOR_CYAN, "🔌 USB设备就绪: ", path);
-                            } catch (...) {
-                                // TC异常不影响USB监控功能
-                                printf("USB设备就绪: %s\n", path.c_str());
+                            UpdateLogDisplay("USB设备就绪: " + path);
+                            if (g_uiState == UIState::RUNNING) {
+                                ClearLogArea();
                             }
                             break;
                     }
@@ -873,22 +1065,31 @@ int main(int argc, char* argv[]) {
             if (g_usbMonitor) {
                 g_usbMonitor->startMonitoring();
                 Logger::Info("USB设备监控已启动");
-                try {
-                    tc::println(TCOLOR_YELLOW, "📱 USB设备监控已启动");
-                } catch (...) {
-                    // TC异常不影响USB监控启动
-                }
+                UpdateLogDisplay("USB设备监控已启动");
+                ShowLoadingInterface(0.9, "USB监控初始化完成");
+                tc::wait(0.2);
             }
         } catch (const std::bad_alloc& e) {
             Logger::Error("USB监控器创建失败 - 内存分配失败: " + std::string(e.what()));
+            UpdateLogDisplay("USB监控器创建失败");
             // USB监控失败不应终止主程序
         } catch (const std::exception& e) {
             Logger::Error("USB监控器初始化失败: " + std::string(e.what()));
+            UpdateLogDisplay("USB监控器初始化失败");
             // USB监控失败不应终止主程序
         } catch (...) {
             Logger::Error("USB监控器初始化发生未知异常");
+            UpdateLogDisplay("USB监控器初始化发生未知异常");
             // USB监控失败不应终止主程序
         }
+        
+        // 完成所有初始化 - 显示过渡画面
+        ShowLoadingInterface(1.0, "初始化完成");
+        UpdateLogDisplay("所有组件初始化完成");
+        tc::wait(0.5);
+        
+        ShowTransitionScreen();
+        ShowRunningInterface();
         
         while (!g_shouldExit.load()) {
             try {
@@ -905,15 +1106,9 @@ int main(int argc, char* argv[]) {
                 if (loopCounter == 5) {
                     g_monitoringStarted = true;
                     Logger::Info("程序已稳定运行");
-                    
-                    // ✅ TC终端库 - 彩色输出程序稳定运行状态
-                    try {
-                        tc::println(TCOLOR_GREEN, TFONT_BOLD, "🚀 系统监控已稳定运行！");
-                        tc::println(TCOLOR_BLUE, "📈 实时硬件数据监控中...");
-                        tc::println(TCOLOR_MAGENTA, "⚡ 按 'q' 或 Ctrl+C 退出程序");
-                    } catch (...) {
-                        // TC异常不影响主程序功能
-                    }
+                    UpdateLogDisplay("系统监控已稳定运行！");
+                    UpdateLogDisplay("实时硬件数据监控中...");
+                    ClearLogArea(); // 刷新界面显示新日志
                 }
                 
                 // 获取系统信息
@@ -1482,9 +1677,9 @@ int main(int argc, char* argv[]) {
         
         Logger::Info("程序收到退出信号，开始清理");
         
-        // ✅ TC终端库 - 彩色输出退出信号提示
+        // 更新UI状态并显示退出信息
         try {
-            tc::println(TCOLOR_YELLOW, TFONT_BOLD, "🛑 接收到退出信号，正在安全关闭...");
+            tc::println(TCOLOR_YELLOW, TFONT_BOLD, "接收到退出信号，正在安全关闭...");
         } catch (...) {
             // TC异常不影响程序功能
         }
