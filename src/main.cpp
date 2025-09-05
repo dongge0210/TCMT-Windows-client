@@ -15,6 +15,7 @@
 #include <sddl.h>
 #include <Aclapi.h>
 #include <conio.h>   // 添加键盘输入支持
+#include <eh.h>      // 添加结构化异常处理支持
 
 // 然后包含标准库头文件
 #include <chrono>
@@ -30,6 +31,8 @@
 #include <mutex>     // 添加线程同步支持
 #include <atomic>    // 添加原子操作支持
 #include <locale>   // 添加locale支持以使用setlocale
+#include <new>       // 添加内存分配异常支持
+#include <stdexcept> // 添加标准异常支持
 
 // 最后包含项目头文件
 #include "core/cpu/CpuInfo.h"
@@ -61,6 +64,10 @@ static std::mutex g_consoleMutex;
 bool CheckForKeyPress();
 char GetKeyPress();
 void SafeExit(int exitCode);
+
+// 结构化异常处理函数
+void SEHTranslator(unsigned int u, EXCEPTION_POINTERS* pExp);
+std::string GetSEHExceptionName(DWORD exceptionCode);
 
 // 线程安全的控制台输出函数
 void SafeConsoleOutput(const std::string& message);
@@ -156,6 +163,57 @@ void SafeConsoleOutput(const std::string& message, int color) {
     }
 }
 
+// 结构化异常处理实现
+std::string GetSEHExceptionName(DWORD exceptionCode) {
+    switch (exceptionCode) {
+        case EXCEPTION_ACCESS_VIOLATION: return "访问冲突";
+        case EXCEPTION_ARRAY_BOUNDS_EXCEEDED: return "数组越界";
+        case EXCEPTION_BREAKPOINT: return "断点异常";
+        case EXCEPTION_DATATYPE_MISALIGNMENT: return "数据类型对齐错误";
+        case EXCEPTION_FLT_DENORMAL_OPERAND: return "浮点数非正规操作数";
+        case EXCEPTION_FLT_DIVIDE_BY_ZERO: return "浮点数除零";
+        case EXCEPTION_FLT_INEXACT_RESULT: return "浮点数结果不精确";
+        case EXCEPTION_FLT_INVALID_OPERATION: return "浮点数无效操作";
+        case EXCEPTION_FLT_OVERFLOW: return "浮点数溢出";
+        case EXCEPTION_FLT_STACK_CHECK: return "浮点数栈检查";
+        case EXCEPTION_FLT_UNDERFLOW: return "浮点数下溢";
+        case EXCEPTION_ILLEGAL_INSTRUCTION: return "非法指令";
+        case EXCEPTION_IN_PAGE_ERROR: return "页面错误";
+        case EXCEPTION_INT_DIVIDE_BY_ZERO: return "整数除零";
+        case EXCEPTION_INT_OVERFLOW: return "整数溢出";
+        case EXCEPTION_INVALID_DISPOSITION: return "无效处置";
+        case EXCEPTION_NONCONTINUABLE_EXCEPTION: return "不可继续异常";
+        case EXCEPTION_PRIV_INSTRUCTION: return "特权指令";
+        case EXCEPTION_SINGLE_STEP: return "单步异常";
+        case EXCEPTION_STACK_OVERFLOW: return "栈溢出";
+        default: return "未知系统异常 (0x" + std::to_string(exceptionCode) + ")";
+    }
+}
+
+void SEHTranslator(unsigned int u, EXCEPTION_POINTERS* pExp) {
+    std::string exceptionName = GetSEHExceptionName(u);
+    std::stringstream ss;
+    ss << "系统级异常: " << exceptionName << " (0x" << std::hex << u << ")";
+    if (pExp && pExp->ExceptionRecord) {
+        ss << " 地址: 0x" << std::hex << pExp->ExceptionRecord->ExceptionAddress;
+    }
+    
+    // 尝试安全记录日志
+    try {
+        if (Logger::IsInitialized()) {
+            Logger::Fatal(ss.str());
+        } else {
+            // 如果日志系统未初始化，直接输出到控制台
+            SafeConsoleOutput("FATAL: " + ss.str() + "\n");
+        }
+    } catch (...) {
+        // 最后的防线，直接输出
+        SafeConsoleOutput("FATAL: " + ss.str() + "\n");
+    }
+    
+    throw std::runtime_error(ss.str());
+}
+
 // 安全退出函数
 void SafeExit(int exitCode) {
     try {
@@ -242,7 +300,7 @@ std::string FormatNetworkSpeed(double speedBps) {
     return ss.str();
 }
 
-// 时间格式化
+// 时间格式化 - 增强异常处理
 std::string FormatDateTime(const std::chrono::system_clock::time_point& tp) {
     try {
         auto time = std::chrono::system_clock::to_time_t(tp);
@@ -250,54 +308,160 @@ std::string FormatDateTime(const std::chrono::system_clock::time_point& tp) {
         if (localtime_s(&timeinfo, &time) == 0) {  // 检查返回值
             std::stringstream ss;
             ss << std::put_time(&timeinfo, "%Y-%m-%d %H:%M:%S");
-            return ss.str();
+            std::string result = ss.str();
+            
+            // 验证结果的合理性
+            if (result.length() >= 19 && result.length() <= 25) {  // 基本长度检查
+                return result;
+            } else {
+                Logger::Warn("时间格式化结果长度异常: " + std::to_string(result.length()));
+            }
+        } else {
+            Logger::Error("localtime_s 调用失败");
         }
     }
+    catch (const std::exception& e) {
+        Logger::Error("时间格式化过程中发生异常: " + std::string(e.what()));
+    }
     catch (...) {
-        // 时间格式化失败时返回默认值
+        Logger::Error("时间格式化过程中发生未知异常");
     }
     return "时间格式化失败";
 }
 
 std::string FormatFrequency(double value) {
-    std::stringstream ss;
-    ss << std::fixed << std::setprecision(1);
+    try {
+        // 参数验证
+        if (std::isnan(value) || std::isinf(value)) {
+            Logger::Warn("频率值无效: " + std::to_string(value));
+            return "N/A";
+        }
+        
+        if (value < 0) {
+            Logger::Warn("频率值为负数: " + std::to_string(value));
+            return "N/A";
+        }
+        
+        // 合理性检查 - 频率通常不会超过10GHz
+        if (value > 10000) {
+            Logger::Warn("频率值异常: " + std::to_string(value) + "MHz");
+            return "异常值";
+        }
+        
+        std::stringstream ss;
+        ss << std::fixed << std::setprecision(1);
 
-    if (value >= 1000) {
-        ss << (value / 1000.0) << " GHz";
+        if (value >= 1000) {
+            ss << (value / 1000.0) << " GHz";
+        }
+        else {
+            ss << value << " MHz";
+        }
+        return ss.str();
     }
-    else {
-        ss << value << " MHz";
+    catch (const std::exception& e) {
+        Logger::Error("格式化频率时发生异常: " + std::string(e.what()));
+        return "格式化失败";
     }
-    return ss.str();
+    catch (...) {
+        Logger::Error("格式化频率时发生未知异常");
+        return "格式化失败";
+    }
 }
 
 std::string FormatPercentage(double value) {
-    std::stringstream ss;
-    ss << std::fixed << std::setprecision(1) << value << "%";
-    return ss.str();
+    try {
+        // 参数验证
+        if (std::isnan(value) || std::isinf(value)) {
+            Logger::Warn("百分比值无效: " + std::to_string(value));
+            return "N/A";
+        }
+        
+        // 合理性检查 - 百分比通常在0-100之间，允许一些余量
+        if (value < -1.0 || value > 105.0) {
+            Logger::Warn("百分比值异常: " + std::to_string(value));
+        }
+        
+        // 限制在合理范围内
+        if (value < 0) value = 0;
+        if (value > 100) value = 100;
+        
+        std::stringstream ss;
+        ss << std::fixed << std::setprecision(1) << value << "%";
+        return ss.str();
+    }
+    catch (const std::exception& e) {
+        Logger::Error("格式化百分比时发生异常: " + std::string(e.what()));
+        return "格式化失败";
+    }
+    catch (...) {
+        Logger::Error("格式化百分比时发生未知异常");
+        return "格式化失败";
+    }
 }
 
 std::string FormatTemperature(double value) {
-    std::stringstream ss;
-    ss << static_cast<int>(value) << "°C";  // 显示整数温度
-    return ss.str();
+    try {
+        // 参数验证
+        if (std::isnan(value) || std::isinf(value)) {
+            Logger::Warn("温度值无效: " + std::to_string(value));
+            return "N/A";
+        }
+        
+        // 合理性检查 - 温度通常在-50°C到150°C之间
+        if (value < -50.0 || value > 150.0) {
+            Logger::Warn("温度值异常: " + std::to_string(value) + "°C");
+            if (value < -50.0) return "过低";
+            if (value > 150.0) return "过高";
+        }
+        
+        std::stringstream ss;
+        ss << static_cast<int>(value) << "°C";  // 显示整数温度
+        return ss.str();
+    }
+    catch (const std::exception& e) {
+        Logger::Error("格式化温度时发生异常: " + std::string(e.what()));
+        return "格式化失败";
+    }
+    catch (...) {
+        Logger::Error("格式化温度时发生未知异常");
+        return "格式化失败";
+    }
 }
 
 std::string FormatSize(uint64_t bytes, bool useBinary = true) {
-    const double kb = useBinary ? 1024.0 : 1000.0;
-    const double mb = kb * kb;
-    const double gb = mb * kb;
-    const double tb = gb * kb;
+    try {
+        const double kb = useBinary ? 1024.0 : 1000.0;
+        const double mb = kb * kb;
+        const double gb = mb * kb;
+        const double tb = gb * kb;
 
-    std::stringstream ss;
-    ss << std::fixed << std::setprecision(1);
+        // 参数验证 - 检查是否为最大值（通常表示错误）
+        if (bytes == UINT64_MAX) {
+            Logger::Warn("字节数为最大值，可能表示错误状态");
+            return "N/A";
+        }
 
-    if (bytes >= tb) ss << (bytes / tb) << " TB";
-    else if (bytes >= gb) ss << (bytes / gb) << " GB";
-    else if (bytes >= mb) ss << (bytes / mb) << " MB";
-    else if (bytes >= kb) ss << (bytes / kb) << " KB";
-    else ss << bytes << " B";
+        std::stringstream ss;
+        ss << std::fixed << std::setprecision(1);
+
+        if (bytes >= tb) ss << (bytes / tb) << " TB";
+        else if (bytes >= gb) ss << (bytes / gb) << " GB";
+        else if (bytes >= mb) ss << (bytes / mb) << " MB";
+        else if (bytes >= kb) ss << (bytes / kb) << " KB";
+        else ss << bytes << " B";
+
+        return ss.str();
+    }
+    catch (const std::exception& e) {
+        Logger::Error("格式化大小时发生异常: " + std::string(e.what()));
+        return "格式化失败";
+    }
+    catch (...) {
+        Logger::Error("格式化大小时发生未知异常");
+        return "格式化失败";
+    }
+}
 
     return ss.str();
 }
@@ -426,6 +590,15 @@ public:
 
 // 主函数 - 控制台模式
 int main(int argc, char* argv[]) {
+    // 设置结构化异常处理
+    _set_se_translator(SEHTranslator);
+    
+    // 设置内存分配失败处理
+    std::set_new_handler([]() {
+        Logger::Fatal("内存分配失败 - 系统内存不足");
+        throw std::bad_alloc();
+    });
+    
     // 设置控制台编码为UTF-8，确保中文显示正确
     SetConsoleCP(65001);
     SetConsoleOutputCP(65001);
@@ -519,10 +692,14 @@ int main(int argc, char* argv[]) {
             SafeExit(1);
         }
 
-        // 创建WMI管理器并初始化
+        // 创建WMI管理器并初始化 - 增强内存分配异常处理
         std::unique_ptr<WmiManager> wmiManager;
         try {
             wmiManager = std::make_unique<WmiManager>();
+            if (!wmiManager) {
+                Logger::Fatal("WMI管理器对象创建失败 - 内存分配返回null");
+                SafeExit(1);
+            }
             if (!wmiManager->IsInitialized()) {
                 Logger::Error("WMI初始化失败");
                 MessageBoxA(NULL, "WMI初始化失败，无法获取系统信息。", "错误", MB_OK | MB_ICONERROR);
@@ -530,8 +707,16 @@ int main(int argc, char* argv[]) {
             }
             Logger::Debug("WMI管理器初始化成功");
         }
+        catch (const std::bad_alloc& e) {
+            Logger::Fatal("WMI管理器创建失败 - 内存分配失败: " + std::string(e.what()));
+            SafeExit(1);
+        }
         catch (const std::exception& e) {
             Logger::Error("WMI管理器创建失败: " + std::string(e.what()));
+            SafeExit(1);
+        }
+        catch (...) {
+            Logger::Fatal("WMI管理器创建失败 - 未知异常");
             SafeExit(1);
         }
 
@@ -562,14 +747,26 @@ int main(int argc, char* argv[]) {
         static bool cachedHyperThreading = false;
         static bool cachedVirtualization = false;
         
-        // 创建CPU对象一次，重复使用（避免重复初始化性能计数器）
+        // 创建CPU对象一次，重复使用（避免重复初始化性能计数器）- 增强异常处理
         std::unique_ptr<CpuInfo> cpuInfo;
         try {
             cpuInfo = std::make_unique<CpuInfo>();
+            if (!cpuInfo) {
+                Logger::Fatal("CPU信息对象创建失败 - 内存分配返回null");
+                SafeExit(1);
+            }
             Logger::Debug("CPU信息对象创建成功");
+        }
+        catch (const std::bad_alloc& e) {
+            Logger::Fatal("CPU信息对象创建失败 - 内存分配失败: " + std::string(e.what()));
+            SafeExit(1);
         }
         catch (const std::exception& e) {
             Logger::Error("CPU信息对象创建失败: " + std::string(e.what()));
+            SafeExit(1);
+        }
+        catch (...) {
+            Logger::Fatal("CPU信息对象创建失败 - 未知异常");
             SafeExit(1);
         }
         
@@ -596,7 +793,7 @@ int main(int argc, char* argv[]) {
                 // 获取系统信息
                 SystemInfo sysInfo;
                 
-                // 安全初始化所有字段以避免未定义行为
+                // 安全初始化所有字段以避免未定义行为 - 增强异常处理
                 try {
                     sysInfo.cpuUsage = 0.0;
                     sysInfo.performanceCoreFreq = 0.0;
@@ -611,9 +808,18 @@ int main(int argc, char* argv[]) {
                     // 安全地初始化 SYSTEMTIME 结构
                     ZeroMemory(&sysInfo.lastUpdate, sizeof(sysInfo.lastUpdate));
                     GetSystemTime(&sysInfo.lastUpdate); // 设置当前时间
+                    
+                    // 验证系统时间是否合理
+                    if (sysInfo.lastUpdate.wYear < 2020 || sysInfo.lastUpdate.wYear > 2050) {
+                        Logger::Warn("系统时间异常: " + std::to_string(sysInfo.lastUpdate.wYear));
+                    }
                 }
                 catch (const std::exception& e) {
                     Logger::Error("SystemInfo初始化失败: " + std::string(e.what()));
+                    continue; // 跳过当前循环
+                }
+                catch (...) {
+                    Logger::Error("SystemInfo初始化失败 - 未知异常");
                     continue; // 跳过当前循环
                 }
 
@@ -763,11 +969,30 @@ int main(int argc, char* argv[]) {
                         }
                     }
                 }
+                catch (const std::bad_alloc& e) {
+                    Logger::Error("GPU缓存信息处理失败 - 内存不足: " + std::string(e.what()));
+                    // 清空GPU数据以避免显示错误信息
+                    sysInfo.gpus.clear();
+                    sysInfo.gpuName = "内存不足";
+                    sysInfo.gpuBrand = "未知";
+                    sysInfo.gpuMemory = 0;
+                    sysInfo.gpuCoreFreq = 0;
+                    sysInfo.gpuIsVirtual = false;
+                }
                 catch (const std::exception& e) {
                     Logger::Error("获取GPU缓存信息失败: " + std::string(e.what()));
                     // 清空GPU数据以避免显示错误信息
                     sysInfo.gpus.clear();
                     sysInfo.gpuName = "GPU信息获取失败";
+                    sysInfo.gpuBrand = "未知";
+                    sysInfo.gpuMemory = 0;
+                    sysInfo.gpuCoreFreq = 0;
+                    sysInfo.gpuIsVirtual = false;
+                }
+                catch (...) {
+                    Logger::Error("获取GPU缓存信息失败 - 未知异常");
+                    sysInfo.gpus.clear();
+                    sysInfo.gpuName = "未知异常";
                     sysInfo.gpuBrand = "未知";
                     sysInfo.gpuMemory = 0;
                     sysInfo.gpuCoreFreq = 0;
@@ -810,6 +1035,14 @@ int main(int argc, char* argv[]) {
                         sysInfo.networkAdapterType = "未知"; // 添加默认网卡类型
                         sysInfo.networkAdapterSpeed = 0;
                     }
+                } catch (const std::bad_alloc& e) {
+                    Logger::Error("获取网络适配器信息失败 - 内存不足: " + std::string(e.what()));
+                    sysInfo.adapters.clear();
+                    sysInfo.networkAdapterName = "内存不足";
+                    sysInfo.networkAdapterMac = "00-00-00-00-00-00";
+                    sysInfo.networkAdapterIp = "N/A"; 
+                    sysInfo.networkAdapterType = "未知";
+                    sysInfo.networkAdapterSpeed = 0;
                 } catch (const std::exception& e) {
                     Logger::Error("获取网络适配器信息失败: " + std::string(e.what()));
                     sysInfo.adapters.clear();
@@ -817,6 +1050,14 @@ int main(int argc, char* argv[]) {
                     sysInfo.networkAdapterMac = "00-00-00-00-00-00";
                     sysInfo.networkAdapterIp = "N/A"; // 添加默认IP地址
                     sysInfo.networkAdapterType = "未知"; // 添加默认网卡类型
+                    sysInfo.networkAdapterSpeed = 0;
+                } catch (...) {
+                    Logger::Error("获取网络适配器信息失败 - 未知异常");
+                    sysInfo.adapters.clear();
+                    sysInfo.networkAdapterName = "未知异常";
+                    sysInfo.networkAdapterMac = "00-00-00-00-00-00";
+                    sysInfo.networkAdapterIp = "N/A";
+                    sysInfo.networkAdapterType = "未知";
                     sysInfo.networkAdapterSpeed = 0;
                 }
 
@@ -848,9 +1089,22 @@ int main(int argc, char* argv[]) {
                         Logger::Debug("CPU温度: " + std::to_string(sysInfo.cpuTemperature) + ", GPU温度: " + std::to_string(sysInfo.gpuTemperature));
                     }
                 }
+                catch (const std::bad_alloc& e) {
+                    Logger::Error("获取温度数据失败 - 内存不足: " + std::string(e.what()));
+                    // 清空温度数据以避免显示过时数据
+                    sysInfo.temperatures.clear();
+                    sysInfo.cpuTemperature = 0;
+                    sysInfo.gpuTemperature = 0;
+                }
                 catch (const std::exception& e) {
                     Logger::Error("获取温度数据失败: " + std::string(e.what()));
                     // 清空温度数据以避免显示过时数据
+                    sysInfo.temperatures.clear();
+                    sysInfo.cpuTemperature = 0;
+                    sysInfo.gpuTemperature = 0;
+                }
+                catch (...) {
+                    Logger::Error("获取温度数据失败 - 未知异常");
                     sysInfo.temperatures.clear();
                     sysInfo.cpuTemperature = 0;
                     sysInfo.gpuTemperature = 0;
@@ -878,19 +1132,75 @@ int main(int argc, char* argv[]) {
                         DiskInfo::CollectPhysicalDisks(*wmiManager, sysInfo.disks, sysInfo);
                     }
                 }
+                catch (const std::bad_alloc& e) {
+                    Logger::Error("获取磁盘/物理磁盘数据失败 - 内存不足: " + std::string(e.what()));
+                    sysInfo.disks.clear();
+                    sysInfo.physicalDisks.clear();
+                }
                 catch (const std::exception& e) {
                     Logger::Error("获取磁盘/物理磁盘数据失败: " + std::string(e.what()));
                     sysInfo.disks.clear();
                     sysInfo.physicalDisks.clear();
                 }
-
-                // 写入共享内存前验证数据
-                if (sysInfo.cpuUsage < 0.0 || sysInfo.cpuUsage > 100.0) {
-                    Logger::Warn("CPU使用率数据异常: " + std::to_string(sysInfo.cpuUsage) + "%, 重置为0");
-                    sysInfo.cpuUsage = 0.0;
+                catch (...) {
+                    Logger::Error("获取磁盘/物理磁盘数据失败 - 未知异常");
+                    sysInfo.disks.clear();
+                    sysInfo.physicalDisks.clear();
                 }
 
-                // 写入共享内存
+                // 写入共享内存前验证数据 - 增强数据验证
+                try {
+                    // CPU使用率验证
+                    if (sysInfo.cpuUsage < 0.0 || sysInfo.cpuUsage > 100.0) {
+                        Logger::Warn("CPU使用率数据异常: " + std::to_string(sysInfo.cpuUsage) + "%, 重置为0");
+                        sysInfo.cpuUsage = 0.0;
+                    }
+                    
+                    // 内存数据验证
+                    if (sysInfo.totalMemory > 0) {
+                        if (sysInfo.usedMemory > sysInfo.totalMemory) {
+                            Logger::Warn("已用内存超过总内存，数据异常");
+                            sysInfo.usedMemory = sysInfo.totalMemory;
+                        }
+                        if (sysInfo.availableMemory > sysInfo.totalMemory) {
+                            Logger::Warn("可用内存超过总内存，数据异常");
+                            sysInfo.availableMemory = sysInfo.totalMemory;
+                        }
+                    }
+                    
+                    // 频率数据验证
+                    if (std::isnan(sysInfo.performanceCoreFreq) || std::isinf(sysInfo.performanceCoreFreq)) {
+                        sysInfo.performanceCoreFreq = 0.0;
+                    }
+                    if (std::isnan(sysInfo.efficiencyCoreFreq) || std::isinf(sysInfo.efficiencyCoreFreq)) {
+                        sysInfo.efficiencyCoreFreq = 0.0;
+                    }
+                    if (std::isnan(sysInfo.gpuCoreFreq) || std::isinf(sysInfo.gpuCoreFreq)) {
+                        sysInfo.gpuCoreFreq = 0.0;
+                    }
+                    
+                    // 温度数据验证
+                    if (std::isnan(sysInfo.cpuTemperature) || std::isinf(sysInfo.cpuTemperature)) {
+                        sysInfo.cpuTemperature = 0.0;
+                    }
+                    if (std::isnan(sysInfo.gpuTemperature) || std::isinf(sysInfo.gpuTemperature)) {
+                        sysInfo.gpuTemperature = 0.0;
+                    }
+                    
+                    // 网络速度验证
+                    if (sysInfo.networkAdapterSpeed > 1000000000000ULL) { // 大于1TB/s可能异常
+                        Logger::Warn("网络适配器速度异常: " + std::to_string(sysInfo.networkAdapterSpeed));
+                        sysInfo.networkAdapterSpeed = 0;
+                    }
+                }
+                catch (const std::exception& e) {
+                    Logger::Error("数据验证过程中发生异常: " + std::string(e.what()));
+                }
+                catch (...) {
+                    Logger::Error("数据验证过程中发生未知异常");
+                }
+
+                // 写入共享内存 - 增强异常处理
                 try {
                     if (SharedMemoryManager::GetBuffer()) {
                         SharedMemoryManager::WriteToSharedMemory(sysInfo);
@@ -914,59 +1224,132 @@ int main(int argc, char* argv[]) {
                         Logger::Debug("系统信息已更新到共享内存");
                     }
                 }
+                catch (const std::bad_alloc& e) {
+                    Logger::Error("处理系统信息时内存不足: " + std::string(e.what()));
+                }
                 catch (const std::exception& e) {
                     Logger::Error("处理系统信息时发生异常: " + std::string(e.what()));
                 }
+                catch (...) {
+                    Logger::Error("处理系统信息时发生未知异常");
+                }
 
-                // 计算循环执行时间并自适应休眠 - 优化刷新速度
-                auto loopEnd = std::chrono::high_resolution_clock::now();
-                auto loopDuration = std::chrono::duration_cast<std::chrono::milliseconds>(loopEnd - loopStart);
-                
-                // 1秒循环时间
-                int targetCycleTime = 1000;
-                int sleepTime = (std::max)(targetCycleTime - static_cast<int>(loopDuration.count()), 100); // 最少休眠100ms
-                
-                if (isDetailedLogging) {
-                    // 将毫秒转换为秒，保留2位小数
-                    double loopTimeSeconds = loopDuration.count() / 1000.0;
-                    double sleepTimeSeconds = sleepTime / 1000.0;
+                // 计算循环执行时间并自适应休眠 - 优化刷新速度，增强异常处理
+                try {
+                    auto loopEnd = std::chrono::high_resolution_clock::now();
+                    auto loopDuration = std::chrono::duration_cast<std::chrono::milliseconds>(loopEnd - loopStart);
                     
-                    std::stringstream ss;
-                    ss << std::fixed << std::setprecision(2);
-                    ss << "主监控循环第 #" << loopCounter << " 次执行耗时 " 
-                       << loopTimeSeconds << "秒，将休眠 " << sleepTimeSeconds << "秒";
+                    // 1秒循环时间
+                    int targetCycleTime = 1000;
+                    int sleepTime = (std::max)(targetCycleTime - static_cast<int>(loopDuration.count()), 100); // 最少休眠100ms
                     
-                    Logger::Debug(ss.str());
-                }
-                
-                // 休眠时检查退出标志 - 使用更短的检查间隔提升响应性
-                auto sleepStart = std::chrono::high_resolution_clock::now();
-                while (!g_shouldExit.load()) {
-                    auto now = std::chrono::high_resolution_clock::now();
-                    auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(now - sleepStart);
-                    if (elapsed.count() >= sleepTime) {
-                        break;
+                    if (isDetailedLogging) {
+                        // 将毫秒转换为秒，保留2位小数
+                        double loopTimeSeconds = loopDuration.count() / 1000.0;
+                        double sleepTimeSeconds = sleepTime / 1000.0;
+                        
+                        // 验证计算结果的合理性
+                        if (loopTimeSeconds < 0 || loopTimeSeconds > 60) {
+                            Logger::Warn("循环时间计算异常: " + std::to_string(loopTimeSeconds) + "秒");
+                        }
+                        
+                        std::stringstream ss;
+                        ss << std::fixed << std::setprecision(2);
+                        ss << "主监控循环第 #" << loopCounter << " 次执行耗时 " 
+                           << loopTimeSeconds << "秒，将休眠 " << sleepTimeSeconds << "秒";
+                        
+                        Logger::Debug(ss.str());
                     }
-                    std::this_thread::sleep_for(std::chrono::milliseconds(50)); // 50ms检查间隔
+                    
+                    // 休眠时检查退出标志 - 使用更短的检查间隔提升响应性
+                    auto sleepStart = std::chrono::high_resolution_clock::now();
+                    while (!g_shouldExit.load()) {
+                        try {
+                            auto now = std::chrono::high_resolution_clock::now();
+                            auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(now - sleepStart);
+                            if (elapsed.count() >= sleepTime) {
+                                break;
+                            }
+                            std::this_thread::sleep_for(std::chrono::milliseconds(50)); // 50ms检查间隔
+                        }
+                        catch (const std::exception& e) {
+                            Logger::Warn("休眠过程中发生异常: " + std::string(e.what()));
+                            break; // 退出休眠循环
+                        }
+                        catch (...) {
+                            Logger::Warn("休眠过程中发生未知异常");
+                            break;
+                        }
+                    }
+                }
+                catch (const std::exception& e) {
+                    Logger::Error("计算循环时间时发生异常: " + std::string(e.what()));
+                    // 使用默认休眠时间
+                    try {
+                        std::this_thread::sleep_for(std::chrono::milliseconds(1000));
+                    } catch (...) {
+                        // 如果连休眠都失败，记录错误但继续执行
+                        Logger::Fatal("系统休眠功能异常");
+                    }
+                }
+                catch (...) {
+                    Logger::Error("计算循环时间时发生未知异常");
+                    try {
+                        std::this_thread::sleep_for(std::chrono::milliseconds(1000));
+                    } catch (...) {
+                        Logger::Fatal("系统休眠功能异常");
+                    }
                 }
                 
-                loopCounter++;
+                // 安全增加循环计数器
+                try {
+                    loopCounter++;
+                    
+                    // 防止循环计数器溢出（虽然几乎不可能发生）
+                    if (loopCounter < 0 || loopCounter > 2000000000) {
+                        Logger::Warn("循环计数器异常，重置为1");
+                        loopCounter = 1;
+                    }
+                }
+                catch (...) {
+                    Logger::Error("循环计数器更新失败");
+                    loopCounter = 1; // 重置为安全值
+                }
                 
                 // 首次运行后设置标志
                 if (isFirstRun) {
                     isFirstRun = false;
                 }
             }
+            catch (const std::bad_alloc& e) {
+                Logger::Critical("主循环中发生内存分配异常: " + std::string(e.what()));
+                // 继续循环而不是退出，增强程序稳定性
+                try {
+                    std::this_thread::sleep_for(std::chrono::milliseconds(2000)); // 更长的休眠以缓解内存压力
+                } catch (...) {
+                    Logger::Fatal("无法执行休眠，系统严重异常");
+                }
+                continue;
+            }
             catch (const std::exception& e) {
                 Logger::Critical("主循环中发生异常: " + std::string(e.what()));
                 // 继续循环而不是退出，增强程序稳定性
-                std::this_thread::sleep_for(std::chrono::milliseconds(1000));
+                try {
+                    std::this_thread::sleep_for(std::chrono::milliseconds(1000));
+                } catch (...) {
+                    Logger::Fatal("无法执行休眠，系统严重异常");
+                }
                 continue;
             }
             catch (...) {
                 Logger::Fatal("主循环中发生未知异常");
                 // 继续循环而不是退出，增强程序稳定性
-                std::this_thread::sleep_for(std::chrono::milliseconds(1000));
+                try {
+                    std::this_thread::sleep_for(std::chrono::milliseconds(1000));
+                } catch (...) {
+                    // 如果连休眠都失败，程序可能处于严重异常状态
+                    SafeExit(1);
+                }
                 continue;
             }
         }
@@ -984,25 +1367,40 @@ int main(int argc, char* argv[]) {
     }
 }
 
-// 检查是否有按键输入（非阻塞）
+// 检查是否有按键输入（非阻塞）- 增强异常处理
 bool CheckForKeyPress() {
     try {
         return _kbhit() != 0;
     }
+    catch (const std::exception& e) {
+        Logger::Warn("检查按键输入时发生异常: " + std::string(e.what()));
+        return false;
+    }
     catch (...) {
+        Logger::Warn("检查按键输入时发生未知异常");
         return false;
     }
 }
 
-// 获取按键（非阻塞）
+// 获取按键（非阻塞）- 增强异常处理
 char GetKeyPress() {
     try {
         if (_kbhit()) {
-            return _getch();
+            char key = _getch();
+            // 验证按键值的合理性
+            if (key >= 0 && key <= 127) { // ASCII范围
+                return key;
+            } else {
+                Logger::Warn("检测到异常按键值: " + std::to_string(static_cast<int>(key)));
+                return 0;
+            }
         }
     }
+    catch (const std::exception& e) {
+        Logger::Warn("获取按键时发生异常: " + std::string(e.what()));
+    }
     catch (...) {
-        // 忽略键盘输入错误
+        Logger::Warn("获取按键时发生未知异常");
     }
     return 0;
 }
