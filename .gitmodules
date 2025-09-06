@@ -11,3 +11,9 @@
 [submodule "src/third_party/USBMonitor-cpp"]
 	path = src/third_party/USBMonitor-cpp
 	url = https://github.com/dongge0210/USBMonitor-cpp
+[submodule "src/third_party/TC"]
+	path = src/third_party/TC
+	url = https://github.com/dongge0210/TC
+[submodule "src/third_party/PDCurses"]
+	path = src/third_party/PDCurses
+	url = https://github.com/dongge0210/PDCurses
