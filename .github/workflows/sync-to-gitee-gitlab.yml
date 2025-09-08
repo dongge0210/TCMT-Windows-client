@@ -12,7 +12,7 @@ jobs:
     steps:
       # Step 1: 检出代码
       - name: Checkout code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v5
 
       # Step 2: 配置 Gitee 和 GitLab 的凭据
       - name: Setup Gitee and GitLab credentials
@@ -34,3 +34,6 @@ jobs:
       - name: Push to GitLab
         run: |
           git push gitlab T1-F-P --force
+
+      - name: generate-breakout-game-from-github-contribution-graph
+        uses: cyprieng/github-breakout@v1.2.1
