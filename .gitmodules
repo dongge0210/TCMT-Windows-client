@@ -7,7 +7,6 @@
 [submodule "src/CPP-parsers"]
 	path = src/CPP-parsers
 	url = https://github.com/dongge0210/CPP-parsers.git
-
 [submodule "src/third_party/USBMonitor-cpp"]
 	path = src/third_party/USBMonitor-cpp
 	url = https://github.com/dongge0210/USBMonitor-cpp
