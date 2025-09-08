@@ -463,9 +463,6 @@ std::string FormatSize(uint64_t bytes, bool useBinary = true) {
     }
 }
 
-    return ss.str();
-}
-
 std::string FormatDiskUsage(uint64_t used, uint64_t total) {
     if (total == 0) return "0%";
     double percentage = (static_cast<double>(used) / total) * 100.0;
