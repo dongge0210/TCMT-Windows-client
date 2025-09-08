@@ -8,3 +8,6 @@
 	path = src/CPP-parsers
 	url = https://github.com/dongge0210/CPP-parsers.git
 
+[submodule "src/third_party/PDCurses"]
+	path = src/third_party/PDCurses
+	url = https://github.com/dongge0210/PDCurses
