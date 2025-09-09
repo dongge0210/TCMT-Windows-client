@@ -36,6 +36,9 @@ jobs:
         cuda: '12.6.0'
         method: 'network'
 
+    - name: Show CUDA directory contents
+      run: dir "C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA"
+
     # NuGet 包缓存
     - name: Cache NuGet packages
       uses: actions/cache@v3
