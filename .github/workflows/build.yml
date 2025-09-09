@@ -23,9 +23,6 @@ jobs:
         submodules: recursive
         fetch-depth: 0
 
-    - name: Show available CUDA versions
-      run: npx cuda-toolkit show-versions
-
     - name: Setup CUDA 12.6
       uses: Jimver/cuda-toolkit@v0.2.18
       with:
