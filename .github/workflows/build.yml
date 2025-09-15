@@ -25,7 +25,7 @@ jobs:
 
     # CUDA Toolkit 缓存
     - name: Cache CUDA Toolkit
-      uses: actions/cache@v3
+      uses: actions/cache@v4
       with:
         path: C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA
         key: cuda-12.6.0
@@ -44,7 +44,7 @@ jobs:
 
     # .NET tools 缓存
     - name: Cache .NET tools
-      uses: actions/cache@v3
+      uses: actions/cache@v4
       with:
         path: ~/.dotnet/tools
         key: dotnet-tools-${{ runner.os }}-${{ hashFiles('**/*.csproj') }}
