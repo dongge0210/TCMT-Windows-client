@@ -31,7 +31,7 @@ jobs:
         key: cuda-12.6.0
 
     - name: Setup CUDA 12.6
-      uses: Jimver/cuda-toolkit@v0.2.18
+      uses: Jimver/cuda-toolkit@v0.2.27
       with:
         cuda: '12.6.0'
         method: 'network'
