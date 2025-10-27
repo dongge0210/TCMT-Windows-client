@@ -82,7 +82,7 @@ jobs:
         msbuild ${{ env.SOLUTION_FILE_PATH }} /p:Configuration=${{ env.BUILD_CONFIGURATION }} /p:Platform=${{ env.BUILD_PLATFORM }} /p:PlatformToolset=v143 /p:WindowsTargetPlatformVersion=10.0 /p:LangVersion=preview /m
 
     - name: Upload build artifacts
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@v5
       with:
         name: TCMT-Windows-Client-${{ env.BUILD_PLATFORM }}-${{ env.BUILD_CONFIGURATION }}
         path: |
