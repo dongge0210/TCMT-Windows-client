@@ -9,10 +9,12 @@
 #include <ctime>
 
 #ifdef PLATFORM_WINDOWS
+    #include "../common/WindowsCompat.h"
 #else
-#include <fcntl.h>
-#include <sys/mman.h>
-#include <unistd.h>
+    #include <fcntl.h>
+    #include <sys/mman.h>
+    #include <unistd.h>
+    #include <errno.h>
 #endif
 
 #include "../core/Utils/Logger.h"
@@ -55,7 +57,7 @@ bool SharedMemoryReader::TryConnect(const std::string& name) {
     );
     
     if (hMapFile == nullptr) {
-        DWORD error = ::GetLastError();
+        DWORD error = GetLastError();
         if (error != ERROR_FILE_NOT_FOUND) {
             std::cerr << "Failed to open shared memory " << name << ", error: " << error << std::endl;
         }
@@ -96,10 +98,16 @@ bool SharedMemoryReader::TryConnect(const std::string& name) {
     }
     
     if (pBuf == nullptr) {
-        DWORD error = ::GetLastError();
+#ifdef PLATFORM_WINDOWS
+        DWORD error = GetLastError();
         std::cerr << "Failed to map shared memory " << name << ", error: " << error << std::endl;
         CloseHandle(hMapFile);
         hMapFile = 0;
+#else
+        std::cerr << "Failed to map shared memory " << name << std::endl;
+        close(hMapFile);
+        hMapFile = -1;
+#endif
         return false;
     }
     
@@ -241,7 +249,8 @@ void SharedMemoryReader::ParseTemperatureSensors(const TemperatureSensor* sensor
         
         
         std::string lowerName = name;
-        std::transform(lowerName.begin(), lowerName.end(), lowerName.begin(), ::tolower);
+        std::transform(lowerName.begin(), lowerName.end(), lowerName.begin(), 
+                      [](unsigned char c){ return std::tolower(c); });
         
         if (lowerName.find("cpu") != std::string::npos && info.cpuTemperature <= -100.0) {
             info.cpuTemperature = temperature;
@@ -511,16 +520,16 @@ std::string SharedMemoryReader::FormatBytes(uint64_t bytes) {
 
 std::string SharedMemoryReader::GetCurrentTimestamp() {
     auto now = std::chrono::system_clock::now();
-    auto time_t = std::chrono::system_clock::to_time_t(now);
+    auto raw_time = std::chrono::system_clock::to_time_t(now);
     auto ms = std::chrono::duration_cast<std::chrono::milliseconds>(
         now.time_since_epoch()) % 1000;
     
     std::ostringstream oss;
     struct tm timeinfo;
 #ifdef PLATFORM_WINDOWS
-    localtime_s(&timeinfo, &time_t);
+    localtime_s(&timeinfo, &raw_time);
 #else
-    localtime_r(&time_t, &timeinfo);
+    localtime_r(&raw_time, &timeinfo);
 #endif
     oss << std::put_time(&timeinfo, "%Y-%m-%d %H:%M:%S");
     oss << "." << std::setfill('0') << std::setw(3) << ms.count();

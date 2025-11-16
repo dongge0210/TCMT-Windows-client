@@ -515,7 +515,7 @@ void SharedMemoryManager::WriteToSharedMemory(const SystemInfo& systemInfo) {
                     
                     // 设置时间
 #ifdef PLATFORM_WINDOWS
-                    usbData.lastUpdate.windowsTime = usbDevice.lastUpdate.windowsTime;
+                    usbData.lastUpdate.windowsTime = usbDevice.lastUpdate;
 #else
                     usbData.lastUpdate.unixTime = usbDevice.lastUpdate;
                     usbData.lastUpdate.milliseconds = 0;

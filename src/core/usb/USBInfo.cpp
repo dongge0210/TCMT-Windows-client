@@ -5,8 +5,14 @@
     #include <windows.h>
     #include <filesystem>
     #include <set>
+    #include <bitset>
     namespace fs = std::filesystem;
     using namespace std::chrono_literals;
+    
+    // Missing DRIVE_USB constant (not defined in Windows headers)
+    #ifndef DRIVE_USB
+    #define DRIVE_USB 4
+    #endif
 #elif defined(PLATFORM_MACOS)
     #include <IOKit/IOKitLib.h>
     #include <CoreFoundation/CoreFoundation.h>
@@ -164,6 +170,11 @@ private:
     }
 #endif
     
+    // Windows USB监控实现
+#ifdef PLATFORM_WINDOWS
+    void DetectUSBChanges();
+#endif
+    
     USBInfoManager* parentManager;
     std::thread monitorThread;
     std::atomic<bool> stopFlag;
@@ -174,6 +185,7 @@ private:
 
 
 
+#ifdef PLATFORM_MACOS
 std::string USBInfoManager::GetMacDevicePath(const std::string& mountPoint) {
     try {
         // 通过diskutil获取设备路径
@@ -192,6 +204,7 @@ std::string USBInfoManager::GetMacDevicePath(const std::string& mountPoint) {
                 devicePath.erase(devicePath.find_last_not_of(" \t\n\r") + 1);
                 pclose(pipe);
                 return devicePath;
+
             }
         }
         pclose(pipe);
@@ -202,7 +215,9 @@ std::string USBInfoManager::GetMacDevicePath(const std::string& mountPoint) {
     
     return "";
 }
+#endif
 
+#ifdef PLATFORM_MACOS
 bool USBInfoManager::IsMacUSBDevice(const std::string& devicePath) {
     try {
         // 首先过滤掉系统卷
@@ -240,7 +255,9 @@ bool USBInfoManager::IsMacUSBDevice(const std::string& devicePath) {
     
     return false;
 }
+#endif
 
+#ifdef PLATFORM_MACOS
 void USBInfoManager::GetMacDeviceProperties(const std::string& devicePath, USBDeviceInfo& info) {
     try {
         // 获取设备详细信息
@@ -294,8 +311,14 @@ void USBInfoManager::GetMacDeviceProperties(const std::string& devicePath, USBDe
     catch (const std::exception& e) {
         Logger::Error("GetMacDeviceProperties failed: " + std::string(e.what()));
     }
+#else
+    // Windows和其他平台的空实现
+    (void)devicePath; // 避免未使用参数警告
+    (void)info;
+#endif
 }
 
+#ifdef PLATFORM_MACOS
 bool USBInfoManager::GetMacDeviceInfo(const std::string& mountPoint, USBDeviceInfo& info) {
     try {
         info.mountPoint = mountPoint;
@@ -326,7 +349,9 @@ bool USBInfoManager::GetMacDeviceInfo(const std::string& mountPoint, USBDeviceIn
         return false;
     }
 }
+#endif
 
+#ifdef PLATFORM_MACOS
 DASessionRef USBInfoManager::CreateDiskArbitrationSession() {
     DASessionRef session = DASessionCreate(kCFAllocatorDefault);
     return session;
@@ -337,6 +362,10 @@ void USBInfoManager::ReleaseDiskArbitrationSession(DASessionRef session) {
         CFRelease(session);
     }
 }
+#else
+// Windows和其他平台的空实现
+
+#endif
 
 // Windows实现
 #ifdef PLATFORM_WINDOWS
@@ -783,8 +812,17 @@ bool USBInfoManager::HasUpdateFolder(const std::string& path) {
         return false;
 #endif
     }
+
+#ifdef PLATFORM_WINDOWS
+bool USBInfoManager::IsRemovableDrive(char driveLetter) {
+    try {
+        std::string rootPath = std::string(1, driveLetter) + ":\\";
+        UINT driveType = GetDriveTypeA(rootPath.c_str());
+        return driveType == DRIVE_REMOVABLE || driveType == DRIVE_USB;
+    }
     catch (const std::exception& e) {
-        Logger::Warn("Exception when checking update folder: " + std::string(e.what()));
+        Logger::Warn("Exception when checking removable drive: " + std::string(e.what()));
         return false;
     }
 }
+#endif

@@ -7,6 +7,7 @@
 #ifdef PLATFORM_WINDOWS
     #include <windows.h>
     #include "../Utils/WmiManager.h"
+    #define TCMT_STRNCPY_S strncpy_s
 #elif defined(PLATFORM_MACOS) || defined(PLATFORM_LINUX)
     #include <sys/mman.h>
     #include <sys/stat.h>
@@ -17,6 +18,7 @@
     #include <fstream>
     #include <sstream>
     #include <cstdio>
+    #define TCMT_STRNCPY_S strncpy
 #endif
 
 // Shared memory management class to avoid multiple definitions

@@ -3,33 +3,12 @@
 #include <string>
 #include <vector>
 
+//-----------------------------------------------------------------------------
+// Platform includes kept minimal in header to reduce macro collision.
+// Detailed system headers moved to .cpp.
+//-----------------------------------------------------------------------------
 #ifdef PLATFORM_WINDOWS
-    #define WIN32_LEAN_AND_MEAN
-    #include <winsock2.h>
-    #include <ws2tcpip.h>
-    #include <windows.h>
-    #include <iphlpapi.h>
     #include "WmiManager.h"
-#elif defined(PLATFORM_MACOS)
-    #include <sys/socket.h>
-    #include <netinet/in.h>
-    #include <arpa/inet.h>
-    #include <ifaddrs.h>
-    #include <net/if.h>
-    #include <sys/sysctl.h>
-    #include <net/route.h>
-    #include <sys/types.h>
-    #include <unistd.h>
-#elif defined(PLATFORM_LINUX)
-    #include <sys/socket.h>
-    #include <netinet/in.h>
-    #include <arpa/inet.h>
-    #include <ifaddrs.h>
-    #include <net/if.h>
-    #include <sys/types.h>
-    #include <unistd.h>
-    #include <fstream>
-    #include <sstream>
 #endif
 
 class NetworkAdapter {
@@ -40,28 +19,28 @@ public:
         std::string ip;
         std::string description;
         std::string adapterType;
-        bool isEnabled;
-        bool isConnected;
-        uint64_t speed;
+        bool        isEnabled{};
+        bool        isConnected{};
+        uint64_t    speed{};
         std::string speedString;
-        
-        // 跨平台网络字段
-        std::vector<std::string> ipAddresses;  // 支持多个IP地址
+
+        // Cross-platform extended fields
+        std::vector<std::string> ipAddresses;  // multiple IPs
         std::string gateway;
         std::string subnetMask;
         std::string dnsServers;
         std::string ipv6Address;
         std::string ipv6Gateway;
         std::string dnsServersIPv6;
-        uint64_t bytesReceived;
-        uint64_t bytesSent;
-        uint64_t packetsReceived;
-        uint64_t packetsSent;
-        uint32_t mtu;
+        uint64_t bytesReceived{};
+        uint64_t bytesSent{};
+        uint64_t packetsReceived{};
+        uint64_t packetsSent{};
+        uint32_t mtu{};
         std::string driverVersion;
         std::string firmwareVersion;
-        bool isVirtual;
-        bool isWireless;
+        bool isVirtual{};
+        bool isWireless{};
         std::string connectionStatus;
     };
 
@@ -79,7 +58,7 @@ private:
     void Initialize();
     void Cleanup();
     void QueryAdapterInfo();
-    
+
 #ifdef PLATFORM_WINDOWS
     void QueryWmiAdapterInfo();
     void UpdateAdapterAddresses();
@@ -96,7 +75,6 @@ private:
     std::string FormatSpeed(uint64_t bitsPerSecond) const;
     bool IsVirtualAdapter(const std::string& name) const;
     std::string DetermineAdapterType(const std::string& name, const std::string& description, unsigned int ifType) const;
-    void GetInterfaceMTU(const std::string& interfaceName, AdapterInfo& info) const;
     void GetInterfaceStats(const std::string& interfaceName, AdapterInfo& info) const;
 #elif defined(PLATFORM_LINUX)
     void QueryLinuxNetworkAdapters();
@@ -108,5 +86,5 @@ private:
 #endif
 
     std::vector<AdapterInfo> adapters;
-    bool initialized;
+    bool initialized{};
 };

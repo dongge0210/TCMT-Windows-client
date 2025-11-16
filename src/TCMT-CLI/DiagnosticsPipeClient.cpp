@@ -7,23 +7,25 @@
 #include <nlohmann/json.hpp>
 
 #ifdef PLATFORM_WINDOWS
+    #include "../common/WindowsCompat.h"
 #else
-#include <fcntl.h>
-#include <unistd.h>
-#include <sys/stat.h>
-#include <errno.h>
-#include <cstring>
-#define INVALID_HANDLE_VALUE -1
-#define GENERIC_READ 0x80000000L
-#define OPEN_EXISTING 0
-#define FILE_ATTRIBUTE_NORMAL 0x80
-#define ERROR_PIPE_BUSY 231
-#define ERROR_FILE_NOT_FOUND 2
-#define ERROR_BROKEN_PIPE 109
-#define GetLastError() errno
-#define ReadFile(handle, buffer, size, bytesRead, overlapped) \
-    (*(bytesRead) = read(handle, buffer, size), (*(bytesRead) >= 0))
-#define CloseHandle(handle) close(handle)
+    #include "../core/common/CrossPlatformCompat.h"
+    #include <fcntl.h>
+    #include <unistd.h>
+    #include <sys/stat.h>
+    #include <errno.h>
+    #include <cstring>
+    #define INVALID_HANDLE_VALUE -1
+    #define GENERIC_READ 0x80000000L
+    #define OPEN_EXISTING 0
+    #define FILE_ATTRIBUTE_NORMAL 0x80
+    #define ERROR_PIPE_BUSY 231
+    #define ERROR_FILE_NOT_FOUND 2
+    #define ERROR_BROKEN_PIPE 109
+    #define GetLastError() errno
+    #define ReadFile(handle, buffer, size, bytesRead, overlapped) \
+        (*(bytesRead) = read(handle, buffer, size), (*(bytesRead) >= 0))
+    #define CloseHandle(handle) close(handle)
 #endif
 
 const std::string DiagnosticsPipeClient::PIPE_NAME = "\\\\.\\pipe\\SysMonDiag";

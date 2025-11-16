@@ -1,16 +1,16 @@
-﻿// 使用#pragma unmanaged确保main函数编译为本机代码
+﻿// Use #pragma unmanaged to ensure main function compiles as native code
 #pragma unmanaged
 
-// ✅ 添加栈大小控制，防止栈溢出
-#pragma comment(linker, "/STACK:8388608")  // 设置栈大小为8MB
+// ✅ Add stack size control to prevent stack overflow
+#pragma comment(linker, "/STACK:8388608")  // Set stack size to 8MB
 
 /*
-如果出现
-警告	MSB8077	某些文件设置为 C++/CLI，但未定义"为单个文件启用 CLR 支持"属性。有关更多详细信息，请参阅"高级属性页"文档。
-以上警告请忽视，这个项目的结构没法兼容这个情况
+If the following warning appears:
+Warning	MSB8077	Some files are set to C++/CLI, but the "Enable CLR Support for single file" property is not defined. For more details, please refer to the "Advanced Property Pages" documentation.
+Please ignore the above warning, as this project structure cannot accommodate this situation.
 */
-// 首先包含Windows头文件以避免宏重定义警告
-// 修复sockaddr重定义问题：确保winsock2.h在windows.h之后包含
+// First include Windows headers to avoid macro redefinition warnings
+// Fix sockaddr redefinition issue: ensure winsock2.h is included after windows.h
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
 #include <winsock2.h>
@@ -18,27 +18,28 @@
 #include <shellapi.h>
 #include <sddl.h>
 #include <Aclapi.h>
-#include <conio.h>   // 添加键盘输入支持
-#include <eh.h>      // 添加结构化异常处理支持
+#include <conio.h>   // Add keyboard input support
+#include <eh.h>      // Add structured exception handling support
 
-// 然后包含标准库头文件
+// Then include standard library headers
 #include <chrono>
 #include <iostream>
 #include <sstream>
 #include <iomanip>
 #include <utility>
 #include <thread>
+#include <system_error>
 #include <io.h>
 #include <fcntl.h>
 #include <algorithm> // Include for std::transform
 #include <vector> // Include for std::vector
-#include <mutex>     // 添加线程同步支持
-#include <atomic>    // 添加原子操作支持
-#include <locale>   // 添加locale支持以使用setlocale
-#include <new>       // 添加内存分配异常支持
-#include <stdexcept> // 添加标准异常支持
+#include <mutex>     // Add thread synchronization support
+#include <atomic>    // Add atomic operation support
+#include <locale>   // Add locale support for using setlocale
+#include <new>       // Add memory allocation exception support
+#include <stdexcept> // Add standard exception support
 
-// 最后包含项目头文件
+// Finally include project headers
 #include "core/cpu/CpuInfo.h"
 #include "core/gpu/GpuInfo.h"
 #include "core/memory/MemoryInfo.h"
@@ -111,7 +112,7 @@ BOOL WINAPI ConsoleCtrlHandler(DWORD dwCtrlType) {
 void SafeConsoleOutput(const std::string& message) {
     std::lock_guard<std::mutex> lock(g_consoleMutex);
     try {
-        // Use UTF-8 encoding for output to ensure correct display of Chinese characters
+        // Use UTF-8 encoding for output to ensure correct display of characters
         HANDLE hConsole = GetStdHandle(STD_OUTPUT_HANDLE);
         if (hConsole != INVALID_HANDLE_VALUE) {
             // Ensure input string is not empty
@@ -282,7 +283,7 @@ void SafeExit(int exitCode) {
     exit(exitCode);
 }
 
-//Helper functions
+// Helper functions
 // Hardware name translation
 std::string TranslateHardwareName(const std::string& name) {
     if (name.find("CPU Package") != std::string::npos) return "CPU Temperature";
@@ -503,8 +504,8 @@ static void PrintInfoItem(const std::string& label, const std::string& value, in
     SafeConsoleOutput(line);
 }
 
-//主要函数
-// 检查是否以管理员身份运行
+// Main functions
+// Check if running as administrator
 bool IsRunAsAdmin() {
     BOOL isAdmin = FALSE;
     PSID adminGroup = NULL;
@@ -518,7 +519,7 @@ bool IsRunAsAdmin() {
     return isAdmin == TRUE;
 }
 
-// 线程安全的GPU信息缓存类
+// Thread-safe GPU information cache class
 class ThreadSafeGpuCache {
 private:
     mutable std::mutex mtx_;
@@ -603,47 +604,47 @@ public:
     }
 }; // Added missing semicolon
 
-// 主函数 - 控制台模式
+// Main function - console mode
 int main(int argc, char* argv[]) {
-    // 设置结构化异常处理
+    // Set structured exception handling
     _set_se_translator(SEHTranslator);
     
-    // 设置内存分配失败处理
+    // Set memory allocation failure handling
     std::set_new_handler([]() {
-        Logger::Fatal("内存分配失败 - 系统内存不足");
+        Logger::Fatal("Memory allocation failed - insufficient system memory");
         throw std::bad_alloc();
     });
     
-    // 设置控制台编码为UTF-8，确保中文显示正确
+    // Set console encoding to UTF-8 to ensure correct character display
     SetConsoleCP(CP_UTF8);
     SetConsoleOutputCP(CP_UTF8);
     
-    // 设置本地化支持UTF-8
+    // Set locale support for UTF-8
     setlocale(LC_ALL, "C.UTF-8");
     
-    // 设置控制台信号处理器
+    // Set console signal handler
     SetConsoleCtrlHandler(ConsoleCtrlHandler, TRUE);
     
     try {
-        // 初始化日志系统
+        // Initialize logging system
         try {
-            // Logger::EnableConsoleOutput(true); // 注释掉此行，防止找不到标识符错误
+            // Logger::EnableConsoleOutput(true); // Comment out this line to prevent identifier not found error
 
-            Logger::Initialize("system_monitor.log");
-            Logger::SetLogLevel(LOG_DEBUG);
-            Logger::Info("程序启动");
+            Logger::Initialize("system_monitor.log", false);
+            Logger::SetLogLevel(LL_DEBUG);
+            Logger::Info("Program startup");
         }
         catch (const std::exception& e) {
-            printf("日志系统初始化失败: %s\n", e.what());
+            printf("Logging system initialization failed: %s\n", e.what());
             return 1;
         }
 
-        // 检查管理员权限
+        // Check administrator privileges
         if (!IsRunAsAdmin()) {
             wchar_t szPath[MAX_PATH];
             GetModuleFileNameW(NULL, szPath, MAX_PATH);
 
-            // 以管理员权限重启自身
+            // Restart itself with administrator privileges
             SHELLEXECUTEINFOW sei = { sizeof(sei) };
             sei.lpVerb = L"runas";
             sei.lpFile = szPath;
@@ -651,25 +652,25 @@ int main(int argc, char* argv[]) {
             sei.nShow = SW_NORMAL;
 
             if (ShellExecuteExW(&sei)) {
-                // 启动成功，退出当前进程
+                // Startup successful, exit current process
                 exit(0);
             } else {
-                // 启动失败，弹窗提示
-                MessageBoxW(NULL, L"自动提权失败，请右键以管理员身份运行。", L"权限不足", MB_OK | MB_ICONERROR);
+                // Startup failed, show popup prompt
+                MessageBoxW(NULL, L"Automatic privilege elevation failed, please right-click and run as administrator.", L"Insufficient Privileges", MB_OK | MB_ICONERROR);
                 SafeExit(1);
             }
         }
 
-        // 安全初始化COM为多线程模式
+        // Safely initialize COM for multi-threaded mode
         try {
             HRESULT hr = CoInitializeEx(nullptr, COINIT_MULTITHREADED);
             if (FAILED(hr)) {
                 if (hr == RPC_E_CHANGED_MODE) {
-                    Logger::Warn("COM初始化模式冲突: 线程已初始化为不同的模式，尝试单线程模式");
-                    // 尝试单线程模式
+                    Logger::Warn("COM initialization mode conflict: thread already initialized with different mode, trying single-threaded mode");
+                    // Try single-threaded mode
                     hr = CoInitializeEx(nullptr, COINIT_APARTMENTTHREADED);
                     if (FAILED(hr)) {
-                        Logger::Error("COM初始化失败: 0x" + std::to_string(hr));
+                        Logger::Error("COM initialization failed: 0x" + std::to_string(hr));
                         return -1;
                     }
                 }
@@ -679,25 +680,25 @@ int main(int argc, char* argv[]) {
                 }
             }
             g_comInitialized = true;
-            Logger::Debug("COM初始化成功");
+            Logger::Debug("COM initialization successful");
         }
         catch (const std::exception& e) {
-            Logger::Error("COM初始化过程中发生异常: " + std::string(e.what()));
+            Logger::Error("Exception occurred during COM initialization: " + std::string(e.what()));
             return -1;
         }
 
-        // 初始化共享内存 - 增强错误处理
+        // Initialize shared memory - enhanced error handling
         try {
             if (!SharedMemoryManager::InitSharedMemory()) {
                 std::string error = SharedMemoryManager::GetLastError();
-                Logger::Error("共享内存初始化失败: " + error);
+                Logger::Error("Shared memory initialization failed: " + error);
                 
-                // 尝试重新初始化
-                Logger::Info("尝试重新初始化共享内存...");
+                // Try to reinitialize
+                Logger::Info("Attempting to reinitialize shared memory...");
                 std::this_thread::sleep_for(std::chrono::milliseconds(1000));
                 
                 if (!SharedMemoryManager::InitSharedMemory()) {
-                    Logger::Critical("共享内存重新初始化失败，程序无法继续运行");
+                    Logger::Critical("Shared memory reinitialization failed, program cannot continue running");
                     SafeExit(1);
                 }
             }
@@ -829,12 +830,19 @@ int main(int argc, char* argv[]) {
                     sysInfo.networkAdapterSpeed = 0;
                     // 安全地初始化 SYSTEMTIME 结构
                     ZeroMemory(&sysInfo.lastUpdate, sizeof(sysInfo.lastUpdate));
-                    GetSystemTime(&sysInfo.lastUpdate); // 设置当前时间
+#ifdef PLATFORM_WINDOWS
+                    GetSystemTime(&sysInfo.lastUpdate.windowsTime); // 设置当前时间
                     
                     // 验证系统时间是否合理
-                    if (sysInfo.lastUpdate.wYear < 2020 || sysInfo.lastUpdate.wYear > 2050) {
-                        Logger::Warn("系统时间异常: " + std::to_string(sysInfo.lastUpdate.wYear));
+                    if (sysInfo.lastUpdate.windowsTime.wYear < 2020 || sysInfo.lastUpdate.windowsTime.wYear > 2050) {
+                        Logger::Warn("系统时间异常: " + std::to_string(sysInfo.lastUpdate.windowsTime.wYear));
                     }
+#else
+                    auto now = std::chrono::system_clock::now();
+                    auto time_t = std::chrono::system_clock::to_time_t(now);
+                    sysInfo.lastUpdate.unixTime = time_t;
+                    sysInfo.lastUpdate.milliseconds = std::chrono::duration_cast<std::chrono::milliseconds>(now.time_since_epoch()).count() % 1000;
+#endif
                     
                     // TPM检测 - 使用增强的TPM信息采集
                     try {
@@ -1000,8 +1008,8 @@ int main(int argc, char* argv[]) {
                             gpuBrandW = gpuBrandW.substr(0, sizeof(gpu.brand)/sizeof(wchar_t) - 1);
                         }
                         
-                        wcsncpy_s(gpu.name, sizeof(gpu.name)/sizeof(wchar_t), gpuNameW.c_str(), _TRUNCATE);
-                        wcsncpy_s(gpu.brand, sizeof(gpu.brand)/sizeof(wchar_t), gpuBrandW.c_str(), _TRUNCATE);
+                        wcsncpy_s(gpu.name, _countof(gpu.name), gpuNameW.c_str(), _TRUNCATE);
+                        wcsncpy_s(gpu.brand, _countof(gpu.brand), gpuBrandW.c_str(), _TRUNCATE);
                         
                         // 验证和清理GPU数据 - 避免异常值
                         gpu.memory = (cachedGpuMemory > 0 && cachedGpuMemory < UINT64_MAX) ? cachedGpuMemory : 0;
@@ -1077,19 +1085,25 @@ int main(int argc, char* argv[]) {
                     if (!adapters.empty()) {
                         for (const auto& adapter : adapters) {
                             NetworkAdapterData data;
-                            // 名称、MAC、IP和类型为wstring，需转为wchar_t数组
-                            wcsncpy_s(data.name, adapter.name.c_str(), _TRUNCATE);
-                            wcsncpy_s(data.mac, adapter.mac.c_str(), _TRUNCATE);
-                            wcsncpy_s(data.ipAddress, adapter.ip.c_str(), _TRUNCATE); // 添加IP地址
-                            wcsncpy_s(data.adapterType, adapter.adapterType.c_str(), _TRUNCATE); // 添加网卡类型
+                            // 将std::string转换为std::wstring
+                            std::wstring nameW(adapter.name.begin(), adapter.name.end());
+                            std::wstring macW(adapter.mac.begin(), adapter.mac.end());
+                            std::wstring ipW(adapter.ip.begin(), adapter.ip.end());
+                            std::wstring typeW(adapter.adapterType.begin(), adapter.adapterType.end());
+                            
+                            // 复制到wchar_t数组
+                            wcsncpy_s(data.name, _countof(data.name), nameW.c_str(), _TRUNCATE);
+                            wcsncpy_s(data.mac, _countof(data.mac), macW.c_str(), _TRUNCATE);
+                            wcsncpy_s(data.ipAddress, _countof(data.ipAddress), ipW.c_str(), _TRUNCATE); // 添加IP地址
+                            wcsncpy_s(data.adapterType, _countof(data.adapterType), typeW.c_str(), _TRUNCATE); // 添加网卡类型
                             data.speed = adapter.speed;
                             sysInfo.adapters.push_back(data);
                         }
                         // 兼容旧字段，取第一个适配器
-                        sysInfo.networkAdapterName = WinUtils::WstringToString(adapters[0].name);
-                        sysInfo.networkAdapterMac = WinUtils::WstringToString(adapters[0].mac);
-                        sysInfo.networkAdapterIp = WinUtils::WstringToString(adapters[0].ip); // 添加IP地址
-                        sysInfo.networkAdapterType = WinUtils::WstringToString(adapters[0].adapterType); // 添加网卡类型
+                        sysInfo.networkAdapterName = adapters[0].name;
+                        sysInfo.networkAdapterMac = adapters[0].mac;
+                        sysInfo.networkAdapterIp = adapters[0].ip; // 添加IP地址
+                        sysInfo.networkAdapterType = adapters[0].adapterType; // 添加网卡类型
                         sysInfo.networkAdapterSpeed = adapters[0].speed;
                     } else {
                         sysInfo.networkAdapterName = "未检测到网络适配器";
@@ -1194,11 +1208,11 @@ int main(int argc, char* argv[]) {
                     const auto& td = tpm.GetTpmData();
 
                     sysInfo.hasTpm = tpm.HasTpm();
-                    sysInfo.tpmManufacturer = WinUtils::WstringToString(td.manufacturerName);
-                    sysInfo.tpmManufacturerId = WinUtils::WstringToString(td.manufacturerId);
-                    sysInfo.tpmVersion = WinUtils::WstringToString(td.version);
-                    sysInfo.tpmFirmwareVersion = WinUtils::WstringToString(td.firmwareVersion);
-                    sysInfo.tpmStatus = WinUtils::WstringToString(td.status);
+                    sysInfo.tpmManufacturer = td.manufacturerName;
+                    sysInfo.tpmManufacturerId = td.manufacturerId;
+                    sysInfo.tpmVersion = td.version;
+                    sysInfo.tpmFirmwareVersion = td.firmwareVersion;
+                    sysInfo.tpmStatus = td.status;
                     sysInfo.tpmEnabled = td.isEnabled;
                     sysInfo.tpmIsActivated = td.isActivated;
                     sysInfo.tpmIsOwned = td.isOwned;
@@ -1207,8 +1221,8 @@ int main(int argc, char* argv[]) {
                     sysInfo.tpmPhysicalPresenceRequired = td.physicalPresenceRequired;
                     sysInfo.tpmSpecVersion = td.specVersion;
                     sysInfo.tpmTbsVersion = td.tbsVersion;
-                    sysInfo.tpmErrorMessage = WinUtils::WstringToString(td.errorMessage);
-                    sysInfo.tmpDetectionMethod = WinUtils::WstringToString(td.detectionMethod);
+                    sysInfo.tpmErrorMessage = td.errorMessage;
+                    sysInfo.tmpDetectionMethod = td.detectionMethod;
                     sysInfo.tmpWmiDetectionWorked = td.wmiDetectionWorked;
                     sysInfo.tmpTbsDetectionWorked = td.tbsDetectionWorked;
 

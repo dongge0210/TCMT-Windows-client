@@ -29,12 +29,12 @@ namespace WPF_UI1.ViewModels
  private readonly Dictionary<string, char> _lastPartitionByPhysical = new();
 
  [ObservableProperty] private bool isConnected;
- [ObservableProperty] private string connectionStatus = "正在连接...";
- [ObservableProperty] private string windowTitle = "系统硬件监视器";
- [ObservableProperty] private string lastUpdateTime = "从未更新";
+ [ObservableProperty] private string connectionStatus = "Connecting...";
+ [ObservableProperty] private string windowTitle = "System Hardware Monitor";
+ [ObservableProperty] private string lastUpdateTime = "Never updated";
 
  #region CPU
- [ObservableProperty] private string cpuName = "正在检测...";
+ [ObservableProperty] private string cpuName = "Detecting...";
  [ObservableProperty] private int physicalCores;
  [ObservableProperty] private int logicalCores;
  [ObservableProperty] private int performanceCores;
@@ -49,9 +49,9 @@ namespace WPF_UI1.ViewModels
  #endregion
 
  #region Memory
- [ObservableProperty] private string totalMemory = "检测中...";
- [ObservableProperty] private string usedMemory = "检测中...";
- [ObservableProperty] private string availableMemory = "检测中...";
+ [ObservableProperty] private string totalMemory = "Detecting...";
+ [ObservableProperty] private string usedMemory = "Detecting...";
+ [ObservableProperty] private string availableMemory = "Detecting...";
  [ObservableProperty] private double memoryUsagePercent;
  #endregion
 
@@ -200,8 +200,8 @@ namespace WPF_UI1.ViewModels
  if (!IsConnected)
  {
  IsConnected = true;
- ConnectionStatus = "已连接";
- WindowTitle = "系统硬件监视器";
+ ConnectionStatus = "Connected";
+ WindowTitle = "System Hardware Monitor";
  }
  UpdateSystemData(systemInfo);
  LastUpdateTime = DateTime.Now.ToString("HH:mm:ss");
@@ -221,7 +221,7 @@ namespace WPF_UI1.ViewModels
  }
  catch (Exception ex)
  {
- Log.Error(ex, "更新系统信息时发生错误");
+ Log.Error(ex, "Error occurred while updating system information");
  _consecutiveErrors++;
  if (_consecutiveErrors >= MAX_CONSECUTIVE_ERRORS)
  {
@@ -241,7 +241,7 @@ namespace WPF_UI1.ViewModels
  ConnectionStatus = "已连接";
  WindowTitle = "系统硬件监视器";
  _consecutiveErrors =0;
- Log.Information("共享内存连接成功");
+ Log.Information("Shared memory connection successful");
  }
  else
  {
@@ -256,9 +256,9 @@ namespace WPF_UI1.ViewModels
  private void ShowDisconnectedState()
  {
  CpuName = "?连接已断开";
- TotalMemory = "未连接";
- UsedMemory = "未连接";
- AvailableMemory = "未连接";
+ TotalMemory = "Disconnected";
+ UsedMemory = "Disconnected";
+ AvailableMemory = "Disconnected";
  Gpus.Clear(); NetworkAdapters.Clear(); Disks.Clear(); PhysicalDisks.Clear();
  SelectedGpu = null; SelectedNetworkAdapter = null; SelectedDisk = null; SelectedPhysicalDisk = null;
  }
@@ -266,29 +266,29 @@ namespace WPF_UI1.ViewModels
  private void ShowErrorState(string msg)
  {
  CpuName = $"?? 数据读取失败: {msg}";
- TotalMemory = "读取失败";
- UsedMemory = "读取失败";
- AvailableMemory = "读取失败";
+ TotalMemory = "Read failed";
+ UsedMemory = "Read failed";
+ AvailableMemory = "Read failed";
  }
 
  private void UpdateSystemData(SystemInfo si)
  {
  try
  {
- CpuName = ValidateAndSetString(si.CpuName, "未知处理器");
- PhysicalCores = ValidateAndSetInt(si.PhysicalCores, "物理核心");
- LogicalCores = ValidateAndSetInt(si.LogicalCores, "逻辑核心");
- PerformanceCores = ValidateAndSetInt(si.PerformanceCores, "性能核心");
- EfficiencyCores = ValidateAndSetInt(si.EfficiencyCores, "能效核心");
+ CpuName = ValidateAndSetString(si.CpuName, "Unknown Processor");
+ PhysicalCores = ValidateAndSetInt(si.PhysicalCores, "Physical Cores");
+ LogicalCores = ValidateAndSetInt(si.LogicalCores, "Logical Cores");
+ PerformanceCores = ValidateAndSetInt(si.PerformanceCores, "Performance Cores");
+ EfficiencyCores = ValidateAndSetInt(si.EfficiencyCores, "Efficiency Cores");
  CpuUsage = ValidateAndSetDouble(si.CpuUsage, "CPU使用率");
  HyperThreading = si.HyperThreading; Virtualization = si.Virtualization;
  CpuTemperature = ValidateAndSetDouble(si.CpuTemperature, "CPU温度");
  CpuBaseFrequencyMHz = ValidateAndSetDouble(si.CpuBaseFrequencyMHz, "CPU基准频率");
  CpuCurrentFrequencyMHz = ValidateAndSetDouble(si.CpuCurrentFrequencyMHz, "CPU即时频率");
- CpuUsageSampleIntervalMs = ValidateAndSetDouble(si.CpuUsageSampleIntervalMs, "采样间隔");
- TotalMemory = si.TotalMemory >0 ? FormatBytes(si.TotalMemory) : "未检测到";
- UsedMemory = si.UsedMemory >0 ? FormatBytes(si.UsedMemory) : "未知";
- AvailableMemory = si.AvailableMemory >0 ? FormatBytes(si.AvailableMemory) : "未知";
+ CpuUsageSampleIntervalMs = ValidateAndSetDouble(si.CpuUsageSampleIntervalMs, "Sample Interval");
+ TotalMemory = si.TotalMemory >0 ? FormatBytes(si.TotalMemory) : "Not Detected";
+ UsedMemory = si.UsedMemory >0 ? FormatBytes(si.UsedMemory) : "Unknown";
+ AvailableMemory = si.AvailableMemory >0 ? FormatBytes(si.AvailableMemory) : "Unknown";
  MemoryUsagePercent = si.TotalMemory >0 ? (double)si.UsedMemory / si.TotalMemory *100.0 :0.0;
 
  UpdateCollection(Gpus, si.Gpus ?? new List<GpuData>());
@@ -323,7 +323,7 @@ namespace WPF_UI1.ViewModels
  }
  catch (Exception ex)
  {
- Log.Error(ex, "更新系统数据时发生错误");
+ Log.Error(ex, "Error occurred while updating system data");
  CpuName = $"?? 数据更新失败: {ex.Message}";
  }
  }
@@ -354,7 +354,7 @@ namespace WPF_UI1.ViewModels
  if (!alive.Contains(PhysicalDisks[i].Disk.SerialNumber)) PhysicalDisks.RemoveAt(i);
  if (SelectedPhysicalDisk != null && !PhysicalDisks.Contains(SelectedPhysicalDisk)) SelectedPhysicalDisk = PhysicalDisks.FirstOrDefault();
  }
- catch (Exception ex) { Log.Error(ex, "构建物理磁盘分组失败"); }
+ catch (Exception ex) { Log.Error(ex, "Failed to build physical disk grouping"); }
  }
 
  private string ValidateAndSetString(string? value, string fieldName)
@@ -412,7 +412,7 @@ namespace WPF_UI1.ViewModels
  while (_cpuTempData.Count > MAX_CHART_POINTS) _cpuTempData.RemoveAt(0);
  while (_gpuTempData.Count > MAX_CHART_POINTS) _gpuTempData.RemoveAt(0);
  }
- catch (Exception ex) { Log.Error(ex, "更新温度图表时发生错误"); }
+ catch (Exception ex) { Log.Error(ex, "Error occurred while updating temperature chart"); }
  }
 
  private string FormatBytes(ulong bytes)
@@ -421,11 +421,11 @@ namespace WPF_UI1.ViewModels
  const ulong KB =1024UL, MB = KB * KB, GB = MB * KB, TB = GB * KB;
  return bytes >= TB ? $"{(double)bytes / TB:F1} TB" : bytes >= GB ? $"{(double)bytes / GB:F1} GB" : bytes >= MB ? $"{(double)bytes / MB:F1} MB" : bytes >= KB ? $"{(double)bytes / KB:F1} KB" : $"{bytes} B";
  }
- public string FormatFrequency(double f) => f <=0 ? "未知" : (f >=1000 ? $"{f /1000.0:F1} GHz" : $"{f:F1} MHz");
- public string FormatPercentage(double v) => (double.IsNaN(v) || v <0) ? "未知" : $"{v:F1}%";
+ public string FormatFrequency(double f) => f <=0 ? "Unknown" : (f >=1000 ? $"{f /1000.0:F1} GHz" : $"{f:F1} MHz");
+ public string FormatPercentage(double v) => (double.IsNaN(v) || v <0) ? "Unknown" : $"{v:F1}%";
  public string FormatNetworkSpeed(ulong bps)
  {
- if (bps ==0) return "未连接";
+ if (bps ==0) return "Disconnected";
  const ulong K =1000UL, M = K * K, G = M * K;
  return bps >= G ? $"{(double)bps / G:F1} Gbps" : bps >= M ? $"{(double)bps / M:F1} Mbps" : bps >= K ? $"{(double)bps / K:F1} Kbps" : $"{bps} bps";
  }
@@ -433,9 +433,9 @@ namespace WPF_UI1.ViewModels
  [RelayCommand] private void ShowSmartDetails()
  {
  if (SelectedDisk != null) Log.Information($"显示磁盘 {SelectedDisk.Letter}: 的SMART详情");
- else Log.Warning("未选择磁盘");
+ else Log.Warning("No disk selected");
  }
- [RelayCommand] private void Reconnect() { Log.Information("用户手动请求重新连接"); _consecutiveErrors =0; TryConnect(); }
+ [RelayCommand] private void Reconnect() { Log.Information("User manually requested reconnection"); _consecutiveErrors =0; TryConnect(); }
 
  protected override void OnPropertyChanged(PropertyChangedEventArgs e)
  {

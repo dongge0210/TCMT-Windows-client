@@ -49,6 +49,18 @@
     void QueryGpuInfo();
     bool IsVirtualGpu(const std::wstring& name);
     
+    // WMI服务相关
+    WmiManager& wmiManager;
+    IWbemServices* pSvc = nullptr;
+    
+    // GPU检测方法
+    void DetectGpusViaWmi();
+    bool IsNvidiaGpu(const std::wstring& name);
+    bool IsIntegratedGpu(const std::wstring& name);
+#ifdef CUDA_SUPPORTED
+    void QueryNvidiaGpuDetails(GpuData& gpu);
+#endif
+    
     // 跨平台图形API检测方法
     void DetectGraphicsAPIs(GpuData& gpu);
     bool DetectD3D12Support(GpuData& gpu);

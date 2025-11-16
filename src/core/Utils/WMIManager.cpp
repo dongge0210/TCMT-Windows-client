@@ -137,4 +137,27 @@ HRESULT STDMETHODCALLTYPE WmiManager::QueryService(REFGUID guidService, REFIID r
     *ppvObject = nullptr;
     return E_NOINTERFACE;
 }
+
+IEnumWbemClassObject* WmiManager::ExecuteQuery(const std::wstring& query) {
+    if (!initialized || !pSvc) {
+        Logger::Error("WMI管理器未初始化，无法执行查询");
+        return nullptr;
+    }
+
+    IEnumWbemClassObject* pEnumerator = nullptr;
+    HRESULT hres = pSvc->ExecQuery(
+        bstr_t("WQL"),
+        bstr_t(query.c_str()),
+        WBEM_FLAG_FORWARD_ONLY | WBEM_FLAG_RETURN_IMMEDIATELY,
+        nullptr,
+        &pEnumerator
+    );
+
+    if (FAILED(hres)) {
+        Logger::Error("WMI查询失败: 0x" + std::to_string(hres));
+        return nullptr;
+    }
+
+    return pEnumerator;
+}
 #endif

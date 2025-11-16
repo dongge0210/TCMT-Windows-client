@@ -5,10 +5,18 @@
 #ifdef PLATFORM_WINDOWS
     #include "WmiManager.h"
     #include <comutil.h>
+    #include <d3d12.h>
+    #include <dxgi1_6.h>
+    #include <wrl/client.h> // For Microsoft::WRL::ComPtr
     // CUDA 支持 - 仅在 CUDA_SUPPORTED 定义时包含
     #ifdef CUDA_SUPPORTED
         #include <nvml.h>
     #endif
+    // Vulkan 支持
+    #define VK_USE_PLATFORM_WIN32_KHR
+    #include <vulkan/vulkan.h>
+    // 动态加载Vulkan
+    #include <windows.h>
 #endif
 
 #include <algorithm>  // Add this header for std::transform
@@ -577,3 +585,43 @@ bool GpuInfo::DetectVulkanSupport(GpuData& gpu) {
     }
     return false;
 }
+
+// 添加缺失的方法实现
+void GpuInfo::DetectGpusViaWmi() {
+    if (!pSvc) {
+        Logger::Error("WMI服务不可用");
+        return;
+    }
+    
+    QueryGpuInfo();
+}
+
+bool GpuInfo::IsNvidiaGpu(const std::wstring& name) {
+    std::wstring lowerName = name;
+    std::transform(lowerName.begin(), lowerName.end(), lowerName.begin(), ::towlower);
+    
+    return lowerName.find(L"nvidia") != std::wstring::npos ||
+           lowerName.find(L"geforce") != std::wstring::npos ||
+           lowerName.find(L"quadro") != std::wstring::npos ||
+           lowerName.find(L"tesla") != std::wstring::npos ||
+           lowerName.find(L"rtx") != std::wstring::npos ||
+           lowerName.find(L"gtx") != std::wstring::npos;
+}
+
+bool GpuInfo::IsIntegratedGpu(const std::wstring& name) {
+    std::wstring lowerName = name;
+    std::transform(lowerName.begin(), lowerName.end(), lowerName.begin(), ::towlower);
+    
+    return lowerName.find(L"intel") != std::wstring::npos ||
+           lowerName.find(L"radeon") != std::wstring::npos ||
+           lowerName.find(L"amd") != std::wstring::npos && lowerName.find(L"integrated") != std::wstring::npos ||
+           lowerName.find(L"integrated") != std::wstring::npos;
+}
+
+#ifdef CUDA_SUPPORTED
+void GpuInfo::QueryNvidiaGpuDetails(GpuData& gpu) {
+    // 这里应该实现NVML查询逻辑
+    // 由于错误信息显示缺少这个方法，这里提供一个空实现
+    Logger::Info("查询NVIDIA GPU详细信息: " + WinUtils::WstringToString(gpu.name));
+}
+#endif

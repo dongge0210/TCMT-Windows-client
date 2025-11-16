@@ -138,7 +138,7 @@ namespace WPF_UI1.Services
  }
  catch (Exception ex)
  {
- Log.Error(ex, "共享内存校验失败");
+ Log.Error(ex, "Shared memory validation failed");
  return null;
  }
  }

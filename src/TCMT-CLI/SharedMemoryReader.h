@@ -19,7 +19,7 @@ private:
         "SystemMonitorSharedMemory"
     };
     
-    static const int EXPECTED_SIZE = 3212;
+    static const int EXPECTED_SIZE = 3593; // Updated to match current SharedMemoryBlock size
 
 public:
     SharedMemoryReader();

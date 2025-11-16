@@ -34,8 +34,13 @@ public:
 
     // 检查特权
     static bool CheckPrivilege(const std::wstring& privilegeName);
+    static bool EnablePrivilege(const std::wstring& privilegeName, bool enable = true);
     static bool IsRunAsAdmin();
     static std::string FormatWindowsErrorMessage(DWORD errorCode);
     static std::string GetExecutableDirectory();
+    
+    // 字符串转换函数
+    static std::string WstringToString(const std::wstring& wstr);
+    static std::wstring StringToWstring(const std::string& str);
 };
 #endif

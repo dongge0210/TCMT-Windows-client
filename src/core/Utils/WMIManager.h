@@ -21,6 +21,9 @@ public:
     HRESULT STDMETHODCALLTYPE QueryService(REFGUID guid, REFIID riid, void** ppv) override;
 
     IWbemServices* GetWmiService() const;
+    
+    // 执行WMI查询
+    IEnumWbemClassObject* ExecuteQuery(const std::wstring& query);
 
 private:
     void Initialize();

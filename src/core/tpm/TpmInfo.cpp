@@ -384,8 +384,14 @@ void TpmInfo::DetectTpmViaWmi() {
         VariantInit(&vtIsOwned);
         VariantInit(&vtPhysicalPresenceRequired);
 
-        if (SUCCEEDED(pclsObj->Get(L"ManufacturerName", 0, &vtManufacturerName, 0, 0)) && vtManufacturerName.vt == VT_BSTR)
-            tpmData.manufacturerName = vtManufacturerName.bstrVal;
+        if (SUCCEEDED(pclsObj->Get(L"ManufacturerName", 0, &vtManufacturerName, 0, 0)) && vtManufacturerName.vt == VT_BSTR) {
+            // Convert BSTR to std::string
+            int len = SysStringLen(vtManufacturerName.bstrVal);
+            if (len > 0) {
+                std::wstring wstr(vtManufacturerName.bstrVal, len);
+                tpmData.manufacturerName = std::string(wstr.begin(), wstr.end());
+            }
+        }
 
         if (SUCCEEDED(pclsObj->Get(L"ManufacturerId", 0, &vtManufacturerId, 0, 0)) && vtManufacturerId.vt == VT_I4) {
             wchar_t manufacturerIdStr[32];
@@ -393,8 +399,14 @@ void TpmInfo::DetectTpmViaWmi() {
             tpmData.manufacturerId = manufacturerIdStr;
         }
 
-        if (SUCCEEDED(pclsObj->Get(L"SpecVersion", 0, &vtSpecVersion, 0, 0)) && vtSpecVersion.vt == VT_BSTR)
-            tpmData.version = vtSpecVersion.bstrVal;
+        if (SUCCEEDED(pclsObj->Get(L"SpecVersion", 0, &vtSpecVersion, 0, 0)) && vtSpecVersion.vt == VT_BSTR) {
+            // Convert BSTR to std::string
+            int len = SysStringLen(vtSpecVersion.bstrVal);
+            if (len > 0) {
+                std::wstring wstr(vtSpecVersion.bstrVal, len);
+                tpmData.version = std::string(wstr.begin(), wstr.end());
+            }
+        }
 
         if (SUCCEEDED(pclsObj->Get(L"IsEnabled_InitialValue", 0, &vtIsEnabled, 0, 0)) && vtIsEnabled.vt == VT_BOOL)
             tpmData.isEnabled = (vtIsEnabled.boolVal == VARIANT_TRUE);
@@ -409,10 +421,10 @@ void TpmInfo::DetectTpmViaWmi() {
             tpmData.physicalPresenceRequired = (vtPhysicalPresenceRequired.boolVal == VARIANT_TRUE);
 
         tpmData.isReady = tpmData.isEnabled && tpmData.isActivated;
-        if (tpmData.isReady)          tpmData.status = L"Ready";
-        else if (tpmData.isEnabled && !tpmData.isActivated) tpmData.status = L"EnabledNotActivated";
-        else if (!tpmData.isEnabled)  tpmData.status = L"Disabled";
-        else                          tpmData.status = L"Unknown";
+        if (tpmData.isReady)          tpmData.status = "Ready";
+        else if (tpmData.isEnabled && !tpmData.isActivated) tpmData.status = "EnabledNotActivated";
+        else if (!tpmData.isEnabled)  tpmData.status = "Disabled";
+        else                          tpmData.status = "Unknown";
 
         VariantClear(&vtManufacturerName);
         VariantClear(&vtManufacturerId);
@@ -448,18 +460,18 @@ void TpmInfo::DetectTpmViaTbs() {
         if (result == TBS_SUCCESS) {
             tpmData.tbsVersion = deviceInfo.tpmVersion;
             if (deviceInfo.tpmVersion == TPM_VERSION_12) {
-                SetStatusIfEmpty(tpmData.status, L"DetectedViaTBS");
-                if (tpmData.version.empty()) tpmData.version = L"1.2";
-            }
-            else if (deviceInfo.tpmVersion == TPM_VERSION_20) {
-                SetStatusIfEmpty(tpmData.status, L"DetectedViaTBS");
-                if (tpmData.version.empty()) tpmData.version = L"2.0";
-            }
+            if (tpmData.status.empty() || tpmData.status == "Unknown") tpmData.status = "DetectedViaTBS";
+            if (tpmData.version.empty()) tpmData.version = "1.2";
+        }
+        else if (deviceInfo.tpmVersion == TPM_VERSION_20) {
+            if (tpmData.status.empty() || tpmData.status == "Unknown") tpmData.status = "DetectedViaTBS";
+            if (tpmData.version.empty()) tpmData.version = "2.0";
+        }
         }
 
         hasTpm = true;
         tpmData.tbsDetectionWorked = true;
-        SetStatusIfEmpty(tpmData.status, L"DetectedViaTBS");
+        if (tpmData.status.empty() || tpmData.status == "Unknown") tpmData.status = "DetectedViaTBS";
     }
     else {
         tpmData.tbsAvailable = false;
@@ -474,15 +486,15 @@ const TpmInfo::TpmData& TpmInfo::GetTpmData() const {
 
 void TpmInfo::DetermineDetectionMethod() {
     if (tpmData.tbsDetectionWorked && tpmData.wmiDetectionWorked) {
-        tpmData.detectionMethod = L"TBS+WMI";
+        tpmData.detectionMethod = "TBS+WMI";
     }
     else if (tpmData.tbsDetectionWorked) {
-        tpmData.detectionMethod = L"TBS";
+        tpmData.detectionMethod = "TBS";
     }
     else if (tpmData.wmiDetectionWorked) {
-        tpmData.detectionMethod = L"WMI";
+        tpmData.detectionMethod = "WMI";
     }
     else {
-        tpmData.detectionMethod = L"NONE";
+        tpmData.detectionMethod = "NONE";
     }
 }

@@ -4,6 +4,8 @@
 #ifdef PLATFORM_WINDOWS
     #include "../utils/WinUtils.h"
     #include <windows.h>
+    #include <winsock2.h>
+    #include <ws2tcpip.h>
     #include <winternl.h>
     #include <ntstatus.h>
     #ifndef STATUS_SUCCESS

@@ -107,3 +107,19 @@ std::string WinUtils::GetExecutableDirectory() {
         return fullPath.substr(0, pos);
     return fullPath;
 }
+
+std::string WinUtils::WstringToString(const std::wstring& wstr) {
+    if (wstr.empty()) return {};
+    int size = WideCharToMultiByte(CP_ACP, 0, wstr.data(), -1, nullptr, 0, nullptr, nullptr);
+    std::string result(size - 1, '\0');
+    WideCharToMultiByte(CP_ACP, 0, wstr.data(), -1, &result[0], size, nullptr, nullptr);
+    return result;
+}
+
+std::wstring WinUtils::StringToWstring(const std::string& str) {
+    if (str.empty()) return {};
+    int size = MultiByteToWideChar(CP_ACP, 0, str.data(), -1, nullptr, 0);
+    std::wstring result(size - 1, L'\0');
+    MultiByteToWideChar(CP_ACP, 0, str.data(), -1, &result[0], size);
+    return result;
+}

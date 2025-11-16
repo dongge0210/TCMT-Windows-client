@@ -65,7 +65,7 @@ namespace WPF_UI1
             
             MessageBox.Show(
                 $"发生严重错误，程序将退出：\n\n{exception?.Message}\n\n详细信息已记录到日志文件。",
-                "严重错误",
+                "Critical Error",
                 MessageBoxButton.OK,
                 MessageBoxImage.Error);
         }

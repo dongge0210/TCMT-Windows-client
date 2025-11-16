@@ -505,8 +505,8 @@ std::vector<DiskData> DiskInfo::GetDisks() {
         DiskData d; 
 #ifdef PLATFORM_WINDOWS
         d.letter = drive.letter; 
-        d.label = WinUtils::WstringToString(drive.label); 
-        d.fileSystem = WinUtils::WstringToString(drive.fileSystem); 
+        d.label = drive.label; 
+        d.fileSystem = drive.fileSystem; 
 #else
         // macOS/Linux使用挂载点作为标识
         d.letter = 0; // 不使用驱动器字母

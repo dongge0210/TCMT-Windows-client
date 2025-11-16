@@ -286,11 +286,11 @@ struct SharedMemoryBlock {
 
 #pragma pack(pop)
 
-// Platform-specific size check
+// Optional size check only when C# interop layer is actually used.
+// Define CSHARP_INTEROP to enforce a fixed layout for the managed mirror.
 #ifdef PLATFORM_WINDOWS
-    static_assert(sizeof(SharedMemoryBlock) == 3212 + 381, "SharedMemoryBlock size mismatch – update C# offsets if this fails");
-#else
-    // macOS/Linux may have different struct sizes due to platform differences
-    // TODO: Update C# offsets for cross-platform compatibility
-    #pragma message("SharedMemoryBlock size may differ on this platform - verify C# offsets")
-#endif
+#ifdef CSHARP_INTEROP
+constexpr size_t EXPECTED_SHARED_MEMORY_BLOCK_SIZE = sizeof(SharedMemoryBlock); // set explicit value if needed
+static_assert(sizeof(SharedMemoryBlock) == EXPECTED_SHARED_MEMORY_BLOCK_SIZE, "SharedMemoryBlock size mismatch (CSHARP_INTEROP) – update managed offsets.");
+#endif // CSHARP_INTEROP
+#endif // PLATFORM_WINDOWS

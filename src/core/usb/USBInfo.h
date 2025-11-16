@@ -117,6 +117,7 @@ private:
     
 #ifdef PLATFORM_WINDOWS
     bool GetDriveInfo(const std::string& drivePath, USBDeviceInfo& info);
+    bool IsRemovableDrive(char driveLetter);
 #elif defined(PLATFORM_MACOS)
     bool GetMacDeviceInfo(const std::string& mountPoint, USBDeviceInfo& info);
     std::string GetMacDevicePath(const std::string& mountPoint);

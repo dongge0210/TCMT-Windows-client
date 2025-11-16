@@ -7,8 +7,15 @@
     #include <Pdh.h>
     #include <comdef.h>
     #include <algorithm>
+    #include <winternl.h>
     #pragma comment(lib, "Pdh.lib")
-#elif defined(__APPLE__)
+    #pragma comment(lib, "ntdll.lib")
+    
+    // Ensure NTSTATUS is defined
+#ifndef NTSTATUS
+    typedef LONG NTSTATUS;
+#endif
+#elif defined(PLATFORM_MACOS)
     #include <mach/mach.h>
     #include <mach/processor_info.h>
     #include <sys/sysctl.h>
@@ -36,6 +43,51 @@
 #define PDH_CSTATUS_NEW_DATA 0x00000001L
 #endif
 
+#ifdef PLATFORM_WINDOWS
+// Ensure NTSTATUS is defined
+#ifndef NTSTATUS
+    typedef LONG NTSTATUS;
+#endif
+
+// Ensure POWER_INFORMATION_LEVEL is defined only if not already defined
+#ifndef POWER_INFORMATION_LEVEL
+    typedef enum _POWER_INFORMATION_LEVEL {
+        ProcessorInformation = 11
+    } POWER_INFORMATION_LEVEL;
+#endif
+
+// Missing constants
+#ifndef STATUS_PROCEDURE_NOT_FOUND
+#define STATUS_PROCEDURE_NOT_FOUND ((NTSTATUS)0xC000007AL)
+#endif
+
+// 声明ntdll.dll中的函数
+typedef NTSTATUS (NTAPI *PFN_CALL_NT_POWER_INFORMATION)(
+    POWER_INFORMATION_LEVEL InformationLevel,
+    PVOID InputBuffer,
+    ULONG InputBufferLength,
+    PVOID OutputBuffer,
+    ULONG OutputBufferLength
+);
+
+static NTSTATUS CallNtPowerInformation(
+    POWER_INFORMATION_LEVEL InformationLevel,
+    PVOID InputBuffer,
+    ULONG InputBufferLength,
+    PVOID OutputBuffer,
+    ULONG OutputBufferLength)
+{
+    static HMODULE hNtDll = LoadLibraryA("ntdll.dll");
+    if (!hNtDll) return STATUS_DLL_NOT_FOUND;
+    
+    static PFN_CALL_NT_POWER_INFORMATION pfnCallNtPowerInformation = 
+        (PFN_CALL_NT_POWER_INFORMATION)GetProcAddress(hNtDll, "NtPowerInformation");
+    
+    if (!pfnCallNtPowerInformation) return STATUS_PROCEDURE_NOT_FOUND;
+    
+    return pfnCallNtPowerInformation(InformationLevel, InputBuffer, InputBufferLength, OutputBuffer, OutputBufferLength);
+}
+
 static bool QueryBaseAndCurrentFrequencyACPI(double& baseMHz, double& currentMHz)
 {
     baseMHz = 0; currentMHz = 0;
@@ -47,7 +99,18 @@ static bool QueryBaseAndCurrentFrequencyACPI(double& baseMHz, double& currentMHz
     if (st == 0) { double sumBase=0,sumCur=0; int n=0; for (ULONG i=0;i<count;++i){ if (buf[i].MaxMhz>0){ sumBase+=buf[i].MaxMhz; sumCur+=buf[i].CurrentMhz; ++n; } } if (n>0){ baseMHz=sumBase/n; currentMHz=sumCur/n; return true; } }
     return false;
 }
+#else
+static bool QueryBaseAndCurrentFrequencyACPI(double& baseMHz, double& currentMHz)
+{
+    // Non-Windows platforms - not implemented
+    baseMHz = 0; currentMHz = 0;
+    return false;
+}
+#endif
 
+
+
+#ifdef PLATFORM_WINDOWS
 static void QueryBaseAndCurrentFrequencyFallback(double& baseMHz, double& currentMHz)
 {
     baseMHz = currentMHz = 0;
@@ -59,6 +122,13 @@ static void QueryBaseAndCurrentFrequencyFallback(double& baseMHz, double& curren
         RegCloseKey(hKey);
     }
 }
+#else
+static void QueryBaseAndCurrentFrequencyFallback(double& baseMHz, double& currentMHz)
+{
+    // Non-Windows platforms - not implemented
+    baseMHz = currentMHz = 0;
+}
+#endif
 
 void CpuInfo::InitializeFrequencyCounter()
 {
@@ -73,7 +143,7 @@ void CpuInfo::InitializeFrequencyCounter()
     s = PdhCollectQueryData(freqQueryHandle); // prime
     if (s != ERROR_SUCCESS) { Logger::Warn("无法读取频率计数器初值"); PdhCloseQuery(freqQueryHandle); return; }
     freqCounterInitialized = true;
-#elif defined(__APPLE__)
+#elif defined(PLATFORM_MACOS)
     // macOS 使用 sysctl 获取频率信息
     freqCounterInitialized = true;
 #elif defined(__linux__)
@@ -119,6 +189,7 @@ double CpuInfo::updateInstantFrequencyMHz()
     cachedInstantMHz = cur; return cachedInstantMHz;
 }
 
+#ifdef PLATFORM_WINDOWS
 CpuInfo::CpuInfo() :
     totalCores(0),
     largeCores(0),
@@ -128,7 +199,34 @@ CpuInfo::CpuInfo() :
     lastUpdateTime(0),
     lastSampleTick(0),
     prevSampleTick(0),
-    lastSampleIntervalMs(0.0) {
+    lastSampleIntervalMs(0.0),
+    queryHandle(nullptr),
+    counterHandle(nullptr),
+    freqQueryHandle(nullptr),
+    freqCounterHandle(nullptr),
+    freqCounterInitialized(false),
+    lastFreqTick(0),
+    cachedInstantMHz(0.0)
+#else
+CpuInfo::CpuInfo() :
+    totalCores(0),
+    largeCores(0),
+    smallCores(0),
+    cpuUsage(0.0),
+    counterInitialized(false),
+    lastUpdateTime(0),
+    lastSampleTick(0),
+    prevSampleTick(0),
+    lastSampleIntervalMs(0.0),
+    queryHandle(nullptr),
+    counterHandle(nullptr),
+    freqQueryHandle(nullptr),
+    freqCounterHandle(nullptr),
+    freqCounterInitialized(false),
+    lastFreqTick(0),
+    cachedInstantMHz(0.0)
+#endif
+{
 
     try {
 #ifdef PLATFORM_WINDOWS
@@ -191,7 +289,7 @@ void CpuInfo::InitializeCounter() {
 
     counterInitialized = true;
     Logger::Debug("CPU性能计数器初始化完成");
-#elif defined(__APPLE__)
+#elif defined(PLATFORM_MACOS)
     // macOS 使用 host_statistics 获取 CPU 信息
     counterInitialized = true;
 #elif defined(__linux__)
@@ -251,7 +349,7 @@ void CpuInfo::DetectCores() {
         }
     }
     
-#elif defined(__APPLE__)
+#elif defined(PLATFORM_MACOS)
     // macOS 使用 sysctl 获取核心数量
     int physicalCores = 0;
     int logicalCores = 0;
@@ -414,7 +512,7 @@ double CpuInfo::updateUsage() {
     }
     return cpuUsage;
     
-#elif defined(__APPLE__)
+#elif defined(PLATFORM_MACOS)
     // macOS 使用 host_statistics 获取 CPU 使用率
     static mach_port_t host_port = 0;
     if (host_port == 0) {
@@ -531,18 +629,7 @@ std::string CpuInfo::GetNameFromRegistry() {
     return "Unknown CPU";
 }
 
-std::string CpuInfo::GetNameFromSysctl() {
-    size_t len = 0;
-    sysctlbyname("machdep.cpu.brand_string", nullptr, &len, nullptr, 0);
-    if (len > 0) {
-        std::string cpuModel;
-        cpuModel.resize(len);
-        sysctlbyname("machdep.cpu.brand_string", &cpuModel[0], &len, nullptr, 0);
-        cpuModel.resize(len - 1); // 移除null终止符
-        return cpuModel;
-    }
-    return "Unknown CPU";
-}
+
 
 std::string CpuInfo::GetNameFromProcCpuinfo() {
     std::ifstream file("/proc/cpuinfo");
@@ -566,6 +653,7 @@ std::string CpuInfo::GetNameFromProcCpuinfo() {
     return "Unknown CPU";
 }
 
+#ifdef PLATFORM_MACOS
 std::string CpuInfo::GetNameFromSysctl() {
     // macOS 使用 sysctl 获取 CPU 信息
     size_t size = 0;
@@ -591,6 +679,12 @@ std::string CpuInfo::GetNameFromSysctl() {
     
     return "Unknown CPU";
 }
+#else
+std::string CpuInfo::GetNameFromSysctl() {
+    // 非macOS平台不支持sysctlbyname
+    return "Unknown CPU";
+}
+#endif
 
 int CpuInfo::GetTotalCores() const {
     return totalCores;

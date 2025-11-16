@@ -129,4 +129,5 @@ MotherboardInfo MotherboardInfoCollector::CollectMotherboardInfo(IWbemServices* 
     }
     
     return info;
-}#endif
+}
+#endif

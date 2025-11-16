@@ -7,7 +7,7 @@
 
 #ifdef PLATFORM_WINDOWS
     #include <windows.h>
-    typedef unsigned long long ULONG;
+    // Windows已经定义了ULONG、DWORD、WORD、BOOL
 #elif defined(PLATFORM_MACOS)
     #include <sys/sysctl.h>
     #include <mach/mach.h>
@@ -15,6 +15,7 @@
     // ULONG is already defined by macOS headers as UInt32
     typedef unsigned long DWORD;
     typedef unsigned short WORD;
+    typedef int BOOL;
 #elif defined(PLATFORM_LINUX)
     #include <fstream>
     #include <sstream>
@@ -22,11 +23,14 @@
     typedef unsigned long long ULONG;
     typedef unsigned long DWORD;
     typedef unsigned short WORD;
+    typedef int BOOL;
 #endif
 
-// 跨平台通用类型定义
-typedef unsigned short WORD;
-typedef unsigned int BOOL;
+// 跨平台通用类型定义（仅在Windows平台未定义时）
+#ifndef PLATFORM_WINDOWS
+    typedef unsigned short WORD;
+    typedef int BOOL;
+#endif
 
 #ifdef PLATFORM_WINDOWS
     #define PDH_CSTATUS_VALID_DATA 0x00000000L
@@ -98,29 +102,30 @@ private:
     DWORD prevSampleTick = 0;            // 上一次之前的 Tick
     double lastSampleIntervalMs = 0.0;   // 最近一次采样间隔(毫秒)
 
-    #ifdef PLATFORM_WINDOWS
-    // PDH 计数器相关（使用率）
-    PDH_HQUERY queryHandle{};
-    PDH_HCOUNTER counterHandle{};
+    // 平台特定的成员变量
+    #if defined(PLATFORM_WINDOWS) || (defined(_WIN32) || defined(_WIN64))
+    // Windows PDH 计数器相关（使用率）
+    PDH_HQUERY queryHandle;
+    PDH_HCOUNTER counterHandle;
     bool counterInitialized;
 
     // PDH 计数器相关（频率 MHz）
-    PDH_HQUERY freqQueryHandle{};
-    PDH_HCOUNTER freqCounterHandle{};
-    bool freqCounterInitialized = false;
-    DWORD lastFreqTick = 0;
-    double cachedInstantMHz = 0.0;
-#else
+    PDH_HQUERY freqQueryHandle;
+    PDH_HCOUNTER freqCounterHandle;
+    bool freqCounterInitialized;
+    DWORD lastFreqTick;
+    double cachedInstantMHz;
+    #else
     // macOS/Linux 特有成员
-    void* queryHandle{};
-    void* counterHandle{};
-    bool counterInitialized = false;
-    void* freqQueryHandle{};
-    void* freqCounterHandle{};
-    bool freqCounterInitialized = false;
-    DWORD lastFreqTick = 0;
-    double cachedInstantMHz = 0.0;
-#endif
+    void* queryHandle;
+    void* counterHandle;
+    bool counterInitialized;
+    void* freqQueryHandle;
+    void* freqCounterHandle;
+    bool freqCounterInitialized;
+    DWORD lastFreqTick;
+    double cachedInstantMHz;
+    #endif
 };
 
 // 新增：跨平台CPU适配器接口

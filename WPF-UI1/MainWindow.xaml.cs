@@ -15,35 +15,35 @@ namespace WPF_UI1
         {
             InitializeComponent();
             
-            // 配置依赖注入
+            // Configure dependency injection
             var services = new ServiceCollection();
             ConfigureServices(services);
             var serviceProvider = services.BuildServiceProvider();
             
-            // 设置DataContext
+            // Set DataContext
             DataContext = serviceProvider.GetRequiredService<MainWindowViewModel>();
             
-            Log.Information("主窗口初始化完成");
+            Log.Information("Main window initialization completed");
         }
 
         private void ConfigureServices(IServiceCollection services)
         {
-            // 注册服务
+            // Register services
             services.AddSingleton<SharedMemoryService>();
             services.AddTransient<MainWindowViewModel>();
             
-            Log.Information("服务注册完成");
+            Log.Information("Service registration completed");
         }
 
         protected override void OnClosed(EventArgs e)
         {
-            // 清理资源
+            // Cleanup resources
             if (DataContext is MainWindowViewModel viewModel)
             {
-                // ViewModel会自动通过依赖注入管理SharedMemoryService的生命周期
+                // ViewModel will automatically manage SharedMemoryService lifecycle through dependency injection
             }
             
-            Log.Information("主窗口已关闭");
+            Log.Information("Main window closed");
             base.OnClosed(e);
         }
     }
