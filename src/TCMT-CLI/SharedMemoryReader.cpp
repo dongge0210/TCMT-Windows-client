@@ -9,7 +9,7 @@
 #include <ctime>
 
 #ifdef PLATFORM_WINDOWS
-    #include "../common/WindowsCompat.h"
+    #include "../core/common/CrossPlatformCompat.h"
 #else
     #include <fcntl.h>
     #include <sys/mman.h>

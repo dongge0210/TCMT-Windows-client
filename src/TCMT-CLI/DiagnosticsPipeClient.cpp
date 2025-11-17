@@ -4,10 +4,10 @@
 #include <chrono>
 #include <algorithm>
 // Use nlohmann::json from the bundled single_include in CPP-parsers
-#include <nlohmann/json.hpp>
+#include "../CPP-parsers/extern/json/include/nlohmann/json.hpp"
 
 #ifdef PLATFORM_WINDOWS
-    #include "../common/WindowsCompat.h"
+    #include "../core/common/CrossPlatformCompat.h"
 #else
     #include "../core/common/CrossPlatformCompat.h"
     #include <fcntl.h>

@@ -144,14 +144,9 @@
 
 // 常用平台特定类型定义
 #ifdef PLATFORM_WINDOWS
-    typedef unsigned char uint8_t;
-    typedef unsigned short uint16_t;
-    typedef unsigned int uint32_t;
-    typedef unsigned long long uint64_t;
-    typedef signed char int8_t;
-    typedef short int16_t;
-    typedef int int32_t;
-    typedef long long int64_t;
+    // Avoid redefining fixed-width types; include standard headers instead.
+    #include <stdint.h>
+    #include <cstdint>
 #endif
 
 // 系统相关宏
