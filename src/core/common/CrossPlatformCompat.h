@@ -11,6 +11,11 @@
 #include <direct.h>
 #include <sys/stat.h>
 #include <sys/types.h>
+// ensure mode_t is defined before use
+#ifndef _MODE_T_DEFINED
+typedef unsigned int mode_t;
+#define _MODE_T_DEFINED
+#endif
 
 // 定义Unix风格的函数和常量
 #define access _access
@@ -54,9 +59,13 @@
 #define S_IFREG  _S_IFREG
 #endif
 
-// 路径分隔符
+// 路径分隔符 (guard against redefinition)
+#ifndef PATH_SEPARATOR
 #define PATH_SEPARATOR '\\'
+#endif
+#ifndef PATH_SEPARATOR_STR
 #define PATH_SEPARATOR_STR "\\"
+#endif
 
 // 其他Unix常量
 #define STDIN_FILENO 0
@@ -80,8 +89,12 @@ typedef SSIZE_T ssize_t;
 #include <sys/types.h>
 #include <fcntl.h>
 
+#ifndef PATH_SEPARATOR
 #define PATH_SEPARATOR '/'
+#endif
+#ifndef PATH_SEPARATOR_STR
 #define PATH_SEPARATOR_STR "/"
+#endif
 
 #endif
 
