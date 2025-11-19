@@ -1,5 +1,4 @@
 #include "CpuInfo.h"
-#include "CpuInfo.h"
 #include "../Utils/Logger.h"
 
 #ifdef PLATFORM_MACOS

@@ -98,11 +98,6 @@ typedef SSIZE_T ssize_t;
 
 #endif
 
-// 通用类型定义
-#ifndef _MODE_T_DEFINED
-typedef unsigned int mode_t;
-#endif
-
 // 通用函数
 #ifdef __cplusplus
 #include <string>
