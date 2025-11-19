@@ -6,6 +6,10 @@
 #include "../core/DataStruct/DataStruct.h"
 #include "../core/common/CrossPlatformStubs.h"
 
+#ifdef PLATFORM_WINDOWS
+#include <windows.h>
+#endif
+
 class SharedMemoryReader {
 private:
     HANDLE hMapFile;
