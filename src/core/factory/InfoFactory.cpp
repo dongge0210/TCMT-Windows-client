@@ -40,9 +40,6 @@
 // 兼容性支持：包含原有类
 #include "../cpu/CpuInfo.h"
 
-// 兼容性支持：包含原有类
-#include "../cpu/CpuInfo.h"
-
 #include <sstream>
 
 // 静态成员初始化

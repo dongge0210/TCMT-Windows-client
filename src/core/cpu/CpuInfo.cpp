@@ -30,6 +30,7 @@
     #include <fstream>
     #include <sstream>
     #include <algorithm>
+    #include <set>
     #include <unistd.h>
     #include <sys/types.h>
     #include <dirent.h>
@@ -378,7 +379,7 @@ void CpuInfo::DetectCores() {
         largeCores = physicalCores;
         smallCores = logicalCores - physicalCores;
         
-        vm_deallocate(mach_task_self(), (vm_size_t)(numCPUs * sizeof(processor_cpu_load_info_t)), (vm_address_t)cpuLoadInfo, 0);
+        vm_deallocate(mach_task_self(), (vm_address_t)cpuLoadInfo, (vm_size_t)(numCPUs * sizeof(processor_cpu_load_info_t)));
     }
     
 #elif defined(__linux__)

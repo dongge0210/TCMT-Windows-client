@@ -380,21 +380,76 @@ bool NetworkAdapter::IsVirtualAdapter(const std::string& name) const {
 }
 
 std::string NetworkAdapter::FormatMacAddress(const unsigned char* address, size_t length) const {
-    std::stringstream ss; for(size_t i=0;i<length;i++){ if(i) ss<<":"; ss<<std::uppercase<<std::hex<<std::setw(2)<<std::setfill('0')<<(int)address[i]; } return ss.str(); }
-std::string NetworkAdapter::FormatSpeed(uint64_t bps) const { const double KB=1e3,MB=1e6,GB=1e9; std::stringstream ss; ss<<std::fixed<<std::setprecision(1); if (bps>=GB) ss<<(bps/GB)<<" Gbps"; else if (bps>=MB) ss<<(bps/MB)<<" Mbps"; else if (bps>=KB) ss<<(bps/KB)<<" Kbps"; else ss<<bps<<" bps"; return ss.str(); }
+    std::stringstream ss;
+    for (size_t i = 0; i < length; i++) {
+        if (i)
+            ss << ":";
+        ss << std::uppercase << std::hex << std::setw(2) << std::setfill('0') << (int)address[i];
+    }
+    return ss.str();
+}
+
+std::string NetworkAdapter::FormatSpeed(uint64_t bps) const {
+    const double KB = 1e3, MB = 1e6, GB = 1e9;
+    std::stringstream ss;
+    ss << std::fixed << std::setprecision(1);
+    if (bps >= GB)
+        ss << (bps / GB) << " Gbps";
+    else if (bps >= MB)
+        ss << (bps / MB) << " Mbps";
+    else if (bps >= KB)
+        ss << (bps / KB) << " Kbps";
+    else
+        ss << bps << " bps";
+    return ss.str();
+}
 
 std::string NetworkAdapter::DetermineAdapterType(const std::string& name, const std::string& /*desc*/, unsigned int /*ifType*/) const {
-    std::string lower = name; std::transform(lower.begin(), lower.end(), lower.begin(), ::tolower);
-    const std::vector<std::string> wifi = {"wi-fi","wifi","wireless","wlan","airport","en0","en1"};
-    for (const auto& k: wifi) if (lower.find(k)!=std::string::npos) return "Wireless";
-    const std::vector<std::string> eth = {"ethernet","gigabit","en","eth"};
-    for (const auto& k: eth) if (lower.find(k)!=std::string::npos) return "Wired";
+    std::string lower = name;
+    std::transform(lower.begin(), lower.end(), lower.begin(), ::tolower);
+    const std::vector<std::string> wifi = {"wi-fi", "wifi", "wireless", "wlan", "airport", "en0", "en1"};
+    for (const auto& k : wifi)
+        if (lower.find(k) != std::string::npos)
+            return "Wireless";
+    const std::vector<std::string> eth = {"ethernet", "gigabit", "en", "eth"};
+    for (const auto& k : eth)
+        if (lower.find(k) != std::string::npos)
+            return "Wired";
     return "Unknown Type";
 }
 
 void NetworkAdapter::QueryMacNetworkAdapters() {
-    struct ifaddrs* ifap=nullptr; if (getifaddrs(&ifap)!=0){ Logger::Error("NetworkAdapter: getifaddrs failed"); return; }
-    for (auto* ifa=ifap; ifa; ifa=ifa->ifa_next){ if(!ifa->ifa_addr || ifa->ifa_addr->sa_family!=AF_LINK) continue; AdapterInfo info{}; info.name=ifa->ifa_name; info.isEnabled=(ifa->ifa_flags & (IFF_UP|IFF_RUNNING))!=0; info.isConnected=info.isEnabled; struct sockaddr_dl* sdl=(struct sockaddr_dl*)ifa->ifa_addr; if (sdl && sdl->sdl_alen==6){ unsigned char* mac=(unsigned char*)LLADDR(sdl); info.mac=FormatMacAddress(mac,6);} if (IsVirtualAdapter(info.name)) continue; info.adapterType=DetermineAdapterType(info.name,"",0); GetInterfaceStats(info.name, info); adapters.push_back(info);} freeifaddrs(ifap); }
+    struct ifaddrs* ifap = nullptr;
+    if (getifaddrs(&ifap) != 0) {
+        Logger::Error("NetworkAdapter: getifaddrs failed");
+        return;
+    }
+    
+    for (auto* ifa = ifap; ifa; ifa = ifa->ifa_next) {
+        if (!ifa->ifa_addr || ifa->ifa_addr->sa_family != AF_LINK)
+            continue;
+            
+        AdapterInfo info{};
+        info.name = ifa->ifa_name;
+        info.isEnabled = (ifa->ifa_flags & (IFF_UP | IFF_RUNNING)) != 0;
+        info.isConnected = info.isEnabled;
+        
+        struct sockaddr_dl* sdl = (struct sockaddr_dl*)ifa->ifa_addr;
+        if (sdl && sdl->sdl_alen == 6) {
+            unsigned char* mac = (unsigned char*)LLADDR(sdl);
+            info.mac = FormatMacAddress(mac, 6);
+        }
+        
+        if (IsVirtualAdapter(info.name))
+            continue;
+            
+        info.adapterType = DetermineAdapterType(info.name, "", 0);
+        GetInterfaceStats(info.name, info);
+        adapters.push_back(info);
+    }
+    
+    freeifaddrs(ifap);
+}
 
 void NetworkAdapter::UpdateMacAdapterAddresses() {
     struct ifaddrs* ifap=nullptr; if (getifaddrs(&ifap)!=0){ Logger::Error("NetworkAdapter: getifaddrs failed (addr update)"); return; }
