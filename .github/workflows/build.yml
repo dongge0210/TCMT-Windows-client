@@ -31,7 +31,7 @@ jobs:
           fetch-depth: 0
 
       - name: 安装 PowerShell 7 (pwsh)
-        if: hashFiles ('C:/Program Files/PowerShell/7/pwsh.exe') != ''
+        if: (hashFiles ('C:/Program Files/PowerShell/7/pwsh.exe') != '') && (!contains(runner.labels, 'self-hosted'))
         uses: actions/setup-pwsh@v2
         with:
           pwsh-version: 'latest'
