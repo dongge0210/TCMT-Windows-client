@@ -32,7 +32,7 @@ public:
     int GetLargeCores() const;
     double GetLargeCoreSpeed() const;
     double GetSmallCoreSpeed() const;
-    DWORD GetCurrentSpeed() const;
+    uint32_t GetCurrentSpeed() const;
     bool IsHyperThreadingEnabled() const;
     bool IsVirtualizationEnabled() const;
     double GetLastSampleIntervalMs() const;

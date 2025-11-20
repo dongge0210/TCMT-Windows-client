@@ -107,11 +107,7 @@ typedef SSIZE_T ssize_t;
 namespace CrossPlatform {
     // 路径分隔符
     inline char GetPathSeparator() {
-#ifdef PLATFORM_WINDOWS
-        return '\\';
-#else
-        return '/';
-#endif
+        return PATH_SEPARATOR;
     }
     
     // 获取当前工作目录

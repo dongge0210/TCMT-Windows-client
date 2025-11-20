@@ -452,11 +452,62 @@ void NetworkAdapter::QueryMacNetworkAdapters() {
 }
 
 void NetworkAdapter::UpdateMacAdapterAddresses() {
-    struct ifaddrs* ifap=nullptr; if (getifaddrs(&ifap)!=0){ Logger::Error("NetworkAdapter: getifaddrs failed (addr update)"); return; }
-    for (auto* ifa=ifap; ifa; ifa=ifa->ifa_next){ if(!ifa->ifa_addr) continue; for (auto& adapter: adapters){ if (adapter.name==ifa->ifa_name){ if (ifa->ifa_addr->sa_family==AF_INET){ auto* addr_in=(struct sockaddr_in*)ifa->ifa_addr; char ip[INET_ADDRSTRLEN]; inet_ntop(AF_INET,&addr_in->sin_addr,ip,INET_ADDRSTRLEN); if (std::find(adapter.ipAddresses.begin(), adapter.ipAddresses.end(), ip)==adapter.ipAddresses.end()) adapter.ipAddresses.push_back(ip); if (adapter.ip.empty()) adapter.ip=ip; } else if (ifa->ifa_addr->sa_family==AF_INET6){ auto* addr_in6=(struct sockaddr_in6*)ifa->ifa_addr; char ip6[INET6_ADDRSTRLEN]; inet_ntop(AF_INET6,&addr_in6->sin6_addr,ip6,INET6_ADDRSTRLEN); adapter.ipv6Address=ip6; } } } } freeifaddrs(ifap); }
+    struct ifaddrs* ifap = nullptr;
+    if (getifaddrs(&ifap) != 0) {
+        Logger::Error("NetworkAdapter: getifaddrs failed (addr update)");
+        return;
+    }
+    for (auto* ifa = ifap; ifa; ifa = ifa->ifa_next) {
+        if (!ifa->ifa_addr)
+            continue;
+        for (auto& adapter : adapters) {
+            if (adapter.name == ifa->ifa_name) {
+                if (ifa->ifa_addr->sa_family == AF_INET) {
+                    auto* addr_in = (struct sockaddr_in*)ifa->ifa_addr;
+                    char ip[INET_ADDRSTRLEN];
+                    inet_ntop(AF_INET, &addr_in->sin_addr, ip, INET_ADDRSTRLEN);
+                    if (std::find(adapter.ipAddresses.begin(), adapter.ipAddresses.end(), ip) == adapter.ipAddresses.end())
+                        adapter.ipAddresses.push_back(ip);
+                    if (adapter.ip.empty())
+                        adapter.ip = ip;
+                } else if (ifa->ifa_addr->sa_family == AF_INET6) {
+                    auto* addr_in6 = (struct sockaddr_in6*)ifa->ifa_addr;
+                    char ip6[INET6_ADDRSTRLEN];
+                    inet_ntop(AF_INET6, &addr_in6->sin6_addr, ip6, INET6_ADDRSTRLEN);
+                    adapter.ipv6Address = ip6;
+                }
+            }
+        }
+    }
+    freeifaddrs(ifap);
+}
 
 void NetworkAdapter::GetInterfaceStats(const std::string& interfaceName, AdapterInfo& info) const {
-    int mib[] = {CTL_NET, PF_ROUTE, 0, 0, NET_RT_IFLIST2, 0}; size_t len=0; if (sysctl(mib,6,nullptr,&len,nullptr,0)<0) return; std::vector<char> buffer(len); if (sysctl(mib,6,buffer.data(),&len,nullptr,0)<0) return; char* lim=buffer.data()+len; for(char* next=buffer.data(); next<lim; ){ auto* ifm=(struct if_msghdr*)next; next += ifm->ifm_msglen; if (ifm->ifm_type==RTM_IFINFO2){ auto* ifm2=(struct if_msghdr2*)ifm; char ifname[IF_NAMESIZE]; if_indextoname(ifm2->ifm_index, ifname); if (interfaceName==ifname){ if (ifm2->ifm_data.ifi_baudrate>0){ info.speed=ifm2->ifm_data.ifi_baudrate; info.speedString=FormatSpeed(info.speed);} break; } } } }
+    int mib[] = {CTL_NET, PF_ROUTE, 0, 0, NET_RT_IFLIST2, 0};
+    size_t len = 0;
+    if (sysctl(mib, 6, nullptr, &len, nullptr, 0) < 0)
+        return;
+    std::vector<char> buffer(len);
+    if (sysctl(mib, 6, buffer.data(), &len, nullptr, 0) < 0)
+        return;
+    char* lim = buffer.data() + len;
+    for (char* next = buffer.data(); next < lim; ) {
+        auto* ifm = (struct if_msghdr*)next;
+        next += ifm->ifm_msglen;
+        if (ifm->ifm_type == RTM_IFINFO2) {
+            auto* ifm2 = (struct if_msghdr2*)ifm;
+            char ifname[IF_NAMESIZE];
+            if_indextoname(ifm2->ifm_index, ifname);
+            if (interfaceName == ifname) {
+                if (ifm2->ifm_data.ifi_baudrate > 0) {
+                    info.speed = ifm2->ifm_data.ifi_baudrate;
+                    info.speedString = FormatSpeed(info.speed);
+                }
+                break;
+            }
+        }
+    }
+}
 
 #endif // PLATFORM_MACOS
 
@@ -472,8 +523,29 @@ bool NetworkAdapter::IsVirtualAdapter(const std::string& name) const {
 }
 
 std::string NetworkAdapter::FormatMacAddress(const unsigned char* address, size_t length) const {
-    std::stringstream ss; for(size_t i=0;i<length;i++){ if(i) ss<<":"; ss<<std::hex<<std::setw(2)<<std::setfill('0')<<(int)address[i]; } return ss.str(); }
-std::string NetworkAdapter::FormatSpeed(uint64_t bps) const { const double KB=1e3,MB=1e6,GB=1e9; std::stringstream ss; ss<<std::fixed<<std::setprecision(1); if (bps>=GB) ss<<(bps/GB)<<" Gbps"; else if (bps>=MB) ss<<(bps/MB)<<" Mbps"; else if (bps>=KB) ss<<(bps/KB)<<" Kbps"; else ss<<bps<<" bps"; return ss.str(); }
+    std::stringstream ss;
+    for (size_t i = 0; i < length; i++) {
+        if (i)
+            ss << ":";
+        ss << std::hex << std::setw(2) << std::setfill('0') << (int)address[i];
+    }
+    return ss.str();
+}
+
+std::string NetworkAdapter::FormatSpeed(uint64_t bps) const {
+    const double KB = 1e3, MB = 1e6, GB = 1e9;
+    std::stringstream ss;
+    ss << std::fixed << std::setprecision(1);
+    if (bps >= GB)
+        ss << (bps / GB) << " Gbps";
+    else if (bps >= MB)
+        ss << (bps / MB) << " Mbps";
+    else if (bps >= KB)
+        ss << (bps / KB) << " Kbps";
+    else
+        ss << bps << " bps";
+    return ss.str();
+}
 
 std::string NetworkAdapter::DetermineAdapterType(const std::string& name, const std::string& /*description*/, const std::string& /*driver*/) const {
     std::string lower=name; std::transform(lower.begin(), lower.end(), lower.begin(), ::tolower);

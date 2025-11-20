@@ -35,7 +35,13 @@
     
     // String functions
     #define strcpy_s(dst, size, src) (strncpy(dst, src, size-1), dst[size-1] = '\0')
-        #define strncpy_s(dst, size, src, count) (strncpy(dst, src, count), dst[count] = '\0')
+        #define strncpy_s(dst, size, src, count) do { \
+            size_t _n = ((size) > 0) ? (((count) < ((size)-1)) ? (count) : ((size)-1)) : 0; \
+            if ((size) > 0) { \
+                strncpy((dst), (src), _n); \
+                (dst)[_n] = '\0'; \
+            } \
+        } while(0)
         #define wcscpy_s(dst, size, src) (wcscpy(dst, src))
     
     // Additional wide string functions for non-Windows
