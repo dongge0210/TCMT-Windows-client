@@ -121,12 +121,7 @@
 #endif
 
 // 为了兼容性，保留旧的宏定义（仅在未定义时）
-#ifndef PRAGMA_PACK_PUSH
-#define PRAGMA_PACK(push, n) _Pragma("pack(push, n)")
-#define PRAGMA_PACK(pop) _Pragma("pack(pop)")
-#endif
-
-#ifndef PRAGMA_PACK_PUSH
+#ifndef PRAGMA_PACK
 #define PRAGMA_PACK(push, n) PRAGMA_PACK_PUSH(n)
 #define PRAGMA_PACK(pop) PRAGMA_PACK_POP()
 #endif
