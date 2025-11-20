@@ -30,6 +30,12 @@ jobs:
           submodules: recursive
           fetch-depth: 0
 
+      - name: 安装 PowerShell 7 (pwsh)
+        if: hashFiles ('C:/Program Files/PowerShell/7/pwsh.exe') != ''
+        uses: actions/setup-pwsh@v2
+        with:
+          pwsh-version: 'latest'
+
       - name: 生成 S.A.E.R 系统环境报告
         shell: pwsh
         run: |
