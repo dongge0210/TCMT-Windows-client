@@ -72,7 +72,7 @@ USBInfoManager* SharedMemoryManager::usbManager = nullptr;
 // Cross-platform TCMT_STRNCPY_S replacement
 #ifdef PLATFORM_WINDOWS
     #define TCMT_STRNCPY_S(dest, destsz, src, count) strncpy_s(dest, destsz, src, count)
-    #define TCMT_STRCPY_S(dest, destsz, src) TCMT_STRCPY_S(dest, destsz, src)
+    #define TCMT_STRCPY_S(dest, destsz, src) strcpy_s(dest, destsz, src)
 #else
     #define TCMT_STRNCPY_S(dest, destsz, src, count) \
         do { \

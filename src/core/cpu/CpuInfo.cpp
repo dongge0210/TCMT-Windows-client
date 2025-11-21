@@ -10,8 +10,8 @@
     #include <winternl.h>
     #pragma comment(lib, "Pdh.lib")
     #pragma comment(lib, "ntdll.lib")
-    
-    // Ensure NTSTATUS is defined
+   
+
 #ifndef NTSTATUS
     typedef LONG NTSTATUS;
 #endif

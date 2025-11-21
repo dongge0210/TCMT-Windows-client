@@ -131,7 +131,7 @@
       <ConformanceMode>true</ConformanceMode>
       <LanguageStandard>stdcpp20</LanguageStandard>
       <LanguageStandard_C>stdc17</LanguageStandard_C>
-  <AdditionalIncludeDirectories>F:\Win_x64-10.lastest-sysMonitor\src\third_party\TC\include;F:\Win_x64-10.lastest-sysMonitor\src\core\DataStruct;F:\Win_x64-10.lastest-sysMonitor\src\CPP-parsers\include;F:\Win_x64-10.lastest-sysMonitor\src\CPP-parsers\extern\json\single_include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(SolutionDir)\src\third_party\TC\include;$(SolutionDir)\src\core\DataStruct;$(SolutionDir)\src\CPP-parsers\include;$(SolutionDir)\src\CPP-parsers\extern\json\single_include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
@@ -150,7 +150,7 @@
       <ConformanceMode>true</ConformanceMode>
       <LanguageStandard>stdcpp20</LanguageStandard>
       <LanguageStandard_C>stdc17</LanguageStandard_C>
-  <AdditionalIncludeDirectories>F:\Win_x64-10.lastest-sysMonitor\src\third_party\PDCurses\pdcurses;F:\Win_x64-10.lastest-sysMonitor\src\third_party\TC\include;F:\Win_x64-10.lastest-sysMonitor\src\core\DataStruct;F:\Win_x64-10.lastest-sysMonitor\src\CPP-parsers\include;F:\Win_x64-10.lastest-sysMonitor\src\CPP-parsers\extern\json\single_include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>F:\Win_x64-10.lastest-sysMonitor\src\third_party\PDCurses\pdcurses;F:\Win_x64-10.lastest-sysMonitor\src\third_party\TC\include;F:\Win_x64-10.lastest-sysMonitor\src\core\DataStruct;F:\Win_x64-10.lastest-sysMonitor\src\CPP-parsers\include;F:\Win_x64-10.lastest-sysMonitor\src\CPP-parsers\extern\json\single_include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>

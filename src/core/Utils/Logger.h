@@ -88,14 +88,14 @@ public:
 
 #if LOGGER_HAS_STD_FORMAT
     template<typename... Args>
-    static void Logf(LogLevel level, std::string_view category, std::string_view fmt,
-                     std::string_view file, int line, Args&&... args) {
-        if (level < currentLevel) return;
+    static void Logf(LogLevel logLevel, std::string_view categoryTag, std::string_view fmtText,
+                     std::string_view sourceFile, int sourceLine, Args&&... args) {
+        if (logLevel < currentLevel) return;
         try {
-            std::string msg = std::vformat(fmt, std::make_format_args(args...));
-            Log(level, category, msg, file, line);
+            std::string msg = std::vformat(fmtText, std::make_format_args(args...));
+            Log(logLevel, categoryTag, msg, sourceFile, sourceLine);
         } catch (...) {
-            Log(level, category, std::string("<Logf format error> ") + std::string(fmt), file, line);
+            Log(logLevel, categoryTag, std::string("<Logf format error> ") + std::string(fmtText), sourceFile, sourceLine);
         }
     }
 #endif

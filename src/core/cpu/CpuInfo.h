@@ -48,7 +48,6 @@
     #define ERROR_SUCCESS 0
 #endif
 
-// 原有CpuInfo类保持完全不变，确保向后兼容
 class CpuInfo {
 public:
     CpuInfo();
@@ -128,7 +127,6 @@ private:
     #endif
 };
 
-// 新增：跨平台CPU适配器接口
 class ICpuAdapter {
 public:
     virtual ~ICpuAdapter() = default;
@@ -150,7 +148,6 @@ public:
     virtual bool Update() = 0;
 };
 
-// Windows平台适配器：包装原有CpuInfo类
 class WinCpuAdapter : public ICpuAdapter {
 public:
     WinCpuAdapter();

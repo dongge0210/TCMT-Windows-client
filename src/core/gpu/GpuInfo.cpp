@@ -13,8 +13,11 @@
         #include <nvml.h>
     #endif
     // Vulkan 支持
-    #define VK_USE_PLATFORM_WIN32_KHR
-    #include <vulkan/vulkan.h>
+    #ifdef HAVE_VULKAN_HEADERS // 如果有Vulkan头文件
+        #define VK_USE_PLATFORM_WIN32_KHR
+        #include <vulkan/vulkan.h>
+    #endif
+
     // 动态加载Vulkan
     #include <windows.h>
 #endif

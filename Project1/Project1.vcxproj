@@ -120,7 +120,7 @@
       <ConformanceMode>true</ConformanceMode>
       <CompileAsWinRT>false</CompileAsWinRT>
       <MultiProcessorCompilation>false</MultiProcessorCompilation>
-      <AdditionalIncludeDirectories>GeneratedFiles\$(ConfigurationName);GeneratedFiles;$(ProjectDir)../src/core/Utils;$(WindowsSDK_MetadataPath);$(ProjectDir)../src/core;$(ProjectDir)../src;$(ProjectDir)src;$(SolutionDir)src\third_party\LibreHardwareMonitor\LibreHardwareMonitorLib\obj\Debug\net8.0;$(ProjectDir)\GeneratedFiles;$(SolutionDir)src\third_party\tpm2-tss\src\tss2-fapi;$(SolutionDir)src\third_party\tpm2-tss\src\tss2-fapi\api;$(SolutionDir)src\third_party\tpm2-tss\include\tss2;$(SolutionDir)src\third_party\tpm2-tss\src\tss2-esys\api;$(SolutionDir)src\third_party\USBMonitor-cpp\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>GeneratedFiles\$(ConfigurationName);GeneratedFiles;$(WindowsSDK_MetadataPath);$(ProjectDir)../src/core;$(ProjectDir)../src;$(ProjectDir)src;$(SolutionDir)src\third_party\LibreHardwareMonitor\LibreHardwareMonitorLib\obj\Debug\net8.0;$(ProjectDir)\GeneratedFiles;$(SolutionDir)src\third_party\tpm2-tss\src\tss2-fapi;$(SolutionDir)src\third_party\tpm2-tss\src\tss2-fapi\api;$(SolutionDir)src\third_party\tpm2-tss\include\tss2;$(SolutionDir)src\third_party\tpm2-tss\src\tss2-esys\api;$(SolutionDir)src\third_party\USBMonitor-cpp\include;$(SolutionDir)\src\core\Utils;$(SolutionDir)\src\core\common;$(SolutionDir)\src\core\factory;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <LanguageStandard>stdcpp20</LanguageStandard>
       <RuntimeLibrary>MultiThreadedDebugDLL</RuntimeLibrary>
       <AdditionalOptions>/Zc:__cplusplus /wd4005 /wd4244 %(AdditionalOptions)</AdditionalOptions>

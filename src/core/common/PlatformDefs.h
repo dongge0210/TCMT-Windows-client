@@ -110,20 +110,20 @@
 
 // 内存对齐宏
 #define PACKED_STRUCT __attribute__((packed))
-#ifndef PRAGMA_PACK
+#ifndef PRAGMA_PACK_PUSH
     #ifdef _MSC_VER
         #define PRAGMA_PACK_PUSH(n) __pragma(pack(push, n))
-        #define PRAGMA_PACK_POP() __pragma(pack(pop))
     #else
         #define PRAGMA_PACK_PUSH(n) _Pragma("pack(push, n)")
-        #define PRAGMA_PACK_POP() _Pragma("pack(pop)")
     #endif
 #endif
 
-// 为了兼容性，保留旧的宏定义（仅在未定义时）
-#ifndef PRAGMA_PACK
-#define PRAGMA_PACK(push, n) PRAGMA_PACK_PUSH(n)
-#define PRAGMA_PACK(pop) PRAGMA_PACK_POP()
+#ifndef PRAGMA_PACK_POP
+    #ifdef _MSC_VER
+        #define PRAGMA_PACK_POP() __pragma(pack(pop))
+    #else
+        #define PRAGMA_PACK_POP() _Pragma("pack(pop)")
+    #endif
 #endif
 
 // 函数调用约定

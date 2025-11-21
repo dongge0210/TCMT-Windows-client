@@ -94,8 +94,18 @@ jobs:
       - name: NuGet & Dotnet Restore
         shell: pwsh
         run: |
-          nuget restore ${{ env.SOLUTION_FILE_PATH }}
-          dotnet restore ${{ env.SOLUTION_FILE_PATH }}
+          $solutionPath = "${{ env.SOLUTION_FILE_PATH }}"
+          nuget restore $solutionPath
+
+          $csprojFiles = @(Get-ChildItem -Path . -Recurse -Filter *.csproj)
+          if ($csprojFiles.Count -eq 0) {
+            Write-Host "No .NET projects detected. Skipping dotnet restore."
+          } else {
+            foreach ($proj in $csprojFiles) {
+              Write-Host "dotnet restore $($proj.FullName)"
+              dotnet restore $proj.FullName
+            }
+          }
 
       - name: Cache MSBuild (metadata only)
         id: cache-msbuild
@@ -110,8 +120,26 @@ jobs:
         
         shell: pwsh
         run: |
-          # First build .NET projects with dotnet build (which handles restore automatically)
-          dotnet build ${{ env.SOLUTION_FILE_PATH }} --configuration ${{ env.BUILD_CONFIGURATION }} --verbosity minimal 2>&1 | Tee-Object -FilePath dotnet_build.log
+          # First build .NET projects individually with dotnet build (which handles restore automatically)
+          $csprojFiles = @(Get-ChildItem -Path . -Recurse -Filter *.csproj)
+          if (Test-Path dotnet_build.log) { Remove-Item dotnet_build.log }
+          $dotnetFailed = $false
+          if ($csprojFiles.Count -eq 0) {
+            "No .NET projects detected. Skipping dotnet build." | Out-File dotnet_build.log
+          } else {
+            foreach ($proj in $csprojFiles) {
+              $projPath = $proj.FullName
+              $header = "`n=== Building $projPath ==="
+              $header | Tee-Object -FilePath dotnet_build.log -Append
+              dotnet build $projPath --configuration ${{ env.BUILD_CONFIGURATION }} --verbosity minimal 2>&1 | Tee-Object -FilePath dotnet_build.log -Append
+              if ($LASTEXITCODE -ne 0) { $dotnetFailed = $true }
+            }
+          }
+          if ($dotnetFailed) {
+            Write-Host "##[error] dotnet build failed for one or more managed projects. See dotnet_build.log for details."
+          } else {
+            Write-Host "dotnet projects built successfully."
+          }
           
           # Then build C++ projects with msbuild
           msbuild ${{ env.SOLUTION_FILE_PATH }} `
@@ -140,9 +168,14 @@ jobs:
             }
           }
 
+          if ($dotnetFailed) {
+            $fatalErrors += 'dotnet build failed for one or more managed projects. See dotnet_build.log for details.'
+          }
+
           $fatalErrors | Out-File solution_build.errors.txt
           "Warnings: $warnings" | Out-File solution_build.errors.txt -Append
           "ExitCode: $exitCode" | Out-File solution_build.errors.txt -Append
+          "DotnetFailed: $dotnetFailed" | Out-File solution_build.errors.txt -Append
 
           if ($fatalErrors.Count -gt 0) {
             Write-Host "##[error] Build failed with $($fatalErrors.Count) fatal error lines."

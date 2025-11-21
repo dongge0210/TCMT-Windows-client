@@ -27,7 +27,7 @@ int main() {
 
     DataUpdateManager dataManager(1000); // 1s update interval
     dataManager.Start();
-    TerminalRenderer renderer;
+    [[maybe_unused]] TerminalRenderer renderer;
 
     while (running) {
         auto size = terminal::getSize();
