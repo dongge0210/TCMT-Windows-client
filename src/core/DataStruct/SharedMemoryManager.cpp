@@ -1,30 +1,4 @@
-﻿// 首先，取消可能导致冲突的 Qt 宏定义
-#ifdef QT_VERSION
-    // 暂时保存 Qt 宏定义
-#define SAVE_QT_KEYWORDS
-#ifdef slots
-#undef slots
-#endif
-#ifdef signals
-#undef signals
-#endif
-#ifdef emit
-#undef emit
-#endif
-#ifdef foreach
-#undef foreach
-#endif
-#ifdef name
-#undef name
-#endif
-#ifdef first
-#undef first
-#endif
-#ifdef c_str
-#undef c_str
-#endif
-#endif
-
+﻿
 #ifndef NOMINMAX
 #define NOMINMAX
 #endif
