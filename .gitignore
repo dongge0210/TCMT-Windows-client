@@ -86,3 +86,8 @@ Project1/x64/
 # History huh..
 /弃用
 UI_README.md
+
+# Local IDE configurations
+.codemap/main-panel.json
+claude.md
+CLAUDE.md
