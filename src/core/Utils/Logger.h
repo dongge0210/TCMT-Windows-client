@@ -3,7 +3,25 @@
 #include <fstream>
 #include <mutex>
 #include <algorithm> // Added for std::transform
+
+// 自动检测平台并定义相应的TCMT_宏
+#if defined(_WIN32) || defined(_WIN64)
+    #ifndef TCMT_WINDOWS
+        #define TCMT_WINDOWS
+    #endif
+#elif defined(__APPLE__) && defined(__MACH__)
+    #ifndef TCMT_MACOS
+        #define TCMT_MACOS
+    #endif
+#elif defined(__linux__)
+    #ifndef TCMT_LINUX
+        #define TCMT_LINUX
+    #endif
+#endif
+
+#ifdef TCMT_WINDOWS
 #include <windows.h> // For console color support
+#endif
 
 // 日志等级枚举
 enum LogLevel {
@@ -48,7 +66,11 @@ private:
     static std::mutex logMutex;
     static bool consoleOutputEnabled; // Flag for console output
     static LogLevel currentLogLevel; // 当前日志等级过滤器
+#ifdef TCMT_WINDOWS
     static HANDLE hConsole; // 控制台句柄
+#else
+    static void* hConsole; // 控制台句柄（非Windows平台不使用）
+#endif
     static void WriteLog(const std::string& level, const std::string& message, LogLevel msgLevel, ConsoleColor color);
     static std::wstring ConvertToWideString(const std::string& utf8Str); // Helper for UTF-8 to wide string conversion
     static void SetConsoleColor(ConsoleColor color); // 设置控制台颜色

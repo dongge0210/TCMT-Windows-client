@@ -1,9 +1,18 @@
 ﻿#pragma once
 #include <string>
-#include <windows.h>
-#include <pdh.h>
-#include <queue>
 #include <vector>
+#include <cstdint>
+
+// 平台宏检测（如果未在CMake中定义）
+#if !defined(TCMT_WINDOWS) && !defined(TCMT_MACOS) && !defined(TCMT_LINUX)
+    #if defined(_WIN32) || defined(_WIN64)
+        #define TCMT_WINDOWS
+    #elif defined(__APPLE__) && defined(__MACH__)
+        #define TCMT_MACOS
+    #elif defined(__linux__)
+        #define TCMT_LINUX
+    #endif
+#endif
 
 class CpuInfo {
 public:
@@ -17,7 +26,7 @@ public:
     int GetLargeCores() const;
     double GetLargeCoreSpeed() const;    // 新增：获取性能核心频率
     double GetSmallCoreSpeed() const;    // 新增：获取能效核心频率
-    DWORD GetCurrentSpeed() const;       // 保持兼容性
+    uint32_t GetCurrentSpeed() const;       // 保持兼容性
     bool IsHyperThreadingEnabled() const;
     bool IsVirtualizationEnabled() const;
 
