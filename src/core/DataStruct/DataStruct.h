@@ -1,8 +1,10 @@
 ﻿// DataStruct.h
 #pragma once
-#include <windows.h>
 #include <string>
 #include <vector>
+
+// 平台抽象
+#include "../Platform/Platform.h"
 
 #pragma pack(push, 1) // 确保内存对齐
 
@@ -53,7 +55,7 @@ struct PhysicalDiskSmartData {
     char logicalDriveLetters[8];   // 关联的驱动器盘符
     int logicalDriveCount;         // 关联驱动器数量
     
-    SYSTEMTIME lastScanTime;       // 最后扫描时间
+    PlatformSystemTime lastScanTime;       // 最后扫描时间
 };
 
 // GPU信息
@@ -124,7 +126,7 @@ struct SystemInfo {
     double cpuTemperature; // 新增：CPU温度
     double gpuTemperature; // 新增：GPU温度
     double cpuUsageSampleIntervalMs = 0.0; // 新增：CPU使用率采样间隔（毫秒）
-    SYSTEMTIME lastUpdate;
+    PlatformSystemTime lastUpdate;
 };
 
 // 共享内存主结构
@@ -173,7 +175,7 @@ struct SharedMemoryBlock {
     int gpuCount;
     int diskCount;
     int physicalDiskCount;       // 新增：物理磁盘数量
-    SYSTEMTIME lastUpdate;
-    CRITICAL_SECTION lock;
+    PlatformSystemTime lastUpdate;
+    PlatformCriticalSection lock;
 };
 #pragma pack(pop)

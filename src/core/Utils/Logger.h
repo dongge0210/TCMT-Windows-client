@@ -16,7 +16,7 @@ enum LogLevel {
     LOG_FATAL = 6
 };
 
-// 控制台颜色枚举
+// 控制台颜色枚举(PS/CMD)
 enum class ConsoleColor {
     BLACK = 0,           // 黑色
     DARK_BLUE = 1,       // 深蓝色
