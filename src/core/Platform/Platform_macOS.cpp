@@ -89,27 +89,29 @@ SharedMemory::~SharedMemory() {
 bool SharedMemory::Create(const std::string& name, size_t size) {
     Unmap();
 
-    // POSIX shm_open names: must start with '/', max NAME_MAX (31 on macOS) chars total
+    // POSIX shm_open names: must start with '/', max NAME_MAX (31 on macOS) chars.
+    // InterprocessMutex appends "_mutex" to name internally, so base name must
+    // leave headroom. Use a 20-char limit (20 + 7 + 1 = 28 < 31).
     std::string safe_name = name;
-    // Remove any existing slashes and truncate
     size_t pos = safe_name.find('/');
-    while (pos != std::string::npos) {
-        safe_name.erase(pos, 1);
-        pos = safe_name.find('/');
-    }
-    if (safe_name.size() > 28) safe_name = safe_name.substr(0, 28);
+    while (pos != std::string::npos) { safe_name.erase(pos, 1); pos = safe_name.find('/'); }
+    if (safe_name.size() > 20) safe_name = safe_name.substr(0, 20);
     shm_name_ = "/" + safe_name;
+
+    // macOS: shm_unlink does NOT allow immediate re-creation of same name in same
+    // process if the kernel hasn't fully freed the object. Always unlink first.
+    shm_unlink(shm_name_.c_str());
 
     // 创建共享内存对象
     shm_fd_ = shm_open(shm_name_.c_str(), O_CREAT | O_RDWR, 0666);
     if (shm_fd_ == -1) {
-        last_error_ = "shm_open failed: " + std::string(strerror(errno));
+        last_error_ = "shm_open(" + shm_name_ + ") failed: " + strerror(errno);
         return false;
     }
 
-    // 设置大小
+    // 设置大小（macOS上不能shrink现有shm，所以确保先用shm_unlink清理）
     if (ftruncate(shm_fd_, static_cast<off_t>(size)) == -1) {
-        last_error_ = "ftruncate failed: " + std::string(strerror(errno));
+        last_error_ = "ftruncate(" + shm_name_ + ") failed: " + strerror(errno);
         close(shm_fd_);
         shm_fd_ = -1;
         return false;
@@ -123,16 +125,16 @@ bool SharedMemory::Create(const std::string& name, size_t size) {
 bool SharedMemory::Open(const std::string& name, size_t size) {
     Unmap();
 
-    // Same safe name transformation as Create
+    // Same safe name transformation as Create (must match Create exactly)
     std::string safe_name = name;
     size_t pos = safe_name.find('/');
     while (pos != std::string::npos) { safe_name.erase(pos, 1); pos = safe_name.find('/'); }
-    if (safe_name.size() > 28) safe_name = safe_name.substr(0, 28);
+    if (safe_name.size() > 20) safe_name = safe_name.substr(0, 20);
     shm_name_ = "/" + safe_name;
 
     shm_fd_ = shm_open(shm_name_.c_str(), O_RDWR, 0);
     if (shm_fd_ == -1) {
-        last_error_ = "shm_open failed: " + std::string(strerror(errno));
+        last_error_ = "shm_open(" + shm_name_ + ") failed: " + strerror(errno);
         return false;
     }
 
