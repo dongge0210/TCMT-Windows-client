@@ -42,34 +42,41 @@ bool TemperatureWrapper::IsInitialized() { return initialized; }
 
 #elif defined(TCMT_MACOS)
 // ======================== macOS Implementation ========================
+// macOS temperature access options (no root):
+//   1. SMC direct reads via IOKit AppleSMC (no root on Intel; Apple Silicon needs root)
+//   2. powermetrics (needs root, caches via background thread)
+//   3. IOKit IOHIDEventService (few sensors, unreliable)
+//
+// Priority: SMC > powermetrics cache > IOKit HID
+// All three are tried; GetTemperatures() returns whatever succeeded.
+
 #include <IOKit/IOKitLib.h>
 #include <CoreFoundation/CoreFoundation.h>
-#include <cstring>
-#include <cstdlib>
+#include <thread>
+#include <atomic>
+#include <mutex>
 #include <vector>
 #include <string>
+#include <cstring>
+#include <cstdlib>
+#include <cstdio>
 #include <sstream>
-#include <iostream>
-#include <thread>
-#include <mutex>
-#include <atomic>
+#include <algorithm>
+#include <cctype>
 
 // =====================================================================
-// SMC Reader - Direct IOKit access to AppleSMC
+// SMC Reader — Direct IOKit access to AppleSMC
 // =====================================================================
-// Apple SMC selectors (verified via reverse engineering of existing tools):
-//   2 = readKeyInfo   (input: key, output: key info struct)
-//   5 = readKey        (input: keyInfo + key, output: value data)
-//   6 = writeKey       (input: keyInfo + key + value data)
-//   7 = getKeyFromIndex (input: index, output: key string)
-//   9 = getTotalNumber  (input: none, output: uint32_t count)
+// SMC selectors (selector 5, subfunction in data8 field):
+//   9  = getTotalNumber   → total key count
+//   7  = getKeyFromIndex  → key string by index
+//   2  = readKeyInfo      → key metadata (type, size)
+//   5  = readKeyValue      → actual value data
 
 enum {
-    KSmcKeyReadKeyInfo  = 2,
-    KSmcKeyReadKeyValue = 5,
-    KSmcKeyWriteKey     = 6,
-    KSmcGetKeyFromIndex = 7,
-    KSmcGetTotalNum     = 9,
+    KSmcReadKeyInfo  = 2,
+    KSmcReadKeyValue = 5,
+    KSmcGetTotalNum  = 9,
 };
 
 typedef struct {
@@ -85,20 +92,30 @@ typedef struct {
 } SmcKeyData_t;
 
 typedef struct {
-    char key[5];
     char vers[8];
-    uint8_t flag;
+    char flags;
+    uint8_t num;
+    uint8_t cpuType;
+    uint16_t cpuSubType;
+    uint32_t cacheSize;
+    uint32_t cpuCacheSize;
+    uint32_t busSpeed;
+    uint32_t cpuSpeedMax;
+    uint32_t cpuSpeedMin;
+    uint32_t cpuSpeedCur;
+    uint32_t fab;
+} SmcVersion_t;
+
+typedef struct {
     uint32_t dataSize;
-} SmcKeyInfo_t;
+    char dataType[5];
+    uint8_t dataAttributes;
+} SmcKeyInfoVal_t;
 
 static io_connect_t g_smc_conn = 0;
-static std::mutex g_smc_mutex;
-// g_smc_init_attempted: removed (unused)
-static std::atomic<bool> g_smc_available{false};
-static std::atomic<bool> g_powermetrics_available{false};
-static std::atomic<bool> g_smc_probe_done{false};
+static std::mutex   g_smc_mutex;
 
-// IOKit helpers
+// Open/close AppleSMC service
 static kern_return_t open_smc_service(io_connect_t* conn) {
     mach_port_t masterPort;
 #if __MAC_OS_X_VERSION_MAX_ALLOWED >= 120000
@@ -106,198 +123,277 @@ static kern_return_t open_smc_service(io_connect_t* conn) {
 #else
     masterPort = kIOMasterPortDefault;
 #endif
-
-    io_service_t service = IOServiceGetMatchingService(
+    io_service_t svc = IOServiceGetMatchingService(
         masterPort, IOServiceMatching("AppleSMC"));
-    if (!service) return kIOReturnNotFound;
-
-    kern_return_t kr = IOServiceOpen(service, mach_task_self(), 0, conn);
-    IOObjectRelease(service);
+    if (!svc) return kIOReturnNotFound;
+    kern_return_t kr = IOServiceOpen(svc, mach_task_self(), 0, conn);
+    IOObjectRelease(svc);
     return kr;
 }
 
-static void close_smc_service(io_connect_t conn) {
-    if (conn) IOServiceClose(conn);
-}
-
-// Read SMC key info (selector 2)
+// Read SMC key info (selector 5, subfn 2)
 static kern_return_t smc_read_key_info(io_connect_t conn, uint32_t key,
-                                       SmcKeyInfo_t* info) {
-    SmcKeyData_t input, output;
-    std::memset(&input, 0, sizeof(input));
-    std::memset(&output, 0, sizeof(output));
+                                       SmcKeyInfoVal_t* info) {
+    SmcKeyData_t in = {0}, out = {0};
+    in.key   = key;
+    in.data8 = KSmcReadKeyInfo;
+    size_t sz = sizeof(out);
+    kern_return_t kr = IOConnectCallStructMethod(conn, 5, &in, sizeof(in), &out, &sz);
+    if (kr != kIOReturnSuccess) return kr;
+    std::memset(info, 0, sizeof(*info));
+    // dataSize is encoded in the lower 16 bits of keyInfo (varies by SMC version)
+    info->dataSize = static_cast<uint32_t>(out.keyInfo & 0xFFFF);
+    if (info->dataSize == 0) info->dataSize = static_cast<uint32_t>((out.keyInfo >> 16) & 0xFFFF);
+    if (info->dataSize == 0) info->dataSize = static_cast<uint32_t>(out.status & 0xFFFF);
+    return kIOReturnSuccess;
+}
 
-    input.key = key;
-    input.data8 = KSmcKeyReadKeyInfo;
-    size_t outSize = sizeof(output);
-
-    kern_return_t kr = IOConnectCallStructMethod(
-        conn, 5, &input, sizeof(input), &output, &outSize);
-
-    if (kr == kIOReturnSuccess) {
-        std::memset(info, 0, sizeof(*info));
-        // Extract dataSize from the output keyInfo field (lower 16 bits)
-        // The exact layout varies by Apple Silicon vs Intel
-        info->dataSize = (output.keyInfo >> 16) & 0xFFFF;
-        if (info->dataSize == 0) info->dataSize = (output.data32 >> 16) & 0xFFFF;
-        if (info->dataSize == 0) info->dataSize = output.status & 0xFFFF;
+// Read SMC key value (selector 5, subfn 5)
+static kern_return_t smc_read_key_value(io_connect_t conn, uint32_t key,
+                                         uint32_t dataSize,
+                                         char* outBuf, size_t maxLen) {
+    SmcKeyData_t in = {0}, out = {0};
+    in.key    = key;
+    in.data8  = KSmcReadKeyValue;
+    in.keyInfo = dataSize;
+    size_t sz = sizeof(out);
+    kern_return_t kr = IOConnectCallStructMethod(conn, 5, &in, sizeof(in), &out, &sz);
+    if (kr == kIOReturnSuccess && dataSize > 0 && dataSize <= 32) {
+        size_t n = std::min(static_cast<size_t>(dataSize), maxLen);
+        std::memcpy(outBuf, out.data, n);
     }
     return kr;
 }
 
-// Read SMC key value (selector 5)
-static kern_return_t smc_read_key(io_connect_t conn, uint32_t key,
-                                  SmcKeyInfo_t* info, char* value,
-                                  size_t maxLen) {
-    SmcKeyData_t input, output;
-    std::memset(&input, 0, sizeof(input));
-    std::memset(&output, 0, sizeof(output));
+// Decode temperature from raw SMC bytes
+// Common types: 'sp78' (signed 7.8 fixed-point), 'flt' (IEEE754 float),
+//              'fpe2' (IEEE11073 float), 'fp79'/'fp88' (half/float variants)
+static double smc_decode_temp(const char* bytes, size_t size, const char* type) {
+    if (size == 0 || !bytes) return 0.0;
 
-    input.key = key;
-    input.keyInfo = (info->dataSize & 0xFFFF);
-    input.data8 = KSmcKeyReadKeyValue;
-    size_t outSize = sizeof(output);
-
-    kern_return_t kr = IOConnectCallStructMethod(
-        conn, 5, &input, sizeof(input), &output, &outSize);
-
-    if (kr == kIOReturnSuccess && info->dataSize > 0 && info->dataSize <= 32) {
-        size_t n = info->dataSize < maxLen ? info->dataSize : maxLen;
-        std::memcpy(value, output.data, n);
-    }
-    return kr;
-}
-
-// Convert temperature from IEEE754_float_16 or SP78
-static double decode_temperature(const char* bytes, size_t size,
-                                 const char type[5]) {
-    if (size == 0) return 0.0;
-    if (type[0] == 'f' && type[1] == 'p') { // fpXX = IEEE754 float XX bits
-        if (size == 2) {
-            // fp79: 16-bit IEEE 754 half-precision
-            uint16_t bits = (uint8_t)bytes[0] | ((uint8_t)bytes[1] << 8);
-            // half-precision to float
-            int sign = (bits >> 15) & 1;
-            int exp = (bits >> 10) & 0x1F;
-            int mant = bits & 0x3FF;
-            if (exp == 0) return sign ? -0.0 : 0.0;
-            if (exp == 31) return sign ? -1e9 : 1e9;
-            float f = (1.0f + mant / 1024.0f) * powf(2.0f, exp - 15);
-            return sign ? -f : f;
+    // SP78: signed 7-bit integer + 8-bit fractional
+    if (type[0] == 's' && type[1] == 'p') {
+        if (size >= 2) {
+            int8_t  intPart  = static_cast<int8_t>(bytes[0]);
+            uint8_t fracPart = static_cast<uint8_t>(bytes[1]);
+            return intPart + fracPart / 256.0;
         }
-        if (size == 4) {
+    }
+    // IEEE754 float
+    if (type[0] == 'f' && type[1] == 'l' && type[2] == 't') {
+        if (size >= 4) {
             float f; std::memcpy(&f, bytes, 4); return f;
         }
     }
-    if (type[0] == 'S' && type[1] == 'P') { // SP78 = signed 7.8 fixed-point
-        int8_t intPart = bytes[0];
-        uint8_t fracPart = bytes[1];
-        return intPart + fracPart / 256.0;
+    // FPE2: unsigned 14.2 fixed-point
+    if (type[0] == 'f' && type[1] == 'p' && type[2] == 'e') {
+        if (size >= 2) {
+            uint16_t val = static_cast<uint8_t>(bytes[0]) | (static_cast<uint8_t>(bytes[1]) << 8);
+            return val / 4.0;
+        }
     }
-    if (type[0] == 'f' && type[1] == 'l' && type[2] == 't') { // flt = IEEE754 single
-        float f; std::memcpy(&f, bytes, 4); return f;
+    // fp79: 16-bit half-precision (signed)
+    if (type[0] == 'f' && type[1] == 'p' && type[2] == '7') {
+        if (size >= 2) {
+            uint16_t bits = static_cast<uint8_t>(bytes[0]) | (static_cast<uint8_t>(bytes[1]) << 8);
+            int sign = (bits >> 15) & 1;
+            int exp  = (bits >> 10) & 0x1F;
+            int mant = bits & 0x3FF;
+            if (exp == 0) return sign ? -0.0f : 0.0f;
+            if (exp == 31) return sign ? -1e9f : 1e9f;
+            float f = (1.0f + mant / 1024.0f) * std::powf(2.0f, static_cast<float>(exp - 15));
+            return sign ? -f : f;
+        }
     }
-    // Raw byte decode
-    if (size == 1) return (double)(int8_t)bytes[0];
-    if (size == 2) return (double)(int16_t)((uint8_t)bytes[0] | ((uint8_t)bytes[1] << 8));
-    return (double)(int8_t)bytes[0];
+    // Fallback: single signed byte
+    if (size >= 1) return static_cast<double>(static_cast<int8_t>(bytes[0]));
+    return 0.0;
 }
 
-static bool smc_read_temperature(const char* keyStr, double* tempOut) {
+// Probe SMC connection and test read
+static bool probe_smc(void) {
+    if (g_smc_conn != 0) return true;
+
+    kern_return_t kr = open_smc_service(&g_smc_conn);
+    if (kr != kIOReturnSuccess) {
+        Logger::Info("TemperatureWrapper: AppleSMC not accessible (kr=0x"
+                     + std::to_string(kr) + ")");
+        return false;
+    }
+
+    // Test with a known CPU temperature key
+    uint32_t key = 0;
+    std::memcpy(&key, "TC0P", 4);
+    // Apple Silicon byte order: already big-endian from memcpy
+    double testTemp = 0;
+    char val[32] = {0};
+    SmcKeyInfoVal_t info;
+    if (smc_read_key_info(g_smc_conn, key, &info) == kIOReturnSuccess && info.dataSize > 0) {
+        if (smc_read_key_value(g_smc_conn, key, info.dataSize, val, sizeof(val)) == kIOReturnSuccess) {
+            testTemp = smc_decode_temp(val, info.dataSize, "sp78");
+        }
+    }
+
+    if (testTemp > 10 && testTemp < 150) {
+        Logger::Info("TemperatureWrapper: AppleSMC open, TC0P="
+                     + std::to_string(testTemp) + "C");
+    } else {
+        // Apple Silicon: SMC temperature keys may need root.
+        // Keep connection open anyway; reads will return 0 gracefully.
+        Logger::Info("TemperatureWrapper: AppleSMC connected (keys need root on Apple Silicon)");
+    }
+    return true;
+}
+
+// Read a named SMC temperature key
+static bool smc_read_temp(const char* keyStr, const char* type, double* tempOut) {
     std::lock_guard<std::mutex> lock(g_smc_mutex);
     if (!g_smc_conn) return false;
 
     uint32_t key = 0;
     std::memcpy(&key, keyStr, 4);
 
-    SmcKeyInfo_t info;
-    char value[32] = {0};
+    SmcKeyInfoVal_t info;
+    if (smc_read_key_info(g_smc_conn, key, &info) != kIOReturnSuccess || info.dataSize == 0)
+        return false;
+    if (info.dataSize > 32) info.dataSize = 32;
 
-    kern_return_t kr = smc_read_key_info(g_smc_conn, key, &info);
-    if (kr != kIOReturnSuccess || info.dataSize == 0 || info.dataSize > 32)
+    char val[32] = {0};
+    if (smc_read_key_value(g_smc_conn, key, info.dataSize, val, sizeof(val)) != kIOReturnSuccess)
         return false;
 
-    char type[5] = {0};
-    kr = smc_read_key(g_smc_conn, key, &info, value, sizeof(value));
-    if (kr != kIOReturnSuccess) return false;
-
-    // Determine type from the key name patterns
-    const char* typeHint = "";
-    if (keyStr[0] == 'T' && keyStr[1] == 'C') typeHint = "sp78";
-    else if (keyStr[0] == 'T' && keyStr[1] == 'G') typeHint = "sp78";
-    else if (keyStr[0] == 'T' && keyStr[1] == 's') typeHint = "sp78";
-    else if (keyStr[0] == 'R' && keyStr[1] == 'p') typeHint = "sp78";
-
-    *tempOut = decode_temperature(value, info.dataSize, typeHint);
-    return (*tempOut > 0 && *tempOut < 150); // sanity check
+    *tempOut = smc_decode_temp(val, info.dataSize, type ? type : "sp78");
+    return (*tempOut > 0 && *tempOut < 150);
 }
 
-static bool probe_smc_connection(void) {
-    if (g_smc_probe_done.load()) return g_smc_available.load();
+// =====================================================================
+// Background powermetrics caching thread
+// powermetrics --samplers thermal -i N -n 1 outputs CPU/GPU die temps.
+// Runs as a daemon; GetTemperatures() reads the cache. Falls back to
+// empty when cache is stale or powermetrics is unavailable (no root).
+// =====================================================================
+static std::vector<std::pair<std::string, double>> g_pm_temps;
+static std::mutex  g_pm_mutex;
+static std::atomic<bool> g_pm_running{false};
+static std::atomic<bool> g_pm_available{false};
+static std::thread g_pm_thread;
 
-    kern_return_t kr = open_smc_service(&g_smc_conn);
-    if (kr == kIOReturnSuccess) {
-        // Test read with a known key
-        double testTemp = 0;
-        if (smc_read_temperature("TC0P", &testTemp) ||
-            smc_read_temperature("Tp01", &testTemp) ||
-            smc_read_temperature("TC0D", &testTemp)) {
-            g_smc_available = true;
-            Logger::Info("TemperatureWrapper: SMC connection established");
-        } else {
-            // SMC accessible but no temperature keys found
-            // This is normal on some Apple Silicon configurations
-            g_smc_available = true;
-            Logger::Info("TemperatureWrapper: AppleSMC accessible, using fallback");
-        }
-    } else {
-        g_smc_available = false;
-        Logger::Info("TemperatureWrapper: AppleSMC not accessible (not root)");
-    }
+// Parse "XX.YY C" or "XX.YY°C" from a line
+static double parse_temp_line(const char* line) {
+    if (!line) return 0;
+    // Look for patterns: " <number> C" or " <number> °C"
+    // UTF-8 degree sign: 0xC2 0xB0
+    const char* p = line;
+    while (*p) {
+        // Skip whitespace
+        while (*p == ' ' || *p == '\t') ++p;
+        if (!*p) break;
 
-    g_smc_probe_done = true;
-    return g_smc_available.load();
-}
-
-static void run_powermetrics_bg(void) {
-    FILE* fp = popen("/usr/bin/powermetrics --samplers thermal -i 20000 -n 1",
-                     "r");
-    if (!fp) return;
-
-    char buf[4096];
-    while (fgets(buf, sizeof(buf), fp)) {
-        // Parse "CPU Die Temperature: XX.XX C" or similar lines
-        if (strstr(buf, "emperature") && strstr(buf, "C")) {
-            char* colon = strchr(buf, ':');
-            if (colon) {
-                double temp = atof(colon + 1);
-                if (temp > 0 && temp < 150) {
-                    // This would go into a shared cache - for now just log it
-                    // In full impl, would use a thread-safe cache
-                }
+        // Check if next non-space char is digit or minus
+        if ((*p == '-' || (*p >= '0' && *p <= '9'))) {
+            const char* numStart = p;
+            // Skip to end of number
+            while (*p == '-' || *p == '.' || (*p >= '0' && *p <= '9')) ++p;
+            // Skip whitespace
+            while (*p == ' ' || *p == '\t') ++p;
+            // Check for "C"
+            if (*p == 'C' && p > numStart) {
+                std::string s(numStart, static_cast<size_t>(p - numStart));
+                double v = std::atof(s.c_str());
+                if (v > 0 && v < 200) return v;
+            }
+            // Check for "°C" (UTF-8: 0xC2 0xB0)
+            if (p[0] == '\xC2' && p[1] == '\xB0' && p[2] == 'C' && p > numStart) {
+                std::string s(numStart, static_cast<size_t>(p - numStart));
+                double v = std::atof(s.c_str());
+                if (v > 0 && v < 200) return v;
             }
         }
+        ++p;
     }
-    pclose(fp);
+    return 0;
+}
+
+static void powermetrics_thread_func(void) {
+    Logger::Debug("TemperatureWrapper: powermetrics thread started");
+
+    // Warm up: wait 5s before first run so system settles
+    std::this_thread::sleep_for(std::chrono::seconds(5));
+
+    while (g_pm_running.load()) {
+        // Run powermetrics for 10s sampling interval, output 1 sample
+        FILE* fp = popen("/usr/bin/powermetrics --samplers thermal -i 10000 -n 1 2>/dev/null", "r");
+        if (!fp) {
+            std::this_thread::sleep_for(std::chrono::seconds(30));
+            continue;
+        }
+
+        std::vector<std::pair<std::string, double>> batch;
+        char line[512] = {0};
+        bool in_thermal = false;
+
+        while (fgets(line, sizeof(line), fp)) {
+            if (std::strstr(line, "Thermal pressure")) {
+                in_thermal = true;
+            }
+            if (std::strstr(line, "CPU Die Temperature") ||
+                std::strstr(line, "GPU Die Temperature") ||
+                std::strstr(line, "CPU Die") ||
+                std::strstr(line, "GPU Die")) {
+                double t = parse_temp_line(line);
+                if (t > 10 && t < 150) {
+                    std::string label = (std::strstr(line, "GPU")) ? "GPU Die" : "CPU Die";
+                    batch.push_back({label, t});
+                }
+            }
+            if (std::strlen(line) > 2 && std::strstr(line, "PLimitData") != nullptr) {
+                in_thermal = false;
+            }
+        }
+        pclose(fp);
+
+        if (!batch.empty()) {
+            std::lock_guard<std::mutex> lock(g_pm_mutex);
+            g_pm_temps.swap(batch);
+            g_pm_available = true;
+            Logger::Debug("TemperatureWrapper: powermetrics cached "
+                         + std::to_string(g_pm_temps.size()) + " sensors");
+        }
+
+        if (g_pm_running.load()) {
+            std::this_thread::sleep_for(std::chrono::seconds(30));
+        }
+    }
+    Logger::Debug("TemperatureWrapper: powermetrics thread stopped");
+}
+
+static void start_powermetrics_thread(void) {
+    if (g_pm_running.load()) return;
+    // Check if powermetrics is available
+    static bool checked = false;
+    static bool available = false;
+    if (!checked) {
+        FILE* fp = popen("/usr/bin/which powermetrics 2>/dev/null", "r");
+        char buf[128] = {0};
+        if (fp && fgets(buf, sizeof(buf), fp)) {
+            if (std::strstr(buf, "powermetrics")) available = true;
+        }
+        if (fp) pclose(fp);
+        checked = true;
+    }
+    if (!available) {
+        Logger::Info("TemperatureWrapper: powermetrics not available (needs root)");
+        return;
+    }
+
+    g_pm_running = true;
+    g_pm_thread  = std::thread(powermetrics_thread_func);
 }
 
 // =====================================================================
-// Fallback: system_profiler (no root needed, slow but works)
+// IOKit thermal sensors fallback (no root needed, but limited coverage)
 // =====================================================================
-static std::vector<std::pair<std::string, double>> get_temps_via_system_profiler(void) {
-    std::vector<std::pair<std::string, double>> temps;
-    FILE* fp = popen("/usr/sbin/system_profiler SPApplicationsDataType 2>/dev/null | head -5", "r");
-    if (fp) pclose(fp); // just test it works
-
-    // system_profiler does NOT expose temperature directly without sudo
-    // Just return empty - the proper path is via powermetrics (needs root)
-    return temps;
-}
-
-// =====================================================================
-// Fallback: Apple Silicon die temperature via IOKit thermal sensors
-// =====================================================================
-static std::vector<std::pair<std::string, double>> get_temps_via_iokit_thermal(void) {
+static std::vector<std::pair<std::string, double>> iokit_hid_temps(void) {
     std::vector<std::pair<std::string, double>> temps;
     mach_port_t masterPort;
 #if __MAC_OS_X_VERSION_MAX_ALLOWED >= 120000
@@ -306,28 +402,25 @@ static std::vector<std::pair<std::string, double>> get_temps_via_iokit_thermal(v
     masterPort = kIOMasterPortDefault;
 #endif
 
-    io_iterator_t iter;
-    kern_return_t kr = IOServiceGetMatchingServices(
-        masterPort, IOServiceMatching("IOHIDEventService"), &iter);
-    if (kr != KERN_SUCCESS) return temps;
+    io_iterator_t iter = 0;
+    if (IOServiceGetMatchingServices(masterPort,
+                                     IOServiceMatching("IOHIDEventService"),
+                                     &iter) != KERN_SUCCESS)
+        return temps;
 
     io_registry_entry_t entry;
     while ((entry = IOIteratorNext(iter)) != 0) {
-        CFTypeRef tempRef = IORegistryEntryCreateCFProperty(
-            entry,
-            CFSTR("Temperature"),
-            kCFAllocatorDefault, 0);
-        if (tempRef) {
-            if (CFGetTypeID(tempRef) == CFNumberGetTypeID()) {
-                double tempC = 0;
-                if (CFNumberGetValue((CFNumberRef)tempRef,
-                                     kCFNumberDoubleType, &tempC)) {
-                    if (tempC > 0 && tempC < 150) {
-                        temps.push_back({"HID Temperature", tempC});
-                    }
+        CFTypeRef ref = IORegistryEntryCreateCFProperty(
+            entry, CFSTR("Temperature"), kCFAllocatorDefault, 0);
+        if (ref) {
+            if (CFGetTypeID(ref) == CFNumberGetTypeID()) {
+                double tC = 0;
+                if (CFNumberGetValue((CFNumberRef)ref, kCFNumberDoubleType, &tC)
+                    && tC > 10 && tC < 150) {
+                    temps.push_back({"HID Temperature", tC});
                 }
             }
-            CFRelease(tempRef);
+            CFRelease(ref);
         }
         IOObjectRelease(entry);
     }
@@ -336,63 +429,65 @@ static std::vector<std::pair<std::string, double>> get_temps_via_iokit_thermal(v
 }
 
 // =====================================================================
-// Temperature keys to probe (common across Apple Silicon generations)
+// Temperature keys to probe on Apple Silicon (no root for most keys)
 // =====================================================================
-static const char* kSmtcCpuKeys[] = {
-    "TC0P", "TC0D", "TC0H", "TC0C", // CPU proximity / die / heatsink / core
-    "TC1P", "TC2P", "TC3P",          // Per-core CPU temperatures
-    "TC4P", "TC5P", "TC6P", "TC7P",
-    "TCFC",                          // CPU fan case
-    "TCGC",                          // CPU GPU combined
-    "TCSA",                          // CPU socket A
-    "TCXC",                          // CPU proximity
-    "TCXS",                          // CPU expansion
-    "Ts0P", "Ts1P",                  // Palm rest sensors
-    "Rp0T", "Rp1T", "Rp2T",          // RAM / rail temperatures
+static const char* kCpuKeys[] = {
+    // CPU proximity / package
+    "TC0P", "TC0D", "TC0H", "TC0C",
+    "TC1P", "TC2P", "TC3P", "TC4P",
+    "TC5P", "TC6P", "TC7P", "TC8P",
+    "TCFC", "TCGC", "TCSA", "TCXC",
+    "TCXS", "TC0S", "TC1S",
+    // Palm rest / ambient
+    "Ts0P", "Ts1P", "Ts2P",
+    // RAM / rail
+    "Rp0T", "Rp1T", "Rp2T",
+    // CPU efficiency / performance
+    "TCED", "TC0E", "TC1E",
     NULL
 };
 
-static const char* kSmtcGpuKeys[] = {
-    "TG0P", "TG0D", "TG1P", "TGDD", // GPU proximity / die
-    "TGSD", "TG1D",
+static const char* kGpuKeys[] = {
+    "TG0P", "TG0D", "TG0H",
+    "TG1P", "TG1D",
+    "TGDD", "TGSD",
     "GgTp", "GgTs",
     NULL
 };
 
+// =====================================================================
+// Public interface
+// =====================================================================
 bool TemperatureWrapper::initialized = false;
 
 void TemperatureWrapper::Initialize() {
     if (initialized) return;
-
-    // Try SMC connection
-    probe_smc_connection();
-
-    // Check if powermetrics is available (needs root, will fail silently)
-    FILE* fp = popen("/usr/bin/which powermetrics", "r");
-    if (fp) {
-        char buf[128];
-        if (fgets(buf, sizeof(buf), fp) && strstr(buf, "powermetrics")) {
-            g_powermetrics_available = true;
-        }
-        pclose(fp);
-    }
-
     initialized = true;
-    Logger::Info("TemperatureWrapper: initialized (SMC="
-                 + std::string(g_smc_available ? "yes" : "no")
-                 + ", powermetrics="
-                 + std::string(g_powermetrics_available ? "yes" : "no")
-                 + ")");
+
+    // Step 1: Try direct SMC (works without root on Intel; may need root on AS)
+    probe_smc();
+
+    // Step 2: Start powermetrics background thread (needs root)
+    start_powermetrics_thread();
+
+    Logger::Info("TemperatureWrapper: initialized");
 }
 
 void TemperatureWrapper::Cleanup() {
+    if (!initialized) return;
+
+    // Stop powermetrics thread
+    if (g_pm_running.load()) {
+        g_pm_running = false;
+        if (g_pm_thread.joinable()) g_pm_thread.join();
+    }
+
+    // Close SMC
     if (g_smc_conn) {
-        close_smc_service(g_smc_conn);
+        IOServiceClose(g_smc_conn);
         g_smc_conn = 0;
     }
-    g_smc_probe_done = false;
-    g_smc_available = false;
-    g_powermetrics_available = false;
+
     initialized = false;
 }
 
@@ -402,34 +497,31 @@ std::vector<std::pair<std::string, double>> TemperatureWrapper::GetTemperatures(
     if (!initialized) return temps;
 
     // Priority 1: Direct SMC reads
-    if (g_smc_available) {
-        for (int i = 0; kSmtcCpuKeys[i]; i++) {
-            double t = 0;
-            if (smc_read_temperature(kSmtcCpuKeys[i], &t)) {
-                std::string name = std::string(kSmtcCpuKeys[i]) + " (CPU)";
-                temps.push_back({name, t});
-            }
+    for (int i = 0; kCpuKeys[i]; i++) {
+        double t = 0;
+        if (smc_read_temp(kCpuKeys[i], "sp78", &t)) {
+            temps.push_back({std::string(kCpuKeys[i]) + " (CPU)", t});
         }
-        for (int i = 0; kSmtcGpuKeys[i]; i++) {
-            double t = 0;
-            if (smc_read_temperature(kSmtcGpuKeys[i], &t)) {
-                std::string name = std::string(kSmtcGpuKeys[i]) + " (GPU)";
-                temps.push_back({name, t});
-            }
+    }
+    for (int i = 0; kGpuKeys[i]; i++) {
+        double t = 0;
+        if (smc_read_temp(kGpuKeys[i], "sp78", &t)) {
+            temps.push_back({std::string(kGpuKeys[i]) + " (GPU)", t});
         }
     }
 
-    // Priority 2: IOKit thermal sensors (HID temperature - lower priority)
+    // Priority 2: powermetrics cache
     if (temps.empty()) {
-        auto iokitTemps = get_temps_via_iokit_thermal();
-        temps.insert(temps.end(), iokitTemps.begin(), iokitTemps.end());
+        std::lock_guard<std::mutex> lock(g_pm_mutex);
+        if (!g_pm_temps.empty()) {
+            temps = g_pm_temps;
+        }
     }
 
-    // Priority 3: If still empty and we have powermetrics, run it in bg
-    // (this is async, so for now just leave empty - proper impl uses cache thread)
-    if (temps.empty() && g_powermetrics_available) {
-        // Could spawn background thread for powermetrics caching here
-        // For now, return empty with a note
+    // Priority 3: IOKit HID (last resort, very few sensors)
+    if (temps.empty()) {
+        auto hid = iokit_hid_temps();
+        temps.insert(temps.end(), hid.begin(), hid.end());
     }
 
     return temps;

@@ -279,6 +279,20 @@ int main(int argc, char* argv[]) {
             try {
                 auto temps = TemperatureWrapper::GetTemperatures();
                 sysInfo.temperatures = temps;
+
+                // Extract CPU / GPU temperatures from the named vector
+                for (const auto& [name, temp] : temps) {
+                    // CPU sensors: TC0x / TG0x / Ts0x / Rp0T / etc.
+                    // GPU sensors: TGxP / TGxD / TGDD / etc.
+                    bool isGpu = (name.find("TG") != std::string::npos ||
+                                  name.find("GPU") != std::string::npos ||
+                                  name.find("Gg") != std::string::npos);
+                    if (isGpu && sysInfo.gpuTemperature == 0)
+                        sysInfo.gpuTemperature = temp;
+                    else if (!isGpu && sysInfo.cpuTemperature == 0)
+                        sysInfo.cpuTemperature = temp;
+                }
+
                 if (isFirstRun)
                     Logger::Debug("Temperatures: " + std::to_string(temps.size()) + " sensors");
             } catch (const std::exception& e) {

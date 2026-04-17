@@ -242,7 +242,7 @@ static bool GetIOKitDiskInfo(const std::string& bsdName,
             CFTypeRef capRef = IORegistryEntryCreateCFProperty(parent, CFSTR("Size"), kCFAllocatorDefault, 0);
             if (capRef) {
                 if (CFNumberGetValue((CFNumberRef)capRef, kCFNumberSInt64Type, &capacity))
-                    capacity = capacity;
+                    capacity = 0;
                 CFRelease(capRef);
             } else {
                 capacity = 0;
@@ -293,13 +293,19 @@ void DiskInfo::QueryDrives() {
         std::string fstype(fs.f_fstypename);
         std::string devname(fs.f_mntfromname);
 
-        // Skip non-physical volumes
+        // Skip non-physical volumes and macOS system snapshots
         if (fstype == "autofs" || fstype == "devfs" || fstype == "fdesc"
             || fstype == "procfs" || fstype == "devpts" || fstype == "overlay"
-            || mountpoint == "/" || mountpoint == "/System/Volumes/Data"
+            || fstype == "nullfs" || fstype == "simfs"
+            || mountpoint == "/System/Volumes/VM"
             || mountpoint == "/System/Volumes/Preboot"
-            || mountpoint == "/System/Volumes/VM") {
-            // Include root "/"
+            || mountpoint == "/System/Volumes/Update"
+            || mountpoint == "/System/Volumes/xarts"
+            || mountpoint == "/System/Volumes/iSCPreboot"
+            || mountpoint == "/System/Volumes/Hardware"
+            || mountpoint.find("/System/Volumes/Update/") == 0
+            || mountpoint.find("/private/var/folders/") == 0) {
+            continue;
         }
 
         // Get BSD name (e.g. disk0s1)
