@@ -1,11 +1,12 @@
-﻿#include "GpuInfo.h"
-#include "Logger.h"
+#include "GpuInfo.h"
+#include "../Utils/Logger.h"
+
+#ifdef TCMT_WINDOWS
+// ======================== Windows Implementation ========================
 #include "WmiManager.h"
 #include <comutil.h>
-#include <C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v12.8\include\nvml.h>
-#include <algorithm>  // Add this header for std::transform
-#include <cctype>     // Add this header for character functions
-#include <cwctype>    // Add this header for wide character functions like towlower
+#include <algorithm>
+#include <cwctype>
 
 GpuInfo::GpuInfo(WmiManager& manager) : wmiManager(manager) {
     if (!wmiManager.IsInitialized()) {
@@ -21,141 +22,79 @@ GpuInfo::~GpuInfo() {
 }
 
 bool GpuInfo::IsVirtualGpu(const std::wstring& name) {
-    // 扩展虚拟显卡检测列表
     const std::vector<std::wstring> virtualGpuNames = {
-        L"Microsoft Basic Display Adapter",
-        L"Microsoft Hyper-V Video",
-        L"VMware SVGA 3D",
-        L"VirtualBox Graphics Adapter",
-        L"Todesk Virtual Display Adapter",
-        L"Parsec Virtual Display Adapter",
-        L"TeamViewer Display",
-        L"AnyDesk Display",
-        L"Remote Desktop Display",
-        L"RDP Display",
-        L"VNC Display",
-        L"Citrix Display",
-        L"Standard VGA Graphics Adapter",
-        L"Generic PnP Monitor",
-        L"Virtual Desktop Infrastructure",
-        L"VDI Display",
-        L"Cloud Display",
-        L"Remote Graphics",
-        L"AskLinkIddDriver Device"
+        L"Microsoft Basic Display Adapter", L"Microsoft Hyper-V Video",
+        L"VMware SVGA 3D", L"VirtualBox Graphics Adapter",
+        L"Todesk Virtual Display Adapter", L"Parsec Virtual Display Adapter",
+        L"Standard VGA Graphics Adapter", L"Generic PnP Monitor",
+        L"Remote Desktop Display", L"RDP Display"
     };
-
     std::wstring lowerName = name;
-    std::transform(lowerName.begin(), lowerName.end(), lowerName.begin(), 
+    std::transform(lowerName.begin(), lowerName.end(), lowerName.begin(),
         [](wchar_t c) { return ::towlower(c); });
-
-    for (const auto& virtualName : virtualGpuNames) {
-        std::wstring lowerVirtualName = virtualName;
-        std::transform(lowerVirtualName.begin(), lowerVirtualName.end(), lowerVirtualName.begin(), 
-            [](wchar_t c) { return ::towlower(c); });
-        
-        if (lowerName.find(lowerVirtualName) != std::wstring::npos) {
-            return true;
-        }
+    for (const auto& vg : virtualGpuNames) {
+        std::wstring lv = vg;
+        std::transform(lv.begin(), lv.end(), lv.begin(), [](wchar_t c) { return ::towlower(c); });
+        if (lowerName.find(lv) != std::wstring::npos) return true;
     }
-
-    // 检查关键词
-    const std::vector<std::wstring> virtualKeywords = {
+    const std::vector<std::wstring> keywords = {
         L"virtual", L"remote", L"basic", L"generic", L"standard vga",
-        L"rdp", L"vnc", L"citrix", L"vmware", L"virtualbox", L"hyper-v"
+        L"rdp", L"vnc", L"vmware", L"virtualbox", L"hyper-v"
     };
-
-    for (const auto& keyword : virtualKeywords) {
-        if (lowerName.find(keyword) != std::wstring::npos) {
-            return true;
-        }
-    }
-
+    for (const auto& kw : keywords)
+        if (lowerName.find(kw) != std::wstring::npos) return true;
     return false;
 }
 
 void GpuInfo::DetectGpusViaWmi() {
     IEnumWbemClassObject* pEnumerator = nullptr;
-    HRESULT hres = pSvc->ExecQuery(
-        bstr_t("WQL"),
-        bstr_t("SELECT * FROM Win32_VideoController"),
-        WBEM_FLAG_FORWARD_ONLY | WBEM_FLAG_RETURN_IMMEDIATELY,
-        nullptr,
-        &pEnumerator
-    );
-
-    if (FAILED(hres)) {
-        Logger::Error("WMI查询失败");
-        return;
-    }
+    HRESULT hres = pSvc->ExecQuery(bstr_t("WQL"), bstr_t("SELECT * FROM Win32_VideoController"),
+        WBEM_FLAG_FORWARD_ONLY | WBEM_FLAG_RETURN_IMMEDIATELY, nullptr, &pEnumerator);
+    if (FAILED(hres)) { Logger::Error("WMI查询失败"); return; }
 
     ULONG uReturn = 0;
     IWbemClassObject* pclsObj = nullptr;
     while (pEnumerator->Next(WBEM_INFINITE, 1, &pclsObj, &uReturn) == S_OK) {
         GpuData data;
         VARIANT vtName, vtPnpId, vtAdapterRAM, vtCurrentClockSpeed;
-        VariantInit(&vtName);
-        VariantInit(&vtPnpId);
-        VariantInit(&vtAdapterRAM);
-        VariantInit(&vtCurrentClockSpeed);
+        VariantInit(&vtName); VariantInit(&vtPnpId);
+        VariantInit(&vtAdapterRAM); VariantInit(&vtCurrentClockSpeed);
 
-        if (SUCCEEDED(pclsObj->Get(L"Name", 0, &vtName, 0, 0)) && vtName.vt == VT_BSTR) {
+        if (SUCCEEDED(pclsObj->Get(L"Name", 0, &vtName, 0, 0)) && vtName.vt == VT_BSTR)
             data.name = vtName.bstrVal;
-        }
-
-        if (SUCCEEDED(pclsObj->Get(L"PNPDeviceID", 0, &vtPnpId, 0, 0)) && vtPnpId.vt == VT_BSTR) {
+        if (SUCCEEDED(pclsObj->Get(L"PNPDeviceID", 0, &vtPnpId, 0, 0)) && vtPnpId.vt == VT_BSTR)
             data.deviceId = vtPnpId.bstrVal;
-        }
-
-        if (SUCCEEDED(pclsObj->Get(L"AdapterRAM", 0, &vtAdapterRAM, 0, 0)) && vtAdapterRAM.vt == VT_UI4) {
+        if (SUCCEEDED(pclsObj->Get(L"AdapterRAM", 0, &vtAdapterRAM, 0, 0)) && vtAdapterRAM.vt == VT_UI4)
             data.dedicatedMemory = static_cast<uint64_t>(vtAdapterRAM.uintVal);
-        }
-
-        if (SUCCEEDED(pclsObj->Get(L"CurrentClockSpeed", 0, &vtCurrentClockSpeed, 0, 0)) && vtCurrentClockSpeed.vt == VT_UI4) {
+        if (SUCCEEDED(pclsObj->Get(L"CurrentClockSpeed", 0, &vtCurrentClockSpeed, 0, 0)) && vtCurrentClockSpeed.vt == VT_UI4)
             data.coreClock = static_cast<double>(vtCurrentClockSpeed.uintVal) / 1e6;
-        }
 
-        // 改进的虚拟显卡检测
         data.isVirtual = IsVirtualGpu(data.name);
-        
-        // 记录所有GPU，包括虚拟GPU，但标记它们
-        data.isNvidia = (data.name.find(L"NVIDIA") != std::wstring::npos);
-        data.isIntegrated = (data.deviceId.find(L"VEN_8086") != std::wstring::npos);
-        
+        std::wstring nameStr(data.name.begin(), data.name.end());
+        data.isNvidia = nameStr.find(L"NVIDIA") != std::wstring::npos;
+        data.isIntegrated = data.deviceId.find(L"VEN_8086") != std::wstring::npos;
         gpuList.push_back(data);
-        
-        // 不在这里记录GPU信息，避免重复日志
-        // GPU信息将在主程序中统一记录
 
-        VariantClear(&vtName);
-        VariantClear(&vtPnpId);
-        VariantClear(&vtAdapterRAM);
-        VariantClear(&vtCurrentClockSpeed);
+        VariantClear(&vtName); VariantClear(&vtPnpId);
+        VariantClear(&vtAdapterRAM); VariantClear(&vtCurrentClockSpeed);
         pclsObj->Release();
     }
-
     pEnumerator->Release();
 
-    // 为NVIDIA GPU查询详细信息
     for (size_t i = 0; i < gpuList.size(); ++i) {
-        if (gpuList[i].isNvidia && !gpuList[i].isVirtual) {
+        if (gpuList[i].isNvidia && !gpuList[i].isVirtual)
             QueryNvidiaGpuInfo(static_cast<int>(i));
-        }
     }
 }
 
 void GpuInfo::QueryIntelGpuInfo(int index) {
     IDXGIFactory* pFactory = nullptr;
-    if (FAILED(CreateDXGIFactory(__uuidof(IDXGIFactory), (void**)&pFactory))) {
-        Logger::Error("无法创建DXGI工厂");
-        return;
-    }
-
+    if (FAILED(CreateDXGIFactory(__uuidof(IDXGIFactory), (void**)&pFactory))) return;
     IDXGIAdapter* pAdapter = nullptr;
     if (SUCCEEDED(pFactory->EnumAdapters(0, &pAdapter))) {
         DXGI_ADAPTER_DESC desc;
-        if (SUCCEEDED(pAdapter->GetDesc(&desc))) {
+        if (SUCCEEDED(pAdapter->GetDesc(&desc)))
             gpuList[index].dedicatedMemory = desc.DedicatedVideoMemory;
-        }
         pAdapter->Release();
     }
     pFactory->Release();
@@ -167,47 +106,207 @@ void GpuInfo::QueryNvidiaGpuInfo(int index) {
         Logger::Error("NVML初始化失败: " + std::string(nvmlErrorString(initResult)));
         return;
     }
-
     nvmlDevice_t device;
     nvmlReturn_t result = nvmlDeviceGetHandleByIndex(0, &device);
-    if (NVML_SUCCESS != result) {
-        Logger::Error("获取设备句柄失败: " + std::string(nvmlErrorString(result)));
-        nvmlShutdown();
-        return;
-    }
+    if (NVML_SUCCESS != result) { nvmlShutdown(); return; }
 
-    // 获取显存信息
     nvmlMemory_t memory;
     result = nvmlDeviceGetMemoryInfo(device, &memory);
-    if (NVML_SUCCESS == result) {
-        gpuList[index].dedicatedMemory = memory.total;
-    }
+    if (NVML_SUCCESS == result) gpuList[index].dedicatedMemory = memory.total;
 
-    // 获取核心频率，保持 MHz 单位
     unsigned int clockMHz = 0;
     result = nvmlDeviceGetClockInfo(device, NVML_CLOCK_GRAPHICS, &clockMHz);
-    if (NVML_SUCCESS == result) {
-        gpuList[index].coreClock = static_cast<double>(clockMHz);
-    }
+    if (NVML_SUCCESS == result) gpuList[index].coreClock = static_cast<double>(clockMHz);
 
-    // 获取温度
     unsigned int temp = 0;
-    nvmlReturn_t tempResult = nvmlDeviceGetTemperature(device, NVML_TEMPERATURE_GPU, &temp);
-    if (NVML_SUCCESS == tempResult) {
-        gpuList[index].temperature = temp;
-    }
+    result = nvmlDeviceGetTemperature(device, NVML_TEMPERATURE_GPU, &temp);
+    if (NVML_SUCCESS == result) gpuList[index].temperature = temp;
 
-    // 获取计算能力
-    int major, minor;
+    int major = 0, minor = 0;
     result = nvmlDeviceGetCudaComputeCapability(device, &major, &minor);
     if (NVML_SUCCESS == result) {
         gpuList[index].computeCapabilityMajor = major;
         gpuList[index].computeCapabilityMinor = minor;
     }
-
     nvmlShutdown();
 }
 
-const std::vector<GpuInfo::GpuData>& GpuInfo::GetGpuData() const {
-    return gpuList;
+const std::vector<GpuInfo::GpuData>& GpuInfo::GetGpuData() const { return gpuList; }
+
+#elif defined(TCMT_MACOS)
+// ======================== macOS Implementation ========================
+#include <sys/sysctl.h>
+#include <IOKit/IOKitLib.h>
+#include <CoreFoundation/CoreFoundation.h>
+#include <algorithm>
+#include <locale>
+#include <cstring>
+
+// Get IOKit property as string
+static std::string IORegistryString(io_registry_entry_t entry, const char* key) {
+    CFTypeRef ref = IORegistryEntryCreateCFProperty(
+        entry, CFStringCreateWithCString(kCFAllocatorDefault, key, kCFStringEncodingUTF8),
+        kCFAllocatorDefault, 0);
+    if (!ref) return "";
+    std::string result;
+    if (CFGetTypeID(ref) == CFStringGetTypeID()) {
+        char buf[256] = {0};
+        if (CFStringGetCString((CFStringRef)ref, buf, sizeof(buf), kCFStringEncodingUTF8))
+            result = buf;
+    }
+    CFRelease(ref);
+    return result;
 }
+
+// Get IOKit property as uint64
+static uint64_t IORegistryUInt64(io_registry_entry_t entry, const char* key) {
+    CFTypeRef ref = IORegistryEntryCreateCFProperty(
+        entry, CFStringCreateWithCString(kCFAllocatorDefault, key, kCFStringEncodingUTF8),
+        kCFAllocatorDefault, 0);
+    if (!ref) return 0;
+    uint64_t result = 0;
+    if (CFGetTypeID(ref) == CFNumberGetTypeID()) {
+        CFNumberGetValue((CFNumberRef)ref, kCFNumberSInt64Type, &result);
+    }
+    CFRelease(ref);
+    return result;
+}
+
+GpuInfo::GpuInfo() {
+    DetectGpusViaMetal();
+}
+
+GpuInfo::~GpuInfo() {
+    Logger::Info("GPU信息检测结束");
+}
+
+bool GpuInfo::IsVirtualGpu(const std::wstring& name) {
+    std::wstring lower = name;
+    std::transform(lower.begin(), lower.end(), lower.begin(), ::towlower);
+    const std::wstring virtualKeywords[] = {L"virtual", L"software", L"display"};
+    for (const auto& kw : virtualKeywords)
+        if (lower.find(kw) != std::wstring::npos) return true;
+    return false;
+}
+
+void GpuInfo::DetectGpusViaMetal() {
+    gpuList.clear();
+
+    // Get machine model for GPU identification
+    char machine[128] = {0};
+    size_t len = sizeof(machine);
+    sysctlbyname("hw.machine", machine, &len, nullptr, 0);
+
+    // Get total physical memory (for unified memory estimate on Apple Silicon)
+    uint64_t totalMem = 0;
+    len = sizeof(totalMem);
+    sysctlbyname("hw.memsize", &totalMem, &len, nullptr, 0);
+
+    // Determine if Apple Silicon
+    bool isAppleSilicon = (strncmp(machine, "arm", 3) == 0 ||
+                           strncmp(machine, "Mac", 3) == 0);
+
+    // Use IOKit IOAccelerator to enumerate GPUs
+    mach_port_t masterPort;
+#if __MAC_OS_X_VERSION_MAX_ALLOWED >= 120000
+    masterPort = kIOMainPortDefault;
+#else
+    masterPort = kIOMasterPortDefault;
+#endif
+
+    io_iterator_t iter = 0;
+    kern_return_t kr = IOServiceGetMatchingServices(
+        masterPort,
+        IOServiceMatching("IOAccelerator"),
+        &iter);
+
+    if (kr != KERN_SUCCESS) {
+        // Fallback: try IOGraphics
+        kr = IOServiceGetMatchingServices(
+            masterPort,
+            IOServiceMatching("IOGraphics"),
+            &iter);
+    }
+
+    if (kr == KERN_SUCCESS) {
+        io_registry_entry_t entry;
+        while ((entry = IOIteratorNext(iter)) != 0) {
+            std::string accelName = IORegistryString(entry, "IOClass");
+            std::string model = IORegistryString(entry, "model");
+            if (model.empty()) model = IORegistryString(entry, "IOName");
+
+            uint64_t vram = IORegistryUInt64(entry, "VRAM,mb");
+            if (vram == 0) vram = IORegistryUInt64(entry, "VRAM");
+
+            GpuData data{};
+            data.isIntegrated = true;
+            data.isNvidia = (model.find("NVIDIA") != std::string::npos);
+            data.isVirtual = false;
+            data.coreClock = 0.0;
+            data.temperature = 0;
+
+            if (!model.empty()) {
+                data.name = std::wstring(model.begin(), model.end());
+            } else if (!accelName.empty()) {
+                data.name = std::wstring(accelName.begin(), accelName.end());
+            } else {
+                data.name = L"Apple GPU";
+            }
+
+            if (vram > 0) {
+                data.dedicatedMemory = vram * 1024 * 1024;
+            } else if (isAppleSilicon && totalMem > 0) {
+                // Apple Silicon uses unified memory: GPU uses a portion of system RAM
+                data.dedicatedMemory = totalMem / 4; // rough estimate
+            } else {
+                data.dedicatedMemory = 0;
+            }
+
+            data.isVirtual = IsVirtualGpu(data.name);
+            gpuList.push_back(data);
+            IOObjectRelease(entry);
+        }
+        IOObjectRelease(iter);
+    }
+
+    // Also check for discrete GPU via IONetworking or additional classes
+    io_iterator_t diskIter = 0;
+    kr = IOServiceGetMatchingServices(
+        masterPort,
+        IOServiceMatching("IOPlatformDevice"),
+        &diskIter);
+    if (kr == KERN_SUCCESS) {
+        io_registry_entry_t entry;
+        while ((entry = IOIteratorNext(diskIter)) != 0) {
+            std::string name = IORegistryString(entry, "IOName");
+            if (name.find("gpu") != std::string::npos || name.find("nvme") != std::string::npos) {
+                // Already handled above
+            }
+            IOObjectRelease(entry);
+        }
+        IOObjectRelease(diskIter);
+    }
+
+    // Fallback: if nothing found, create a single entry from machine model
+    if (gpuList.empty()) {
+        GpuData data;
+        data.name = std::wstring(L"Apple GPU (") + std::wstring(machine, machine + strlen(machine)) + L")";
+        data.isIntegrated = true;
+        data.isNvidia = false;
+        data.isVirtual = false;
+        data.coreClock = 0.0;
+        data.temperature = 0;
+        if (totalMem > 0) {
+            data.dedicatedMemory = isAppleSilicon ? (totalMem / 4) : 0;
+        }
+        gpuList.push_back(data);
+    }
+
+    Logger::Debug("GpuInfo: detected " + std::to_string(gpuList.size()) + " GPU(s)");
+}
+
+const std::vector<GpuInfo::GpuData>& GpuInfo::GetGpuData() const { return gpuList; }
+
+#else
+#error "Unsupported platform"
+#endif

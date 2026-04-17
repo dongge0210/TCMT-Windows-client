@@ -89,7 +89,16 @@ SharedMemory::~SharedMemory() {
 bool SharedMemory::Create(const std::string& name, size_t size) {
     Unmap();
 
-    shm_name_ = "/" + name; // POSIX共享内存以/开头
+    // POSIX shm_open names: must start with '/', max NAME_MAX (31 on macOS) chars total
+    std::string safe_name = name;
+    // Remove any existing slashes and truncate
+    size_t pos = safe_name.find('/');
+    while (pos != std::string::npos) {
+        safe_name.erase(pos, 1);
+        pos = safe_name.find('/');
+    }
+    if (safe_name.size() > 28) safe_name = safe_name.substr(0, 28);
+    shm_name_ = "/" + safe_name;
 
     // 创建共享内存对象
     shm_fd_ = shm_open(shm_name_.c_str(), O_CREAT | O_RDWR, 0666);
@@ -114,7 +123,12 @@ bool SharedMemory::Create(const std::string& name, size_t size) {
 bool SharedMemory::Open(const std::string& name, size_t size) {
     Unmap();
 
-    shm_name_ = "/" + name;
+    // Same safe name transformation as Create
+    std::string safe_name = name;
+    size_t pos = safe_name.find('/');
+    while (pos != std::string::npos) { safe_name.erase(pos, 1); pos = safe_name.find('/'); }
+    if (safe_name.size() > 28) safe_name = safe_name.substr(0, 28);
+    shm_name_ = "/" + safe_name;
 
     shm_fd_ = shm_open(shm_name_.c_str(), O_RDWR, 0);
     if (shm_fd_ == -1) {

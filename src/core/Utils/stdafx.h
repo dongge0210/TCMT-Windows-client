@@ -11,10 +11,12 @@
 #include <sstream>
 #include <stdexcept>
 
+#ifdef TCMT_WINDOWS
 // Windows specific includes
 #include <windows.h>
 #include <io.h>
 #include <fcntl.h>
+#endif
 
 // C++20 specific headers if needed
 #ifdef __cplusplus
