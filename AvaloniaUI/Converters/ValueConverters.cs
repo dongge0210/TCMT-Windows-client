@@ -5,6 +5,26 @@ using Avalonia.Media;
 
 namespace AvaloniaUI.Converters;
 
+/// <summary>
+/// Converts null to default value, useful for binding errors
+/// </summary>
+public class NullToDefaultConverter : IValueConverter
+{
+    public object? DefaultValue { get; set; } = "N/A";
+    
+    public object? Convert(object? value, Type targetType, object? parameter, CultureInfo culture)
+    {
+        if (value == null)
+            return DefaultValue ?? "N/A";
+        return value;
+    }
+
+    public object? ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture)
+    {
+        throw new NotImplementedException();
+    }
+}
+
 public class BoolToColorConverter : IValueConverter
 {
     public object? Convert(object? value, Type targetType, object? parameter, CultureInfo culture)

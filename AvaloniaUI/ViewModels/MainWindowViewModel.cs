@@ -201,8 +201,12 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
                 if (restored != null) SelectedGpu = restored;
             }
         }
-        // Ensure selected is never null
-        if (SelectedGpu == null) SelectedGpu = GpuList.FirstOrDefault();
+        // Ensure selected is never null - create dummy if needed
+        if (SelectedGpu == null && GpuList.Count == 0)
+        {
+            GpuList.Add(new GpuData { Name = "等待数据..." });
+        }
+        SelectedGpu = GpuList.First();
         GpuTemperature = ValidateDouble(info.GpuTemperature);
 
         // Network - preserve selection
@@ -216,7 +220,12 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
         }
         if (SelectedNetwork == null && NetworkList.Count > 0)
             SelectedNetwork = NetworkList[0];
-        if (SelectedNetwork == null) SelectedNetwork = NetworkList.FirstOrDefault();
+        // Ensure selected is never null - create dummy if needed
+        if (SelectedNetwork == null && NetworkList.Count == 0)
+        {
+            NetworkList.Add(new NetworkAdapterData { Name = "等待数据..." });
+        }
+        SelectedNetwork = NetworkList.First();
 
         // Physical Disks with SMART
         BuildOrUpdatePhysicalDisks(info);
@@ -232,7 +241,12 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
         }
         if (SelectedDisk == null && DiskList.Count > 0)
             SelectedDisk = DiskList[0];
-        if (SelectedDisk == null) SelectedDisk = DiskList.FirstOrDefault();
+        // Ensure selected is never null - create dummy if needed
+        if (SelectedDisk == null && DiskList.Count == 0)
+        {
+            DiskList.Add(new DiskData { Letter = '?' });
+        }
+        SelectedDisk = DiskList.First();
 
         // Temperature charts
         UpdateTemperatureCharts(info.CpuTemperature, info.GpuTemperature);
@@ -264,8 +278,12 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
                 if (!alive.Contains(PhysicalDiskList[i].Disk?.SerialNumber ?? ""))
                     PhysicalDiskList.RemoveAt(i);
             }
-            // Ensure selected is never null
-            if (SelectedPhysicalDisk == null) SelectedPhysicalDisk = PhysicalDiskList.FirstOrDefault();
+            // Ensure selected is never null - create dummy if needed
+            if (SelectedPhysicalDisk == null && PhysicalDiskList.Count == 0)
+            {
+                PhysicalDiskList.Add(new PhysicalDiskView());
+            }
+            SelectedPhysicalDisk = PhysicalDiskList.First();
         }
         catch (Exception ex)
         {

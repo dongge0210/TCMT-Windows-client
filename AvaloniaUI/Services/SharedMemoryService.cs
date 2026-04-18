@@ -253,10 +253,18 @@ public class SharedMemoryService : IDisposable
 
     private SystemInfo ConvertToSystemInfo(SharedMemoryBlock sharedData)
     {
+        // Validate data - check if cpuName is empty (data not yet written by C++ core)
+        string? cpuName = SafeWideCharArrayToString(sharedData.cpuName);
+        if (string.IsNullOrEmpty(cpuName) || sharedData.physicalCores == 0)
+        {
+            // Data not yet initialized by C++ core
+            return new SystemInfo { CpuName = "等待数据..." };
+        }
+
         var systemInfo = new SystemInfo();
         try
         {
-            systemInfo.CpuName = SafeWideCharArrayToString(sharedData.cpuName) ?? "Unknown CPU";
+            systemInfo.CpuName = cpuName ?? "Unknown CPU";
             systemInfo.PhysicalCores = sharedData.physicalCores;
             systemInfo.LogicalCores = sharedData.logicalCores;
             systemInfo.PerformanceCores = sharedData.performanceCores;
