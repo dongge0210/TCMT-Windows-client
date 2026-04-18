@@ -1,10 +1,9 @@
 using System.Collections.ObjectModel;
-using System.ComponentModel; // ĞÂÔö
-using System.Runtime.CompilerServices; // ĞÂÔö
+using System.ComponentModel;
+using System.Runtime.CompilerServices;
 
-namespace WPF_UI1.Models
+namespace AvaloniaUI.Models
 {
-    // ¶ÔÓ¦C++ÖĞµÄSystemInfo½á¹¹
     public class SystemInfo
     {
         public string CpuName { get; set; } = string.Empty;
@@ -17,33 +16,32 @@ namespace WPF_UI1.Models
         public double EfficiencyCoreFreq { get; set; }
         public bool HyperThreading { get; set; }
         public bool Virtualization { get; set; }
-        // ÄÚ´æĞÅÏ¢
+        
         public ulong TotalMemory { get; set; }
         public ulong UsedMemory { get; set; }
         public ulong AvailableMemory { get; set; }
-        // GPUĞÅÏ¢
+        
         public List<GpuData> Gpus { get; set; } = new();
         public string GpuName { get; set; } = string.Empty;
         public string GpuBrand { get; set; } = string.Empty;
         public ulong GpuMemory { get; set; }
         public double GpuCoreFreq { get; set; }
         public bool GpuIsVirtual { get; set; }
-        // ÍøÂçĞÅÏ¢
+        
         public List<NetworkAdapterData> Adapters { get; set; } = new();
         public string NetworkAdapterName { get; set; } = string.Empty;
         public string NetworkAdapterMac { get; set; } = string.Empty;
         public string NetworkAdapterIp { get; set; } = string.Empty;
         public string NetworkAdapterType { get; set; } = string.Empty;
         public ulong NetworkAdapterSpeed { get; set; }
-        // Âß¼­´ÅÅÌĞÅÏ¢£¨°´Çı¶¯Æ÷ºÅ£©
+        
         public List<DiskData> Disks { get; set; } = new();
-        // ÎïÀí´ÅÅÌĞÅÏ¢£¨SMART»ã×Ü£©
         public List<PhysicalDiskSmartData> PhysicalDisks { get; set; } = new();
-        // ÎÂ¶ÈĞÅÏ¢
+        
         public List<TemperatureData> Temperatures { get; set; } = new();
         public double CpuTemperature { get; set; }
         public double GpuTemperature { get; set; }
-        public double CpuUsageSampleIntervalMs { get; set; } // ĞÂÔö£ºCPUÊ¹ÓÃÂÊ²ÉÑù¼ä¸ô
+        public double CpuUsageSampleIntervalMs { get; set; }
         public DateTime LastUpdate { get; set; }
     }
 
@@ -66,11 +64,16 @@ namespace WPF_UI1.Models
         private ulong _memory;
         private double _coreClock;
         private bool _isVirtual;
+        private double _temperature;
+        private double _usage;
+
         public string Name { get => _name; set => SetProperty(ref _name, value); }
         public string Brand { get => _brand; set => SetProperty(ref _brand, value); }
         public ulong Memory { get => _memory; set => SetProperty(ref _memory, value); }
         public double CoreClock { get => _coreClock; set => SetProperty(ref _coreClock, value); }
         public bool IsVirtual { get => _isVirtual; set => SetProperty(ref _isVirtual, value); }
+        public double Temperature { get => _temperature; set => SetProperty(ref _temperature, value); }
+        public double Usage { get => _usage; set => SetProperty(ref _usage, value); }
     }
 
     public class NetworkAdapterData : NotifyBase
@@ -80,6 +83,7 @@ namespace WPF_UI1.Models
         private string _ipAddress = string.Empty;
         private string _adapterType = string.Empty;
         private ulong _speed;
+
         public string Name { get => _name; set => SetProperty(ref _name, value); }
         public string Mac { get => _mac; set => SetProperty(ref _mac, value); }
         public string IpAddress { get => _ipAddress; set => SetProperty(ref _ipAddress, value); }
@@ -87,7 +91,6 @@ namespace WPF_UI1.Models
         public ulong Speed { get => _speed; set => SetProperty(ref _speed, value); }
     }
 
-    // Âß¼­Çı¶¯Æ÷£¨¾í£©
     public class DiskData : NotifyBase
     {
         private char _letter;
@@ -97,6 +100,7 @@ namespace WPF_UI1.Models
         private ulong _usedSpace;
         private ulong _freeSpace;
         private int _physicalDiskIndex = -1;
+
         public char Letter { get => _letter; set => SetProperty(ref _letter, value); }
         public string Label { get => _label; set => SetProperty(ref _label, value); }
         public string FileSystem { get => _fileSystem; set => SetProperty(ref _fileSystem, value); }
@@ -104,9 +108,10 @@ namespace WPF_UI1.Models
         public ulong UsedSpace { get => _usedSpace; set => SetProperty(ref _usedSpace, value); }
         public ulong FreeSpace { get => _freeSpace; set => SetProperty(ref _freeSpace, value); }
         public int PhysicalDiskIndex { get => _physicalDiskIndex; set => SetProperty(ref _physicalDiskIndex, value); }
+
+        public double UsagePercent => TotalSize > 0 ? (double)UsedSpace / TotalSize * 100 : 0;
     }
 
-    // SMARTÊôĞÔ
     public class SmartAttributeData
     {
         public byte Id { get; set; }
@@ -121,14 +126,13 @@ namespace WPF_UI1.Models
         public string Units { get; set; } = string.Empty;
     }
 
-    // ÎïÀí´ÅÅÌ£¨¾ÛºÏ¶à¸öÂß¼­¾í£©
     public class PhysicalDiskSmartData
     {
         public string Model { get; set; } = string.Empty;
         public string SerialNumber { get; set; } = string.Empty;
         public string FirmwareVersion { get; set; } = string.Empty;
         public string InterfaceType { get; set; } = string.Empty;
-        public string DiskType { get; set; } = string.Empty; // SSD/HDD
+        public string DiskType { get; set; } = string.Empty;
         public ulong Capacity { get; set; }
         public double Temperature { get; set; }
         public byte HealthPercentage { get; set; }
@@ -153,13 +157,12 @@ namespace WPF_UI1.Models
         public double Temperature { get; set; }
     }
 
-    // WPF·Ö×é°ü×°£ºÎïÀí´ÅÅÌ + ÆäÏÂ·ÖÇø
     public class PhysicalDiskView : NotifyBase
     {
-        private PhysicalDiskSmartData _disk;
-        public PhysicalDiskSmartData Disk { get => _disk; set => SetProperty(ref _disk, value); }
+        private PhysicalDiskSmartData? _disk;
+        public PhysicalDiskSmartData? Disk { get => _disk!; set => SetProperty(ref _disk, value); }
         public ObservableCollection<DiskData> Partitions { get; } = new();
-        public string LettersDisplay => Partitions.Count == 0 ? "ÎŞ·ÖÇø" : string.Join(", ", Partitions.Select(p => p.Letter + ":"));
-        public string DisplayName => Disk == null ? "Î´Öª´ÅÅÌ" : $"{Disk.Model} ({LettersDisplay})";
+        public string LettersDisplay => Partitions.Count == 0 ? "æ— åˆ†åŒº" : string.Join(", ", Partitions.Select(p => p.Letter + ":"));
+        public string DisplayName => Disk == null ? "æœªçŸ¥ç£ç›˜" : $"{Disk.Model} ({LettersDisplay})";
     }
 }
