@@ -121,24 +121,24 @@
                 <Border Margin="0,0,0,10" Background="#FF191919" Padding="15">
                     <StackPanel>
                         <TextBlock Text="显卡信息" FontSize="16" FontWeight="Bold" Foreground="White" Margin="0,0,0,10"/>
-                        <ComboBox ItemsSource="{Binding GpuList}" SelectedItem="{Binding SelectedGpu}" 
+                        <ComboBox ItemsSource="{Binding GpuList}" SelectedItem="{Binding SelectedGpu}" DisplayMemberBinding="{Binding DisplayName}" 
                                 HorizontalAlignment="Stretch" Margin="0,0,0,10"/>
-                        <TextBlock Text="{Binding SelectedGpu.Name}" Foreground="White"/>
+                        <TextBlock Text="{Binding SelectedGpu.Name, TargetNullValue='未检测到'}" Foreground="White"/>
                         <Grid Margin="0,5,0,0">
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="*"/>
                                 <ColumnDefinition Width="*"/>
                             </Grid.ColumnDefinitions>
                             <StackPanel>
-                                <TextBlock Text="{Binding SelectedGpu.Memory, StringFormat='显存: {0} MB'}" Foreground="#FFB3B3B3"/>
-                                <TextBlock Text="{Binding SelectedGpu.Brand, StringFormat='品牌: {0}'}" Foreground="#FF666666" FontSize="11"/>
+                                <TextBlock Text="{Binding SelectedGpu.MemoryDisplay, TargetNullValue='N/A', StringFormat='显存: {0}'}" Foreground="#FFB3B3B3"/>
+                                <TextBlock Text="{Binding SelectedGpu.Brand, TargetNullValue='N/A', StringFormat='品牌: {0}'}" Foreground="#FF666666" FontSize="11"/>
                             </StackPanel>
                             <StackPanel Grid.Column="1">
                                 <TextBlock Text="{Binding GpuTemperature, StringFormat='温度: {0}°C'}" Foreground="#FFB3B3B3"/>
                             </StackPanel>
                         </Grid>
-                        <ProgressBar Value="{Binding SelectedGpu.Usage}" Maximum="100" Height="6" Margin="0,8,0,0" Foreground="#FF4CAF50"/>
-                        <TextBlock Text="{Binding SelectedGpu.Usage, StringFormat='GPU使用率: {0:F1}%'}" Foreground="#FFB3B3B3" FontSize="11"/>
+                        <ProgressBar Value="{Binding SelectedGpu.Usage, TargetNullValue=0}" Maximum="100" Height="6" Margin="0,8,0,0" Foreground="#FF4CAF50"/>
+                        <TextBlock Text="{Binding SelectedGpu.Usage, TargetNullValue=0, StringFormat='GPU使用率: {0:F1}%'}" Foreground="#FFB3B3B3" FontSize="11"/>
                     </StackPanel>
                 </Border>
 
@@ -146,10 +146,10 @@
                 <Border Margin="0,0,0,10" Background="#FF191919" Padding="15">
                     <StackPanel>
                         <TextBlock Text="网络适配器" FontSize="16" FontWeight="Bold" Foreground="White" Margin="0,0,0,10"/>
-                        <ComboBox ItemsSource="{Binding NetworkList}" SelectedItem="{Binding SelectedNetwork}" 
+                        <ComboBox ItemsSource="{Binding NetworkList}" SelectedItem="{Binding SelectedNetwork}" DisplayMemberBinding="{Binding DisplayName}" 
                                 HorizontalAlignment="Stretch" Margin="0,0,0,10"/>
-                        <TextBlock Text="{Binding SelectedNetwork.Name}" Foreground="White"/>
-                        <TextBlock Text="{Binding SelectedNetwork.IpAddress, StringFormat='IP: {0}'}" Foreground="#FFB3B3B3"/>
+                        <TextBlock Text="{Binding SelectedNetwork.Name, TargetNullValue='未检测到'}" Foreground="White"/>
+                        <TextBlock Text="{Binding SelectedNetwork.IpAddress, TargetNullValue='N/A', StringFormat='IP: {0}'}" Foreground="#FFB3B3B3"/>
                         <Grid Margin="0,5,0,0">
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="*"/>
@@ -157,11 +157,11 @@
                             </Grid.ColumnDefinitions>
                             <StackPanel Orientation="Horizontal">
                                 <TextBlock Text="MAC: " Foreground="#FF666666" FontSize="11"/>
-                                <TextBlock Text="{Binding SelectedNetwork.Mac}" Foreground="#FF666666" FontSize="11"/>
+                                <TextBlock Text="{Binding SelectedNetwork.Mac, TargetNullValue='N/A'}" Foreground="#FF666666" FontSize="11"/>
                             </StackPanel>
                             <StackPanel Grid.Column="1" Orientation="Horizontal">
                                 <TextBlock Text="类型: " Foreground="#FF666666" FontSize="11"/>
-                                <TextBlock Text="{Binding SelectedNetwork.AdapterType}" Foreground="#FF666666" FontSize="11"/>
+                                <TextBlock Text="{Binding SelectedNetwork.AdapterType, TargetNullValue='N/A'}" Foreground="#FF666666" FontSize="11"/>
                             </StackPanel>
                         </Grid>
                         <Grid Margin="0,5,0,0">
@@ -185,21 +185,21 @@
                 <Border Margin="0,0,0,10" Background="#FF191919" Padding="15">
                     <StackPanel>
                         <TextBlock Text="存储设备" FontSize="16" FontWeight="Bold" Foreground="White" Margin="0,0,0,10"/>
-                        <ComboBox ItemsSource="{Binding DiskList}" SelectedItem="{Binding SelectedDisk}" 
+                        <ComboBox ItemsSource="{Binding DiskList}" SelectedItem="{Binding SelectedDisk}" DisplayMemberBinding="{Binding DisplayName}"
                                 HorizontalAlignment="Stretch" Margin="0,0,0,10"/>
-                        <TextBlock Text="{Binding SelectedDisk.Letter, StringFormat='驱动器 {0}:'}" Foreground="White"/>
-                        <TextBlock Text="{Binding SelectedDisk.Label, StringFormat='卷标: {0}'}" Foreground="#FFB3B3B3"/>
-                        <TextBlock Text="{Binding SelectedDisk.FileSystem, StringFormat='文件系统: {0}'}" Foreground="#FF666666" FontSize="11"/>
-                        <ProgressBar Value="{Binding SelectedDisk.UsagePercent}" Maximum="100" Height="8" Margin="0,10,0,0"/>
+                        <TextBlock Text="{Binding SelectedDisk.Letter, TargetNullValue='?', StringFormat='驱动器 {0}:'}" Foreground="White"/>
+                        <TextBlock Text="{Binding SelectedDisk.Label, TargetNullValue='无卷标', StringFormat='卷标: {0}'}" Foreground="#FFB3B3B3"/>
+                        <TextBlock Text="{Binding SelectedDisk.FileSystem, TargetNullValue='N/A', StringFormat='文件系统: {0}'}" Foreground="#FF666666" FontSize="11"/>
+                        <ProgressBar Value="{Binding SelectedDisk.UsagePercent, TargetNullValue=0}" Maximum="100" Height="8" Margin="0,10,0,0"/>
                         <Grid Margin="0,5,0,0">
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="*"/>
                                 <ColumnDefinition Width="Auto"/>
                                 <ColumnDefinition Width="Auto"/>
                             </Grid.ColumnDefinitions>
-                            <TextBlock Text="{Binding SelectedDisk.UsagePercent, StringFormat='使用率: {0:F1}%'}" Foreground="#FFB3B3B3"/>
-                            <TextBlock Grid.Column="1" Text="{Binding SelectedDisk.FreeSpace, StringFormat='可用: {0}'}" Foreground="#FF666666" FontSize="11" Margin="10,0,0,0"/>
-                            <TextBlock Grid.Column="2" Text="{Binding SelectedDisk.TotalSize, StringFormat='总计: {0}'}" Foreground="#FF666666" FontSize="11" Margin="10,0,0,0"/>
+                            <TextBlock Text="{Binding SelectedDisk.UsageDisplay, TargetNullValue='0%', StringFormat='使用率: {0}'}" Foreground="#FFB3B3B3"/>
+                            <TextBlock Grid.Column="1" Text="{Binding SelectedDisk.FreeSpaceDisplay, TargetNullValue='N/A', StringFormat='可用: {0}'}" Foreground="#FF666666" FontSize="11" Margin="10,0,0,0"/>
+                            <TextBlock Grid.Column="2" Text="{Binding SelectedDisk.TotalSizeDisplay, TargetNullValue='N/A', StringFormat='总计: {0}'}" Foreground="#FF666666" FontSize="11" Margin="10,0,0,0"/>
                         </Grid>
                     </StackPanel>
                 </Border>
@@ -208,21 +208,21 @@
                 <Border Margin="0,0,0,10" Background="#FF191919" Padding="15">
                     <StackPanel>
                         <TextBlock Text="物理磁盘 (SMART)" FontSize="16" FontWeight="Bold" Foreground="White" Margin="0,0,0,10"/>
-                        <ComboBox ItemsSource="{Binding PhysicalDiskList}" SelectedItem="{Binding SelectedPhysicalDisk}" 
+                        <ComboBox ItemsSource="{Binding PhysicalDiskList}" SelectedItem="{Binding SelectedPhysicalDisk}" DisplayMemberBinding="{Binding DisplayName}" 
                                 HorizontalAlignment="Stretch" Margin="0,0,0,10"/>
-                        <TextBlock Text="{Binding SelectedPhysicalDisk.DisplayName}" Foreground="White"/>
+                        <TextBlock Text="{Binding SelectedPhysicalDisk.DisplayName, TargetNullValue='未检测到'}" Foreground="White"/>
                         <Grid Margin="0,5,0,0">
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="*"/>
                                 <ColumnDefinition Width="*"/>
                             </Grid.ColumnDefinitions>
                             <StackPanel>
-                                <TextBlock Text="{Binding SelectedPhysicalDisk.Disk.Capacity, StringFormat='容量: {0}'}" Foreground="#FFB3B3B3"/>
-                                <TextBlock Text="{Binding SelectedPhysicalDisk.Disk.SerialNumber, StringFormat='序列号: {0}'}" Foreground="#FF666666" FontSize="11"/>
+                                <TextBlock Text="{Binding SelectedPhysicalDisk.Disk.Capacity, TargetNullValue='N/A', StringFormat='容量: {0}'}" Foreground="#FFB3B3B3"/>
+                                <TextBlock Text="{Binding SelectedPhysicalDisk.Disk.SerialNumber, TargetNullValue='N/A', StringFormat='序列号: {0}'}" Foreground="#FF666666" FontSize="11"/>
                             </StackPanel>
                             <StackPanel Grid.Column="1">
-                                <TextBlock Text="{Binding SelectedPhysicalDisk.Disk.Temperature, StringFormat='温度: {0}°C'}" Foreground="#FFB3B3B3"/>
-                                <TextBlock Text="{Binding SelectedPhysicalDisk.Disk.HealthPercentage, StringFormat='健康度: {0}%'}" Foreground="{Binding SelectedPhysicalDisk.Disk.HealthPercentage, Converter={StaticResource PercentToWarningColorConverter}}" FontSize="11"/>
+                                <TextBlock Text="{Binding SelectedPhysicalDisk.Disk.Temperature, TargetNullValue='N/A', StringFormat='温度: {0}°C'}" Foreground="#FFB3B3B3"/>
+                                <TextBlock Text="{Binding SelectedPhysicalDisk.Disk.HealthPercentage, TargetNullValue='0%', StringFormat='健康度: {0}%'}" Foreground="{Binding SelectedPhysicalDisk.Disk.HealthPercentage, Converter={StaticResource PercentToWarningColorConverter}}" FontSize="11"/>
                             </StackPanel>
                         </Grid>
                     </StackPanel>

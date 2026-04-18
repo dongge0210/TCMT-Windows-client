@@ -2,7 +2,7 @@
 #include "Logger.h"
 #include "WmiManager.h"
 #include <comutil.h>
-#include <C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v12.8\include\nvml.h>
+#include <C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v13.2\include\nvml.h>
 #include <algorithm>  // Add this header for std::transform
 #include <cctype>     // Add this header for character functions
 #include <cwctype>    // Add this header for wide character functions like towlower
@@ -191,11 +191,14 @@ void GpuInfo::QueryNvidiaGpuInfo(int index) {
     }
 
     // 获取温度
+#pragma warning(push)
+#pragma warning(disable: 4996)
     unsigned int temp = 0;
     nvmlReturn_t tempResult = nvmlDeviceGetTemperature(device, NVML_TEMPERATURE_GPU, &temp);
     if (NVML_SUCCESS == tempResult) {
         gpuList[index].temperature = temp;
     }
+#pragma warning(pop)
 
     // 获取计算能力
     int major, minor;

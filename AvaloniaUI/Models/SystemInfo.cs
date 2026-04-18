@@ -4,6 +4,36 @@ using System.Runtime.CompilerServices;
 
 namespace AvaloniaUI.Models
 {
+    public static class FormatUtil
+    {
+        public static string FormatBytes(ulong bytes)
+        {
+            string[] sizes = { "B", "KB", "MB", "GB", "TB" };
+            double len = bytes;
+            int order = 0;
+            while (len >= 1024 && order < sizes.Length - 1)
+            {
+                order++;
+                len /= 1024;
+            }
+            return order == 0 ? $"{len:0} {sizes[order]}" : $"{len:0.##} {sizes[order]}";
+        }
+
+        public static string FormatSpeed(ulong bytesPerSec)
+        {
+            if (bytesPerSec == 0) return "N/A";
+            string[] sizes = { "B/s", "KB/s", "MB/s", "GB/s" };
+            double len = bytesPerSec;
+            int order = 0;
+            while (len >= 1024 && order < sizes.Length - 1)
+            {
+                order++;
+                len /= 1024;
+            }
+            return order == 0 ? $"{len:0} {sizes[order]}" : $"{len:0.##} {sizes[order]}";
+        }
+    }
+
     public class SystemInfo
     {
         public string CpuName { get; set; } = string.Empty;
@@ -74,6 +104,9 @@ namespace AvaloniaUI.Models
         public bool IsVirtual { get => _isVirtual; set => SetProperty(ref _isVirtual, value); }
         public double Temperature { get => _temperature; set => SetProperty(ref _temperature, value); }
         public double Usage { get => _usage; set => SetProperty(ref _usage, value); }
+        public string DisplayName => string.IsNullOrEmpty(Name) ? "未知显卡" : (IsVirtual ? $"{Name} (虚拟)" : Name);
+        public string MemoryDisplay => FormatUtil.FormatBytes(Memory);
+        public override string ToString() => DisplayName;
     }
 
     public class NetworkAdapterData : NotifyBase
@@ -89,6 +122,9 @@ namespace AvaloniaUI.Models
         public string IpAddress { get => _ipAddress; set => SetProperty(ref _ipAddress, value); }
         public string AdapterType { get => _adapterType; set => SetProperty(ref _adapterType, value); }
         public ulong Speed { get => _speed; set => SetProperty(ref _speed, value); }
+        public string DisplayName => string.IsNullOrEmpty(Name) ? "未知网卡" : $"{Name} ({IpAddress})";
+        public string SpeedDisplay => FormatUtil.FormatBytes(Speed) + "/s";
+        public override string ToString() => DisplayName;
     }
 
     public class DiskData : NotifyBase
@@ -110,6 +146,12 @@ namespace AvaloniaUI.Models
         public int PhysicalDiskIndex { get => _physicalDiskIndex; set => SetProperty(ref _physicalDiskIndex, value); }
 
         public double UsagePercent => TotalSize > 0 ? (double)UsedSpace / TotalSize * 100 : 0;
+        public string DisplayName => Letter == '\0' ? "未知分区" : $"{Letter}: {Label}";
+        public string TotalSizeDisplay => FormatUtil.FormatBytes(TotalSize);
+        public string UsedSpaceDisplay => FormatUtil.FormatBytes(UsedSpace);
+        public string FreeSpaceDisplay => FormatUtil.FormatBytes(FreeSpace);
+        public string UsageDisplay => $"{UsagePercent:0.#}%";
+        public override string ToString() => DisplayName;
     }
 
     public class SmartAttributeData
@@ -155,6 +197,9 @@ namespace AvaloniaUI.Models
     {
         public string SensorName { get; set; } = string.Empty;
         public double Temperature { get; set; }
+        public string DisplayName => string.IsNullOrEmpty(SensorName) ? "未知传感器" : SensorName;
+        public string TemperatureDisplay => $"{Temperature:0.#}°C";
+        public override string ToString() => $"{DisplayName}: {TemperatureDisplay}";
     }
 
     public class PhysicalDiskView : NotifyBase

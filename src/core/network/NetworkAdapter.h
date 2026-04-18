@@ -15,7 +15,7 @@ public:
         std::wstring mac;
         std::wstring ip;
         std::wstring description;
-        std::wstring adapterType; // 新增：网卡类型（无线/有线）
+        std::wstring adapterType;
         bool isEnabled;
         bool isConnected;
         uint64_t speed;

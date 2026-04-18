@@ -10,7 +10,7 @@ class TemperatureWrapper {
 public:
     static void Initialize();
     static void Cleanup();
-    static std::vector<std::pair<std::string, double>> GetTemperatures();
+    static std::vector<std::pair<std::string, double> > GetTemperatures();
     static bool IsInitialized();
 
 private:

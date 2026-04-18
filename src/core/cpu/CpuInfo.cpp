@@ -71,7 +71,6 @@ void CpuInfo::InitializeCounter() {
     }
 
     counterInitialized = true;
-    Logger::Debug("CPU性能计数器初始化完成");
 }
 
 double CpuInfo::GetLargeCoreSpeed() const {

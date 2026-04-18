@@ -611,7 +611,7 @@ int main(int argc, char* argv[]) {
         try {
             Logger::EnableConsoleOutput(true); // Enable console output for Logger
             Logger::Initialize("system_monitor.log");
-            Logger::SetLogLevel(LOG_DEBUG); // 设置日志等级为DEBUG，查看详细信息
+            Logger::SetLogLevel(LOG_INFO); // 设置日志等级为INFO，减少详细输出
             Logger::Info("程序启动");
         }
         catch (const std::exception& e) {

@@ -201,6 +201,8 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
                 if (restored != null) SelectedGpu = restored;
             }
         }
+        // Ensure selected is never null
+        if (SelectedGpu == null) SelectedGpu = GpuList.FirstOrDefault();
         GpuTemperature = ValidateDouble(info.GpuTemperature);
 
         // Network - preserve selection
@@ -214,6 +216,7 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
         }
         if (SelectedNetwork == null && NetworkList.Count > 0)
             SelectedNetwork = NetworkList[0];
+        if (SelectedNetwork == null) SelectedNetwork = NetworkList.FirstOrDefault();
 
         // Physical Disks with SMART
         BuildOrUpdatePhysicalDisks(info);
@@ -229,6 +232,7 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
         }
         if (SelectedDisk == null && DiskList.Count > 0)
             SelectedDisk = DiskList[0];
+        if (SelectedDisk == null) SelectedDisk = DiskList.FirstOrDefault();
 
         // Temperature charts
         UpdateTemperatureCharts(info.CpuTemperature, info.GpuTemperature);
@@ -260,6 +264,8 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
                 if (!alive.Contains(PhysicalDiskList[i].Disk?.SerialNumber ?? ""))
                     PhysicalDiskList.RemoveAt(i);
             }
+            // Ensure selected is never null
+            if (SelectedPhysicalDisk == null) SelectedPhysicalDisk = PhysicalDiskList.FirstOrDefault();
         }
         catch (Exception ex)
         {
