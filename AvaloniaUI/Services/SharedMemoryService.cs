@@ -56,9 +56,30 @@ public class SharedMemoryService : IDisposable
         public int gpuCount;
         public int diskCount;
         public int physicalDiskCount;
+        public TpmInfoStruct tpm;
+        public byte tpmCount;
         public SYSTEMTIME lastUpdate;
         [MarshalAs(UnmanagedType.ByValArray, SizeConst = 40)]
         public byte[] lockData;
+    }
+
+    [StructLayout(LayoutKind.Sequential, Pack = 1)]
+    public struct TpmInfoStruct
+    {
+        [MarshalAs(UnmanagedType.ByValArray, SizeConst = 32)] public ushort[] manufacturer;
+        public ushort vendorId;
+        [MarshalAs(UnmanagedType.ByValArray, SizeConst = 32)] public ushort[] firmwareVersion;
+        public byte firmwareVersionMajor;
+        public byte firmwareVersionMinor;
+        public byte firmwareVersionBuild;
+        public uint supportedAlgorithms;
+        public uint activeAlgorithms;
+        public byte status;
+        public byte selfTestStatus;
+        public ulong totalVotes;
+        [MarshalAs(UnmanagedType.I1)] public bool isPresent;
+        [MarshalAs(UnmanagedType.I1)] public bool isEnabled;
+        [MarshalAs(UnmanagedType.I1)] public bool isActive;
     }
 
     [StructLayout(LayoutKind.Sequential, Pack = 1)]
@@ -69,6 +90,7 @@ public class SharedMemoryService : IDisposable
         public ulong memory;
         public double coreClock;
         [MarshalAs(UnmanagedType.I1)] public bool isVirtual;
+        public double usage;
     }
 
     [StructLayout(LayoutKind.Sequential, Pack = 1)]
@@ -141,6 +163,7 @@ public class SharedMemoryService : IDisposable
         public ulong totalBytesRead;
         [MarshalAs(UnmanagedType.ByValArray, SizeConst = 8)] public byte[] logicalDriveLetters;
         public int logicalDriveCount;
+        [MarshalAs(UnmanagedType.ByValArray, SizeConst = 256)] public ushort[] partitionLabels; // 8 x 32 = 256
         public SYSTEMTIME lastScanTime;
     }
 
@@ -294,7 +317,8 @@ public class SharedMemoryService : IDisposable
                         Brand = SafeWideCharArrayToString(g.brand) ?? "Unknown Brand",
                         Memory = g.memory,
                         CoreClock = g.coreClock,
-                        IsVirtual = g.isVirtual
+                        IsVirtual = g.isVirtual,
+                        Usage = g.usage
                     });
                 }
             }
@@ -381,6 +405,28 @@ public class SharedMemoryService : IDisposable
                         }
                     }
 
+                    // 读取分区卷标
+                    if (pd.partitionLabels != null && pd.partitionLabels.Length > 0)
+                    {
+                        for (int l = 0; l < physicalDisk.LogicalDriveLetters.Count && l < 8; l++)
+                        {
+                            // 每个卷标32个ushort，共256字节
+                            int offset = l * 32;
+                            var labelArray = new ushort[32];
+                            Array.Copy(pd.partitionLabels, offset, labelArray, 0, 32);
+                            var label = SafeWideCharArrayToString(labelArray);
+                            if (!string.IsNullOrWhiteSpace(label))
+                            {
+                                physicalDisk.PartitionLabels.Add(label);
+                            }
+                            else
+                            {
+                                // 没有卷标时使用盘符
+                                physicalDisk.PartitionLabels.Add(physicalDisk.LogicalDriveLetters[l].ToString() + ":");
+                            }
+                        }
+                    }
+
                     physicalDisk.Attributes.Clear();
                     if (pd.attributes != null)
                     {
@@ -441,6 +487,24 @@ public class SharedMemoryService : IDisposable
                         Temperature = t.temperature
                     });
                 }
+            }
+
+            // TPM
+            systemInfo.Tpm = null;
+            Log.Information("TPM debug: tpmCount={Count}, isPresent={Present}, manufacturer={Manuf}", 
+                sharedData.tpmCount, sharedData.tpm.isPresent, SafeWideCharArrayToString(sharedData.tpm.manufacturer));
+            if (sharedData.tpmCount > 0 && sharedData.tpm.isPresent)
+            {
+                systemInfo.Tpm = new TpmData
+                {
+                    Manufacturer = SafeWideCharArrayToString(sharedData.tpm.manufacturer) ?? "未知",
+                    FirmwareVersion = $"{sharedData.tpm.firmwareVersionMajor}.{sharedData.tpm.firmwareVersionMinor}.{sharedData.tpm.firmwareVersionBuild}",
+                    Status = sharedData.tpm.status == 0 ? "就绪" : (sharedData.tpm.status == 1 ? "错误" : "已禁用"),
+                    SelfTestStatus = sharedData.tpm.selfTestStatus == 0 ? "成功" : "失败",
+                    IsEnabled = sharedData.tpm.isEnabled,
+                    IsActive = sharedData.tpm.isActive
+                };
+                Log.Information("TPM data created: {Manuf}, {Firmware}", systemInfo.Tpm.Manufacturer, systemInfo.Tpm.FirmwareVersion);
             }
 
             systemInfo.LastUpdate = DateTime.Now;

@@ -228,6 +228,28 @@
                     </StackPanel>
                 </Border>
 
+                <!-- TPM 信息 -->
+                <Border Margin="0,0,0,10" Background="#FF191919" Padding="15">
+                    <StackPanel>
+                        <TextBlock Text="TPM 安全芯片" FontSize="16" FontWeight="Bold" Foreground="White" Margin="0,0,0,10"/>
+                        <TextBlock Text="{Binding TpmInfo.DisplayName, TargetNullValue='未检测到 TPM'}" Foreground="White"/>
+                        <Grid Margin="0,5,0,0">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+                            <StackPanel>
+                                <TextBlock Text="{Binding TpmInfo.FirmwareVersion, TargetNullValue='N/A', StringFormat='固件版本: {0}'}" Foreground="#FFB3B3B3"/>
+                                <TextBlock Text="{Binding TpmInfo.Status, TargetNullValue='N/A', StringFormat='状态: {0}'}" Foreground="#FF666666" FontSize="11"/>
+                            </StackPanel>
+                            <StackPanel Grid.Column="1">
+                                <TextBlock Text="{Binding TpmInfo.SelfTestStatus, TargetNullValue='N/A', StringFormat='自检: {0}'}" Foreground="#FFB3B3B3"/>
+                                <TextBlock Text="{Binding TpmInfo.IsEnabled, TargetNullValue='N/A', StringFormat='已启用: {0}'}" Foreground="#FF666666" FontSize="11"/>
+                            </StackPanel>
+                        </Grid>
+                    </StackPanel>
+                </Border>
+
             </StackPanel>
         </ScrollViewer>
 

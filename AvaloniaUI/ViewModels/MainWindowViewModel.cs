@@ -250,6 +250,10 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
 
         // Temperature charts
         UpdateTemperatureCharts(info.CpuTemperature, info.GpuTemperature);
+
+        // TPM - 确保不为 null
+        TpmInfo = info.Tpm ?? new TpmData { Manufacturer = "", Status = "未检测到" };
+        Log.Debug("TPM 更新: {Manuf}, {Status}", TpmInfo.Manufacturer, TpmInfo.Status);
     }
 
     private void BuildOrUpdatePhysicalDisks(SystemInfo info)
@@ -502,6 +506,10 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
 
     [ObservableProperty]
     private PhysicalDiskView? _selectedPhysicalDisk;
+
+    // TPM
+    [ObservableProperty]
+    private TpmData? _tpmInfo;
 
     // Last update
     [ObservableProperty]

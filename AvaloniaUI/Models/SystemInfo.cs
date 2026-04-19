@@ -69,6 +69,7 @@ namespace AvaloniaUI.Models
         public List<PhysicalDiskSmartData> PhysicalDisks { get; set; } = new();
         
         public List<TemperatureData> Temperatures { get; set; } = new();
+        public TpmData? Tpm { get; set; }
         public double CpuTemperature { get; set; }
         public double GpuTemperature { get; set; }
         public double CpuUsageSampleIntervalMs { get; set; }
@@ -190,6 +191,7 @@ namespace AvaloniaUI.Models
         public ulong TotalBytesWritten { get; set; }
         public ulong TotalBytesRead { get; set; }
         public List<char> LogicalDriveLetters { get; set; } = new();
+        public List<string> PartitionLabels { get; set; } = new();
         public List<SmartAttributeData> Attributes { get; set; } = new();
     }
 
@@ -209,5 +211,23 @@ namespace AvaloniaUI.Models
         public ObservableCollection<DiskData> Partitions { get; } = new();
         public string LettersDisplay => Partitions.Count == 0 ? "无分区" : string.Join(", ", Partitions.Select(p => p.Letter + ":"));
         public string DisplayName => Disk == null ? "未知磁盘" : $"{Disk.Model} ({LettersDisplay})";
+    }
+
+    public class TpmData : NotifyBase
+    {
+        private string _manufacturer = string.Empty;
+        private string _firmwareVersion = string.Empty;
+        private string _status = string.Empty;
+        private string _selfTestStatus = string.Empty;
+        private bool _isEnabled;
+        private bool _isActive;
+
+        public string Manufacturer { get => _manufacturer; set => SetProperty(ref _manufacturer, value); }
+        public string FirmwareVersion { get => _firmwareVersion; set => SetProperty(ref _firmwareVersion, value); }
+        public string Status { get => _status; set => SetProperty(ref _status, value); }
+        public string SelfTestStatus { get => _selfTestStatus; set => SetProperty(ref _selfTestStatus, value); }
+        public bool IsEnabled { get => _isEnabled; set => SetProperty(ref _isEnabled, value); }
+        public bool IsActive { get => _isActive; set => SetProperty(ref _isActive, value); }
+        public string DisplayName => string.IsNullOrEmpty(Manufacturer) ? "未检测到 TPM" : $"{Manufacturer} TPM";
     }
 }
