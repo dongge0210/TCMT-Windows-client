@@ -370,6 +370,12 @@ std::vector<DiskData> DiskInfo::GetDisks() {
     return disks;
 }
 
+// macOS: SMART data not available without root/special drivers
+void DiskInfo::CollectSmartData(SystemInfo& sysInfo) {
+    // No-op on macOS: SMART requires root privileges and IOKit SMART interface
+    Logger::Debug("DiskInfo: SMART data collection skipped on macOS");
+}
+
 #else
 #error "Unsupported platform"
 #endif

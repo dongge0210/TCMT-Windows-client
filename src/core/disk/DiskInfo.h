@@ -31,6 +31,9 @@ public:
     static void CollectPhysicalDisks(WmiManager& wmi, const std::vector<DiskData>& logicalDisks, SystemInfo& sysInfo);
 #endif
 
+    // Collect SMART data (placeholder on macOS, uses LibreHardwareMonitor on Windows)
+    static void CollectSmartData(SystemInfo& sysInfo);
+
 private:
     void QueryDrives();
     std::vector<DriveInfo> drives;

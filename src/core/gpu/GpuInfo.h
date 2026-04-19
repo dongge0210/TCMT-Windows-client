@@ -46,6 +46,7 @@ public:
         int computeCapabilityMajor = 0;
         int computeCapabilityMinor = 0;
         unsigned int temperature = 0;
+        double usage = 0.0;  // GPU usage (0-100)
     };
 
 #ifdef TCMT_WINDOWS
