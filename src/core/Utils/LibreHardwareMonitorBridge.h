@@ -4,6 +4,7 @@
 #include <vector>
 #include <utility>
 #include <vcclr.h>
+#include "../DataStruct/DataStruct.h"
 
 #using "E:\TCMT-Windows-client\src\third_party\LibreHardwareMonitor\bin\Debug\net472\LibreHardwareMonitorLib.dll"
 
@@ -34,6 +35,8 @@ public:
     static void Cleanup();
     // 日志语义优化：温度传感器数量
     static std::vector<std::pair<std::string, double>> GetTemperatures();
+    // 新增：获取物理磁盘 SMART 数据
+    static std::vector<PhysicalDiskSmartData> GetPhysicalDisks();
 
 private:
     static bool initialized;
