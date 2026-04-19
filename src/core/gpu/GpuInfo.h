@@ -27,6 +27,7 @@ public:
         int computeCapabilityMajor = 0;
         int computeCapabilityMinor = 0;
         unsigned int temperature = 0;
+        double usage = 0.0;  // GPU 使用率 (0-100)
     };
 
     GpuInfo(WmiManager& manager);

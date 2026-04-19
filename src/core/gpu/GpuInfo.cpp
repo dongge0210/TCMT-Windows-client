@@ -200,6 +200,13 @@ void GpuInfo::QueryNvidiaGpuInfo(int index) {
     }
 #pragma warning(pop)
 
+    // 获取 GPU 使用率
+    nvmlUtilization_t utilization;
+    result = nvmlDeviceGetUtilizationRates(device, &utilization);
+    if (NVML_SUCCESS == result) {
+        gpuList[index].usage = static_cast<double>(utilization.gpu);
+    }
+
     // 获取计算能力
     int major, minor;
     result = nvmlDeviceGetCudaComputeCapability(device, &major, &minor);

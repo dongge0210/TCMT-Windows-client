@@ -45,6 +45,7 @@
 #include "core/utils/WinUtils.h"
 #include "core/utils/WmiManager.h"
 #include "core/disk/DiskInfo.h"
+#include "core/utils/TpmBridge.h"
 #include "core/DataStruct/DataStruct.h"
 #include "core/DataStruct/SharedMemoryManager.h"  // Include the new shared memory manager
 #include "core/temperature/TemperatureWrapper.h"  // 使用TemperatureWrapper而不是直接调用LibreHardwareMonitorBridge
@@ -510,6 +511,7 @@ private:
     uint64_t cachedGpuMemory_ = 0;
     uint32_t cachedGpuCoreFreq_ = 0;
     bool cachedGpuIsVirtual_ = false;
+    double cachedGpuUsage_ = 0.0;  // GPU 使用率
 
 public:
     void Initialize(WmiManager& wmiManager) {
@@ -552,6 +554,7 @@ public:
                 cachedGpuMemory_ = selectedGpu->dedicatedMemory;
                 cachedGpuCoreFreq_ = static_cast<uint32_t>(selectedGpu->coreClock);
                 cachedGpuIsVirtual_ = selectedGpu->isVirtual;
+                cachedGpuUsage_ = selectedGpu->usage;  // 保存 GPU 使用率
                 
                 Logger::Info("选择主GPU: " + cachedGpuName_ + 
                            " (虚拟: " + (cachedGpuIsVirtual_ ? "是" : "否") + ")");
@@ -560,7 +563,7 @@ public:
             }
             
             initialized_ = true;
-            Logger::Info("GPU信息初始化完成，后续循环将使用缓存信息");
+            // Logger::Info("GPU信息初始化完成，后续循环将使用缓存信息");
         }
         catch (const std::exception& e) {
             Logger::Error("GPU信息初始化失败: " + std::string(e.what()));
@@ -570,13 +573,14 @@ public:
     }
     
     void GetCachedInfo(std::string& name, std::string& brand, uint64_t& memory, 
-                       uint32_t& coreFreq, bool& isVirtual) const {
+                       uint32_t& coreFreq, bool& isVirtual, double& usage) const {
         std::lock_guard<std::mutex> lock(mtx_);
         name = cachedGpuName_;
         brand = cachedGpuBrand_;
         memory = cachedGpuMemory_;
         coreFreq = cachedGpuCoreFreq_;
         isVirtual = cachedGpuIsVirtual_;
+        usage = cachedGpuUsage_;
     }
     
     bool IsInitialized() const {
@@ -904,15 +908,17 @@ int main(int argc, char* argv[]) {
                     uint64_t cachedGpuMemory;
                     uint32_t cachedGpuCoreFreq;
                     bool cachedGpuIsVirtual;
+                    double cachedGpuUsage;
                     
                     gpuCache.GetCachedInfo(cachedGpuName, cachedGpuBrand, cachedGpuMemory, 
-                                          cachedGpuCoreFreq, cachedGpuIsVirtual);
+                                          cachedGpuCoreFreq, cachedGpuIsVirtual, cachedGpuUsage);
                     
                     sysInfo.gpuName = cachedGpuName;
                     sysInfo.gpuBrand = cachedGpuBrand;
                     sysInfo.gpuMemory = cachedGpuMemory;
                     sysInfo.gpuCoreFreq = cachedGpuCoreFreq;
                     sysInfo.gpuIsVirtual = cachedGpuIsVirtual;
+                    sysInfo.gpuUsage = cachedGpuUsage;
 
                     // 修复GPU数组填充 - 添加数据验证和清理
                     sysInfo.gpus.clear();
@@ -951,6 +957,7 @@ int main(int argc, char* argv[]) {
                         }
                         
                         gpu.isVirtual = cachedGpuIsVirtual;
+                        gpu.usage = cachedGpuUsage;  // GPU 使用率
                         
                         sysInfo.gpus.push_back(gpu);
                         
@@ -1127,6 +1134,19 @@ int main(int argc, char* argv[]) {
                     // 采集物理磁盘并建立逻辑盘映射
                     if (wmiManager) {
                         DiskInfo::CollectPhysicalDisks(*wmiManager, sysInfo.disks, sysInfo);
+                    }
+                    
+                    // 采集磁盘 SMART 数据
+                    DiskInfo::CollectSmartData(sysInfo);
+                    
+                    // 采集 TPM 数据
+                    {
+                        TpmInfo tpmInfo = {};
+                        if (TpmBridge::GetTpmInfo(tpmInfo)) {
+                            sysInfo.tpms.clear();
+                            sysInfo.tpms.push_back(tpmInfo);
+                            Logger::Debug("TPM 数据已采集, isPresent=" + std::to_string(tpmInfo.isPresent));
+                        }
                     }
                 }
                 catch (const std::bad_alloc& e) {

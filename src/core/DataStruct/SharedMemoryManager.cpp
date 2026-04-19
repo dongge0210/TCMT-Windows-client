@@ -276,6 +276,7 @@ void SharedMemoryManager::WriteToSharedMemory(const SystemInfo& systemInfo) {
             pBuffer->gpus[0].memory = systemInfo.gpuMemory;
             pBuffer->gpus[0].coreClock = systemInfo.gpuCoreFreq;
             pBuffer->gpus[0].isVirtual = systemInfo.gpuIsVirtual;
+            pBuffer->gpus[0].usage = systemInfo.gpuUsage;
             pBuffer->gpuCount = 1;
         }
         // 如后续要支持 vector<GPUData> 可在此扩展
@@ -387,6 +388,29 @@ void SharedMemoryManager::WriteToSharedMemory(const SystemInfo& systemInfo) {
         pBuffer->cpuUsageSampleIntervalMs = systemInfo.cpuUsageSampleIntervalMs;
 
         GetSystemTime(&pBuffer->lastUpdate);
+        
+        // TPM 数据
+        if (!systemInfo.tpms.empty()) {
+            const auto& tpm = systemInfo.tpms[0];
+            SafeCopyFromWideArray(pBuffer->tpm.manufacturer, 32, tpm.manufacturer, 32);
+            pBuffer->tpm.vendorId = tpm.vendorId;
+            SafeCopyFromWideArray(pBuffer->tpm.firmwareVersion, 32, tpm.firmwareVersion, 32);
+            pBuffer->tpm.firmwareVersionMajor = tpm.firmwareVersionMajor;
+            pBuffer->tpm.firmwareVersionMinor = tpm.firmwareVersionMinor;
+            pBuffer->tpm.firmwareVersionBuild = tpm.firmwareVersionBuild;
+            pBuffer->tpm.supportedAlgorithms = tpm.supportedAlgorithms;
+            pBuffer->tpm.activeAlgorithms = tpm.activeAlgorithms;
+            pBuffer->tpm.status = tpm.status;
+            pBuffer->tpm.selfTestStatus = tpm.selfTestStatus;
+            pBuffer->tpm.totalVotes = tpm.totalVotes;
+            pBuffer->tpm.isPresent = tpm.isPresent;
+            pBuffer->tpm.isEnabled = tpm.isEnabled;
+            pBuffer->tpm.isActive = tpm.isActive;
+            pBuffer->tpmCount = 1;
+        } else {
+            pBuffer->tpmCount = 0;
+        }
+        
         Logger::Trace("成功写入系统/磁盘/SMART 信息到共享内存");
     } catch (const std::exception& e) {
         lastError = std::string("WriteToSharedMemory 中的异常: ") + e.what();
