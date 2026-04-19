@@ -6,7 +6,7 @@
 #include <map>
 #include "../DataStruct/DataStruct.h"
 
-class WmiManager; // 前向声明，避免头文件依赖膨胀
+class WmiManager;
 
 struct DriveInfo {
     char letter;
@@ -26,6 +26,9 @@ public:
 
     // 新增：收集物理磁盘及逻辑盘符映射（不含真正SMART，仅基础+映射）
     static void CollectPhysicalDisks(WmiManager& wmi, const std::vector<DiskData>& logicalDisks, SystemInfo& sysInfo);
+
+    // 新增：使用 LibreHardwareMonitor 收集 SMART 数据
+    static void CollectSmartData(SystemInfo& sysInfo);
 
 private:
     void QueryDrives();
