@@ -4,6 +4,7 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Markup.Xaml;
+using AvaloniaUI.DiagnosticsSupport;
 using AvaloniaUI.ViewModels;
 using AvaloniaUI.Views;
 
@@ -33,6 +34,12 @@ public partial class App : Application
 
             // Handle window closing to minimize to tray
             mainWindow.Closing += OnMainWindowClosing;
+
+            // Attach DevTools for previewer
+            this.AttachDeveloperTools(o =>
+            {
+                o.AutoConnectFromDesignMode = true;
+            });
 
             // Start monitoring
             viewModel.Start();
