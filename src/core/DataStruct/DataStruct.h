@@ -194,15 +194,16 @@ struct SharedMemoryBlock {
     // 温度数据（支持10个传感器）
     TemperatureData temperatures[10];
 
-    // TPM 信息（支持1个 TPM）
-    TpmInfo tpm;
-    uint8_t tpmCount;               // TPM 数量
-
     int adapterCount;
     int tempCount;
     int gpuCount;
     int diskCount;
     int physicalDiskCount;       // 新增：物理磁盘数量
+
+    // TPM 信息（支持1个 TPM）
+    TpmInfo tpm;
+    uint8_t tpmCount;               // TPM 数量
+
     PlatformSystemTime lastUpdate;
     PlatformCriticalSection lock;
 };
