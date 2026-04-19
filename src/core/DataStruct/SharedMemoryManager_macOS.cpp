@@ -189,6 +189,7 @@ void SharedMemoryManager::WriteToSharedMemory(const SystemInfo& systemInfo) {
             pBuffer->gpus[0].memory = systemInfo.gpuMemory;
             pBuffer->gpus[0].coreClock = systemInfo.gpuCoreFreq;
             pBuffer->gpus[0].isVirtual = systemInfo.gpuIsVirtual;
+            pBuffer->gpus[0].usage = systemInfo.gpuUsage;
             pBuffer->gpuCount = 1;
         }
         // 如后续要支持 vector<GPUData> 可在此扩展
@@ -314,6 +315,10 @@ void SharedMemoryManager::WriteToSharedMemory(const SystemInfo& systemInfo) {
         pBuffer->cpuTemperature = systemInfo.cpuTemperature;
         pBuffer->gpuTemperature = systemInfo.gpuTemperature;
         pBuffer->cpuUsageSampleIntervalMs = systemInfo.cpuUsageSampleIntervalMs;
+
+        // TPM 数据 (macOS 无 TPM，清零)
+        memset(&pBuffer->tpm, 0, sizeof(TpmInfo));
+        pBuffer->tpmCount = 0;
 
         // 更新时间戳
         pBuffer->lastUpdate = Platform::SystemTime::Now();

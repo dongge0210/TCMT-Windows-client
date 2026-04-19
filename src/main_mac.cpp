@@ -175,8 +175,12 @@ int main(int argc, char* argv[]) {
             sysInfo.availableMemory = 0;
             sysInfo.gpuMemory = 0;
             sysInfo.gpuCoreFreq = 0.0;
+            sysInfo.gpuUsage = 0.0;  // macOS: GPU usage not available for Apple Silicon
             sysInfo.gpuIsVirtual = false;
             sysInfo.networkAdapterSpeed = 0;
+            sysInfo.networkAdapterName.clear();
+            sysInfo.networkAdapterIp.clear();
+            sysInfo.networkAdapterType.clear();
             sysInfo.osVersion = os.GetVersion();
             sysInfo.cpuName = cachedCpuName;
             sysInfo.physicalCores = cachedTotalCores;
@@ -218,6 +222,13 @@ int main(int argc, char* argv[]) {
                     gd.coreClock = gpu.coreClock;
                     gd.isVirtual = gpu.isVirtual;
                     sysInfo.gpus.push_back(gd);
+
+                    // Fill top-level GPU fields (first GPU)
+                    if (sysInfo.gpuName.empty()) {
+                        std::string gn(gpu.name.begin(), gpu.name.end());
+                        sysInfo.gpuName = gn;
+                        sysInfo.gpuBrand = gn; // unified architecture, name=brand
+                    }
                     sysInfo.gpuMemory = gpu.dedicatedMemory;
                     sysInfo.gpuCoreFreq = gpu.coreClock;
                     sysInfo.gpuIsVirtual = gpu.isVirtual;
@@ -254,6 +265,16 @@ int main(int argc, char* argv[]) {
                     mbstowcs(ad.adapterType, type.c_str(), sizeof(ad.adapterType)/sizeof(wchar_t)-1);
                     ad.speed = adapter.speed;
                     sysInfo.adapters.push_back(ad);
+
+                    // Fill top-level network fields (first adapter with IP and speed)
+                    if (!adapter.ip.empty() && sysInfo.networkAdapterName.empty()) {
+                        sysInfo.networkAdapterName = adapter.name;
+                        sysInfo.networkAdapterMac = adapter.mac;
+                        sysInfo.networkAdapterIp = adapter.ip;
+                        sysInfo.networkAdapterType = adapter.adapterType;
+                        sysInfo.networkAdapterSpeed = adapter.speed;
+                    }
+
                     if (isFirstRun) {
                         Logger::Debug("Network: " + adapter.name
                                     + " ip=" + adapter.ip

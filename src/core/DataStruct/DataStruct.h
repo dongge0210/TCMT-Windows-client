@@ -55,7 +55,28 @@ struct PhysicalDiskSmartData {
     char logicalDriveLetters[8];   // 关联的驱动器盘符
     int logicalDriveCount;         // 关联驱动器数量
     
+    // 分区卷标（每个分区的卷标）
+    wchar_t partitionLabels[8][32]; // 每个分区的卷标
+    
     PlatformSystemTime lastScanTime;       // 最后扫描时间
+};
+
+// TPM 信息
+struct TpmInfo {
+    wchar_t manufacturer[32];           // TPM 制造商名称
+    uint16_t vendorId;                  // 供应商 ID
+    wchar_t firmwareVersion[32];        // 固件版本
+    uint8_t firmwareVersionMajor;
+    uint8_t firmwareVersionMinor;
+    uint8_t firmwareVersionBuild;
+    uint32_t supportedAlgorithms;       // 支持的算法
+    uint32_t activeAlgorithms;          // 激活的算法
+    uint8_t status;                     // TPM 状态 (0=OK, 1=ERROR, 2=DISABLED)
+    uint8_t selfTestStatus;             // 自检状态
+    uint64_t totalVotes;                // 总投票数
+    bool isPresent;                     // TPM 是否存在
+    bool isEnabled;                     // TPM 是否启用
+    bool isActive;                      // TPM 是否激活
 };
 
 // GPU信息
@@ -65,6 +86,7 @@ struct GPUData {
     uint64_t memory;      // 显存（字节）
     double coreClock;     // 核心频率（MHz）
     bool isVirtual;       // 新增：是否为虚拟显卡
+    double usage;         // GPU使用率 (0-100)
 };
 
 // 网络适配器信息
@@ -112,11 +134,13 @@ struct SystemInfo {
     std::vector<DiskData> disks;
     std::vector<PhysicalDiskSmartData> physicalDisks; // 新增：物理磁盘SMART数据
     std::vector<std::pair<std::string, double>> temperatures;
+    std::vector<TpmInfo> tpms;           // 新增：TPM 信息
     std::string osVersion;
     std::string gpuName;            // Added
     std::string gpuBrand;           // Added
     uint64_t gpuMemory;             // Added
     double gpuCoreFreq;             // Added
+    double gpuUsage;                // 新增：GPU 使用率
     bool gpuIsVirtual;              // 新增：GPU是否为虚拟显卡
     std::string networkAdapterName; // Added
     std::string networkAdapterMac;  // Added
@@ -169,6 +193,10 @@ struct SharedMemoryBlock {
 
     // 温度数据（支持10个传感器）
     TemperatureData temperatures[10];
+
+    // TPM 信息（支持1个 TPM）
+    TpmInfo tpm;
+    uint8_t tpmCount;               // TPM 数量
 
     int adapterCount;
     int tempCount;

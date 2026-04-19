@@ -332,9 +332,10 @@ void NetworkAdapter::QueryAdapterInfo() {
         auto it = bsdMap.find(bsdName);
         if (it != bsdMap.end() && ifa->ifa_data) {
             struct if_data* ifData = reinterpret_cast<struct if_data*>(ifa->ifa_data);
-            // ifData->ifi_baudrate may be 0 on some systems
+            // ifData->ifi_baudrate may be 0 on some systems, or garbage (e.g. 679 PB/s on Apple Silicon Wi-Fi)
             uint64_t baudrate = ifData->ifi_baudrate;
-            if (baudrate > 0) {
+            // Sanity check: ignore obviously wrong values (> 100 Gbps for typical adapters)
+            if (baudrate > 0 && baudrate <= 100ULL * 1000ULL * 1000ULL * 1000ULL) {
                 it->second.speed = baudrate;
                 it->second.speedString = FormatSpd(baudrate);
             }
@@ -342,6 +343,51 @@ void NetworkAdapter::QueryAdapterInfo() {
     }
 
     freeifaddrs(ifaddr);
+
+    // Fallback: get Wi-Fi link speed via CoreWLAN (ifi_baudrate is garbage on macOS)
+    // Uses a quick swift one-liner to read CWInterface.transmitRate
+    // Note: swift takes ~2s to JIT on first call; cached for subsequent calls
+    static int64_t cachedWifiSpeed = -1; // -1 = not yet queried
+    if (cachedWifiSpeed < 0) {
+        Logger::Debug("NetworkAdapter: querying CoreWLAN for Wi-Fi speed...");
+        FILE* fp = popen(
+            "swift -e 'import CoreWLAN; "
+            "let c = CWWiFiClient.shared().interface(); "
+            "if let r = c?.transmitRate() { print(Int64(r * 1_000_000)) } "
+            "else { print(\"0\") }' 2>/dev/null",
+            "r");
+        if (fp) {
+            char buf[64] = {0};
+            if (fgets(buf, sizeof(buf), fp)) {
+                cachedWifiSpeed = std::atoll(buf);
+                Logger::Debug("NetworkAdapter: CoreWLAN result=" + std::string(buf));
+            } else {
+                cachedWifiSpeed = 0;
+                Logger::Debug("NetworkAdapter: CoreWLAN no output");
+            }
+            pclose(fp);
+        } else {
+            cachedWifiSpeed = 0;
+            Logger::Debug("NetworkAdapter: CoreWLAN popen failed");
+        }
+    } else {
+        Logger::Debug("NetworkAdapter: CoreWLAN using cached=" + std::to_string(cachedWifiSpeed));
+    }
+    if (cachedWifiSpeed > 0) {
+        // Apply to first wireless adapter that has speed == 0
+        for (auto& kv : bsdMap) {
+            if ((kv.second.adapterType.find("\xe6\x97\xa0\xe7\xba\xbf") != std::string::npos
+                 || kv.second.adapterType.find("wireless") != std::string::npos
+                 || kv.second.adapterType.find("Wi-Fi") != std::string::npos)
+                && kv.second.speed == 0) {
+                kv.second.speed = static_cast<uint64_t>(cachedWifiSpeed);
+                kv.second.speedString = FormatSpd(static_cast<uint64_t>(cachedWifiSpeed));
+                Logger::Debug("NetworkAdapter: Wi-Fi speed "
+                            + std::to_string(cachedWifiSpeed / 1'000'000) + " Mbps via CoreWLAN");
+                break;
+            }
+        }
+    }
 
     // Move to adapters vector
     for (auto& kv : bsdMap) {
