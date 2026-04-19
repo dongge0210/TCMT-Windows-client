@@ -360,26 +360,21 @@ void NetworkAdapter::QueryAdapterInfo() {
             char buf[64] = {0};
             if (fgets(buf, sizeof(buf), fp)) {
                 cachedWifiSpeed = std::atoll(buf);
-                Logger::Debug("NetworkAdapter: CoreWLAN result=" + std::string(buf));
             } else {
                 cachedWifiSpeed = 0;
-                Logger::Debug("NetworkAdapter: CoreWLAN no output");
             }
             pclose(fp);
         } else {
             cachedWifiSpeed = 0;
-            Logger::Debug("NetworkAdapter: CoreWLAN popen failed");
         }
-    } else {
-        Logger::Debug("NetworkAdapter: CoreWLAN using cached=" + std::to_string(cachedWifiSpeed));
     }
     if (cachedWifiSpeed > 0) {
         // Apply to first wireless adapter that has speed == 0
         for (auto& kv : bsdMap) {
-            if ((kv.second.adapterType.find("\xe6\x97\xa0\xe7\xba\xbf") != std::string::npos
-                 || kv.second.adapterType.find("wireless") != std::string::npos
-                 || kv.second.adapterType.find("Wi-Fi") != std::string::npos)
-                && kv.second.speed == 0) {
+            bool isWireless = (kv.second.adapterType.find("\xe6\x97\xa0\xe7\xba\xbf") != std::string::npos
+                         || kv.second.adapterType.find("wireless") != std::string::npos
+                         || kv.second.adapterType.find("Wi-Fi") != std::string::npos);
+            if (isWireless && kv.second.speed == 0) {
                 kv.second.speed = static_cast<uint64_t>(cachedWifiSpeed);
                 kv.second.speedString = FormatSpd(static_cast<uint64_t>(cachedWifiSpeed));
                 Logger::Debug("NetworkAdapter: Wi-Fi speed "
