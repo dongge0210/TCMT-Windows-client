@@ -231,6 +231,9 @@ void TuiApp::DrawNetworkPanel(WINDOW* win, const TuiData& data, int y, int x0, i
         std::string name = TrimRight(n.name, 10);
         std::string ip = TrimRight(n.ip, maxW - 14);
         mvwprintw(win, y++, x0 + 2, "%-10s %s", name.c_str(), ip.c_str());
+        if (!n.mac.empty() && n.mac != "00:00:00:00:00:00") {
+            mvwprintw(win, y++, x0 + 4, "%s", n.mac.c_str());
+        }
         if (n.speed > 0) {
             mvwprintw(win, y++, x0 + 4, "%s", FormatSpeed(n.speed).c_str());
         }

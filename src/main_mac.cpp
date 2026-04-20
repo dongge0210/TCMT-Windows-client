@@ -204,6 +204,7 @@ int main(int argc, char* argv[]) {
                     tcmt::TuiData::NetInfo ni;
                     ni.name = adapter.name;
                     ni.ip = adapter.ip;
+                    ni.mac = adapter.mac;
                     ni.type = adapter.adapterType;
                     ni.speed = adapter.speed;
                     data.adapters.push_back(ni);

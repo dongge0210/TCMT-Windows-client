@@ -51,6 +51,7 @@ struct TuiData {
     struct NetInfo {
         std::string name;
         std::string ip;
+        std::string mac;
         std::string type;
         uint64_t speed = 0;
     };
