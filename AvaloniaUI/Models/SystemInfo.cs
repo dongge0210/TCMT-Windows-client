@@ -209,9 +209,24 @@ namespace AvaloniaUI.Models
         private PhysicalDiskSmartData? _disk;
         public PhysicalDiskSmartData? Disk { get => _disk!; set => SetProperty(ref _disk, value); }
         public ObservableCollection<DiskData> Partitions { get; } = new();
-        public string LettersDisplay => Disk?.LogicalDriveLetters?.Count > 0 
-            ? string.Join(", ", Disk.LogicalDriveLetters.Select(l => l + ":"))
-            : "无分区";
+        public string LettersDisplay {
+        get {
+            if (Disk?.LogicalDriveLetters == null || Disk.LogicalDriveLetters.Count == 0)
+                return "无分区";
+            // 使用实际卷标，如果没有卷标则使用盘符
+            var labels = new List<string>();
+            for (int i = 0; i < Disk.LogicalDriveLetters.Count; i++) {
+                string label;
+                if (Disk.PartitionLabels != null && i < Disk.PartitionLabels.Count && !string.IsNullOrWhiteSpace(Disk.PartitionLabels[i])) {
+                    label = Disk.PartitionLabels[i];
+                } else {
+                    label = Disk.LogicalDriveLetters[i] + ":";
+                }
+                labels.Add(label);
+            }
+            return string.Join(", ", labels);
+        }
+    }
         public string DisplayName => Disk == null ? "未知磁盘" : $"{Disk.Model} ({LettersDisplay})";
     }
 
