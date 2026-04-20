@@ -43,7 +43,7 @@ void DiskInfo::QueryDrives() {
             Logger::Warn("GetVolumeInformation 失败: " + WinUtils::WstringToString(rootPath));
         } else {
             info.label = volumeName;
-            if (info.label.empty()) info.label = L"未命名"; // 兜底
+            // 不再设置默认标签，让 UI 决定如何显示
             info.fileSystem = fileSystemName;
         }
         drives.push_back(std::move(info));
@@ -121,11 +121,6 @@ void DiskInfo::CollectPhysicalDisks(WmiManager& wmi, const std::vector<DiskData>
                 obj->Release();
             }
             pEnum->Release();
-        }
-        // 调试：输出所有盘符和卷标
-        Logger::Info("总共 " + std::to_string(letterToLabel.size()) + " 个卷标");
-        for (auto& kv : letterToLabel) {
-            Logger::Info("磁盘卷标: " + std::string(1, kv.first) + " -> " + WinUtils::WstringToString(kv.second));
         }
     }
     
