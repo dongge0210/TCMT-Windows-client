@@ -30,6 +30,7 @@ struct TuiData {
     uint64_t totalMemory = 0;
     uint64_t usedMemory = 0;
     uint64_t availableMemory = 0;
+    uint64_t compressedMemory = 0;
 
     // GPU
     std::string gpuName;

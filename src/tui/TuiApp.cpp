@@ -33,6 +33,11 @@ void TuiApp::Stop() {
     if (thread_.joinable()) {
         thread_.join();
     }
+    // Safety: ensure terminal is restored even if Run() didn't reach endwin()
+    // endwin() is safe to call multiple times (second call is a no-op on most implementations)
+    endwin();
+    // Restore terminal echo and buffering
+    std::fflush(stdout);
 }
 
 bool TuiApp::IsRunning() const {
@@ -137,9 +142,14 @@ void TuiApp::DrawCpuPanel(WINDOW* win, const TuiData& data, int y, int x0, int m
     mvwprintw(win, y - 1, x0 + 9 + bw, "%.1f%%", data.cpuUsage);
 
     if (data.performanceCores > 0 || data.efficiencyCores > 0) {
-        mvwprintw(win, y++, x0 + 2, "P:%d(%.0fM) E:%d(%.0fM)",
-                  data.performanceCores, data.pCoreFreq,
-                  data.efficiencyCores, data.eCoreFreq);
+        if (data.pCoreFreq > 0 || data.eCoreFreq > 0) {
+            mvwprintw(win, y++, x0 + 2, "P:%d(%.0fM) E:%d(%.0fM)",
+                      data.performanceCores, data.pCoreFreq,
+                      data.efficiencyCores, data.eCoreFreq);
+        } else {
+            mvwprintw(win, y++, x0 + 2, "P:%d E:%d",
+                      data.performanceCores, data.efficiencyCores);
+        }
     } else {
         mvwprintw(win, y++, x0 + 2, "Cores: %d", data.physicalCores);
     }
@@ -155,7 +165,7 @@ void TuiApp::DrawCpuPanel(WINDOW* win, const TuiData& data, int y, int x0, int m
 void TuiApp::DrawMemoryPanel(WINDOW* win, const TuiData& data, int y, int x0, int maxW) {
     int bw = std::min(maxW - 16, 20);
     wattron(win, COLOR_PAIR(5) | A_BOLD);
-    mvwprintw(win, y++, x0, "Memory");
+    mvwprintw(win, y++, x0, "RAM");
     wattroff(win, COLOR_PAIR(5) | A_BOLD);
 
     double upct = (data.totalMemory > 0) ? 100.0 * data.usedMemory / data.totalMemory : 0;
@@ -167,6 +177,9 @@ void TuiApp::DrawMemoryPanel(WINDOW* win, const TuiData& data, int y, int x0, in
               FormatSize(data.usedMemory).c_str(),
               FormatSize(data.totalMemory).c_str());
     mvwprintw(win, y++, x0 + 2, "Avail: %s", FormatSize(data.availableMemory).c_str());
+    if (data.compressedMemory > 0) {
+        mvwprintw(win, y++, x0 + 2, "Compressed: %s", FormatSize(data.compressedMemory).c_str());
+    }
 }
 
 void TuiApp::DrawGpuPanel(WINDOW* win, const TuiData& data, int y, int x0, int maxW) {
@@ -390,7 +403,11 @@ void TuiApp::Run() {
 
         // Refresh
         refresh();
-        std::this_thread::sleep_for(std::chrono::milliseconds(200));
+
+        // Short sleep with periodic check for responsive exit
+        for (int i = 0; i < 10 && running_.load(); ++i) {
+            std::this_thread::sleep_for(std::chrono::milliseconds(20));
+        }
     }
 
     // Cleanup

@@ -206,6 +206,7 @@ void DiskInfo::CollectPhysicalDisks(WmiManager& wmi, const std::vector<DiskData>
 
 #include <dirent.h>
 #include <algorithm>
+#include <set>
 
 static std::string GetFsType(const std::string& mountpoint) {
     struct statfs fs;
@@ -288,6 +289,9 @@ void DiskInfo::QueryDrives() {
     std::vector<struct statfs> mounts(mountCount);
     getfsstat(mounts.data(), (int)(mounts.size() * sizeof(struct statfs)), MNT_NOWAIT);
 
+    // Track physical disks to deduplicate APFS volumes on same device
+    std::set<std::string> seenPhysicalDisks;
+
     for (const auto& fs : mounts) {
         std::string mountpoint(fs.f_mntonname);
         std::string fstype(fs.f_fstypename);
@@ -343,6 +347,21 @@ void DiskInfo::QueryDrives() {
             info.letter = '/'; // root indicator
         } else {
             info.letter = 0; // no drive letter on macOS
+        }
+
+        // Deduplicate: extract physical disk name (e.g. "disk3s1s1" -> "disk3")
+        // Skip if we've already seen this physical disk
+        std::string physicalDisk = bsdName;
+        // Remove partition suffixes: keep only up to first 's' after "diskN"
+        auto diskPrefixEnd = physicalDisk.find('s', 4); // skip "disk"
+        if (diskPrefixEnd != std::string::npos) {
+            physicalDisk = physicalDisk.substr(0, diskPrefixEnd);
+        }
+        if (!seenPhysicalDisks.insert(physicalDisk).second) {
+            // Already have a volume from this physical disk
+            Logger::Debug("DiskInfo: skipping duplicate APFS volume " + mountpoint
+                        + " on " + physicalDisk);
+            continue;
         }
 
         drives.push_back(std::move(info));

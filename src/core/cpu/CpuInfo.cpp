@@ -256,24 +256,31 @@ void CpuInfo::DetectCores() {
         totalCores = ncpu;
     }
 
-    // Physical cores
-    int pncpu = 0;
-    len = sizeof(pncpu);
-    if (sysctlbyname("hw.physicalcpu", &pncpu, &len, nullptr, 0) == 0) {
-        largeCores = pncpu; // assume all physical = performance cores
-    }
+    // Apple Silicon: use perflevel sysctl (macOS 12+)
+    // perflevel0 = performance cores (P), perflevel1 = efficiency cores (E)
+    int pCores = 0, eCores = 0;
+    len = sizeof(pCores);
+    bool hasPerfLevel = (sysctlbyname("hw.perflevel0.logicalcpu", &pCores, &len, nullptr, 0) == 0);
+    len = sizeof(eCores);
+    hasPerfLevel = hasPerfLevel && (sysctlbyname("hw.perflevel1.logicalcpu", &eCores, &len, nullptr, 0) == 0);
 
-    // E-cores (efficiency cores) on Apple Silicon
-    int encpu = 0;
-    len = sizeof(encpu);
-    if (sysctlbyname("hw.performancecores", &encpu, &len, nullptr, 0) == 0) {
-        // performancecores = P-cores count
-        // E-cores = physical - performance
-        largeCores = encpu;
+    if (hasPerfLevel && (pCores + eCores) > 0) {
+        largeCores = pCores;
+        smallCores = eCores;
+    } else if (sysctlbyname("hw.performancecores", &pCores, &len, nullptr, 0) == 0) {
+        // Fallback: performancecores available (some macOS versions)
+        largeCores = pCores;
         int physical = 0;
         len = sizeof(physical);
         sysctlbyname("hw.physicalcpu", &physical, &len, nullptr, 0);
-        smallCores = physical - encpu;
+        smallCores = physical - pCores;
+    } else {
+        // Fallback: assume all physical cores are performance (Intel Macs)
+        int phys = 0;
+        len = sizeof(phys);
+        if (sysctlbyname("hw.physicalcpu", &phys, &len, nullptr, 0) == 0) {
+            largeCores = phys;
+        }
     }
 
     // Hyper-threading: if logical > physical

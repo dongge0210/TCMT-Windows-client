@@ -16,6 +16,8 @@
 #include <unistd.h>
 #include <sys/types.h>
 #include <mach/mach_time.h>
+#include <mach/mach.h>
+#include <mach/vm_statistics.h>
 
 #include "core/cpu/CpuInfo.h"
 #include "core/gpu/GpuInfo.h"
@@ -161,6 +163,14 @@ int main(int argc, char* argv[]) {
                 data.totalMemory = mem.GetTotalPhysical();
                 data.usedMemory = mem.GetTotalPhysical() - mem.GetAvailablePhysical();
                 data.availableMemory = mem.GetAvailablePhysical();
+
+                // Compressed memory via host_statistics64
+                vm_statistics64_data_t vmStats;
+                mach_msg_type_number_t count = HOST_VM_INFO64_COUNT;
+                if (host_statistics64(mach_host_self(), HOST_VM_INFO64,
+                                      (host_info64_t)&vmStats, &count) == KERN_SUCCESS) {
+                    data.compressedMemory = (uint64_t)vmStats.compressor_page_count * vm_kernel_page_size;
+                }
             } catch (const std::exception& e) {
                 Logger::Error("Memory error: " + std::string(e.what()));
             }
@@ -261,7 +271,10 @@ int main(int argc, char* argv[]) {
             int loopMs = (int)std::chrono::duration_cast<std::chrono::milliseconds>(
                 loopEnd - loopStart).count();
             int sleepMs = std::max(500 - loopMs, 50);  // 2 Hz update
-            std::this_thread::sleep_for(std::chrono::milliseconds(sleepMs));
+            // Interruptible sleep: check exit flag every 50ms
+            for (int s = 0; s < sleepMs / 50 && !g_shouldExit.load(); ++s) {
+                std::this_thread::sleep_for(std::chrono::milliseconds(50));
+            }
             loopCounter++;
         }
         catch (const std::exception& e) {
