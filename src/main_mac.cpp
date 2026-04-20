@@ -182,12 +182,16 @@ int main(int argc, char* argv[]) {
 
             // GPU
             if (gpuInfo) {
+                gpuInfo->RefreshUsage();
                 const auto& gpus = gpuInfo->GetGpuData();
                 for (const auto& gpu : gpus) {
                     if (data.gpuName.empty()) {
                         std::string gn(gpu.name.begin(), gpu.name.end());
                         data.gpuName = gn;
                         data.gpuMemory = gpu.dedicatedMemory;
+                    }
+                    if (data.gpuUsage == 0.0 && gpu.usage > 0.0) {
+                        data.gpuUsage = gpu.usage;
                     }
                 }
             }

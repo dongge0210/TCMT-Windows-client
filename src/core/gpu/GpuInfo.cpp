@@ -263,6 +263,24 @@ void GpuInfo::DetectGpusViaMetal() {
             }
 
             data.isVirtual = IsVirtualGpu(data.name);
+
+            // Read GPU utilization from PerformanceStatistics
+            CFTypeRef perfStatsRef = IORegistryEntryCreateCFProperty(
+                entry, CFSTR("PerformanceStatistics"), kCFAllocatorDefault, 0);
+            if (perfStatsRef && CFGetTypeID(perfStatsRef) == CFDictionaryGetTypeID()) {
+                CFDictionaryRef perfDict = static_cast<CFDictionaryRef>(perfStatsRef);
+                CFNumberRef utilRef = static_cast<CFNumberRef>(
+                    CFDictionaryGetValue(perfDict, CFSTR("Device Utilization %")));
+                if (utilRef && CFGetTypeID(utilRef) == CFNumberGetTypeID()) {
+                    int utilVal = 0;
+                    if (CFNumberGetValue(utilRef, kCFNumberIntType, &utilVal)) {
+                        data.usage = static_cast<double>(utilVal);
+                    }
+                }
+                CFRelease(perfDict);
+            }
+            if (perfStatsRef) CFRelease(perfStatsRef);
+
             gpuList.push_back(data);
             IOObjectRelease(entry);
         }
@@ -303,6 +321,47 @@ void GpuInfo::DetectGpusViaMetal() {
     }
 
     Logger::Debug("GpuInfo: detected " + std::to_string(gpuList.size()) + " GPU(s)");
+}
+
+void GpuInfo::RefreshUsage() {
+    mach_port_t masterPort;
+#if __MAC_OS_X_VERSION_MAX_ALLOWED >= 120000
+    masterPort = kIOMainPortDefault;
+#else
+    masterPort = kIOMasterPortDefault;
+#endif
+
+    io_iterator_t iter = 0;
+    kern_return_t kr = IOServiceGetMatchingServices(
+        masterPort,
+        IOServiceMatching("IOAccelerator"),
+        &iter);
+    if (kr != KERN_SUCCESS) return;
+
+    size_t gpuIdx = 0;
+    io_registry_entry_t entry;
+    while ((entry = IOIteratorNext(iter)) != 0) {
+        if (gpuIdx < gpuList.size()) {
+            CFTypeRef perfStatsRef = IORegistryEntryCreateCFProperty(
+                entry, CFSTR("PerformanceStatistics"), kCFAllocatorDefault, 0);
+            if (perfStatsRef && CFGetTypeID(perfStatsRef) == CFDictionaryGetTypeID()) {
+                CFDictionaryRef perfDict = static_cast<CFDictionaryRef>(perfStatsRef);
+                CFNumberRef utilRef = static_cast<CFNumberRef>(
+                    CFDictionaryGetValue(perfDict, CFSTR("Device Utilization %")));
+                if (utilRef && CFGetTypeID(utilRef) == CFNumberGetTypeID()) {
+                    int utilVal = 0;
+                    if (CFNumberGetValue(utilRef, kCFNumberIntType, &utilVal)) {
+                        gpuList[gpuIdx].usage = static_cast<double>(utilVal);
+                    }
+                }
+                CFRelease(perfDict);
+            }
+            if (perfStatsRef) CFRelease(perfStatsRef);
+            gpuIdx++;
+        }
+        IOObjectRelease(entry);
+    }
+    IOObjectRelease(iter);
 }
 
 const std::vector<GpuInfo::GpuData>& GpuInfo::GetGpuData() const { return gpuList; }

@@ -69,6 +69,8 @@ private:
 #endif
 
 #ifdef TCMT_MACOS
+public:
+    void RefreshUsage();  // Re-read GPU utilization from IOKit
 private:
     void DetectGpusViaMetal();  // uses IOKit (Metal-agnostic)
     bool IsVirtualGpu(const std::wstring& name);
