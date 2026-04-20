@@ -192,8 +192,17 @@ void TuiApp::DrawGpuPanel(WINDOW* win, const TuiData& data, int y, int x0, int m
         mvwprintw(win, y++, x0 + 2, "(Apple Silicon GPU)");
     }
 
-    if (data.gpuMemory > 0)
-        mvwprintw(win, y++, x0 + 2, "VRAM: %s", FormatSize(data.gpuMemory).c_str());
+    if (data.gpuUsage > 0.0) {
+        int barLen = maxW - 20;
+        int filled = static_cast<int>(data.gpuUsage / 100.0 * barLen);
+        std::string bar(filled, '=');
+        std::string empty(barLen - filled, '-');
+        wattron(win, COLOR_PAIR(3));
+        mvwprintw(win, y++, x0 + 2, "[%s%s] %.0f%%", bar.c_str(), empty.c_str(), data.gpuUsage);
+        wattroff(win, COLOR_PAIR(3));
+    } else {
+        mvwprintw(win, y++, x0 + 2, "(no usage data)");
+    }
 
     if (data.gpuTemp > 0) {
         int tc = (data.gpuTemp > 80) ? 4 : (data.gpuTemp > 60) ? 3 : 2;
