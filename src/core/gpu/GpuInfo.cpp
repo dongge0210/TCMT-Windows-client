@@ -277,7 +277,6 @@ void GpuInfo::DetectGpusViaMetal() {
                         data.usage = static_cast<double>(utilVal);
                     }
                 }
-                CFRelease(perfDict);
             }
             if (perfStatsRef) CFRelease(perfStatsRef);
 
@@ -354,7 +353,6 @@ void GpuInfo::RefreshUsage() {
                         gpuList[gpuIdx].usage = static_cast<double>(utilVal);
                     }
                 }
-                CFRelease(perfDict);
             }
             if (perfStatsRef) CFRelease(perfStatsRef);
             gpuIdx++;
