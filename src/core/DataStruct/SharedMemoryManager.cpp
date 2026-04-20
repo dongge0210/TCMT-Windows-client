@@ -354,6 +354,10 @@ void SharedMemoryManager::WriteToSharedMemory(const SystemInfo& systemInfo) {
                 if (std::isalpha(static_cast<unsigned char>(l))) pBuffer->physicalDisks[i].logicalDriveLetters[ldCount++] = l;
             }
             pBuffer->physicalDisks[i].logicalDriveCount = ldCount;
+            // 复制分区卷标 (8 个分区，每个 32 个宽字符)
+            for (int p = 0; p < ldCount && p < 8; p++) {
+                SafeCopyFromWideArray(pBuffer->physicalDisks[i].partitionLabels[p], 32, src.partitionLabels[p], 32);
+            }
             int attrCount = src.attributeCount;
             if (attrCount < 0) attrCount = 0; if (attrCount > 32) attrCount = 32;
             pBuffer->physicalDisks[i].attributeCount = attrCount;
