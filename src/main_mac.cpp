@@ -26,7 +26,8 @@
 #include "core/DataStruct/DataStruct.h"
 #include "core/DataStruct/SharedMemoryManager.h"
 #include "core/temperature/TemperatureWrapper.h"
-#include "core/utils/Logger.h"
+#include "core/Utils/Logger.h"
+#include "tui/TuiApp.h"
 
 // ======================== Signal Handling ========================
 static std::atomic<bool> g_shouldExit{false};
@@ -37,45 +38,13 @@ static void SignalHandler(int sig) {
 }
 
 // ======================== Formatting Helpers ========================
-static std::string FormatDateTime(const std::chrono::system_clock::time_point& tp) {
-    try {
-        auto time = std::chrono::system_clock::to_time_t(tp);
-        std::tm timeinfo;
-        localtime_r(&time, &timeinfo);
-        std::stringstream ss;
-        ss << std::put_time(&timeinfo, "%Y-%m-%d %H:%M:%S");
-        return ss.str();
-    } catch (...) {
-        return "time error";
-    }
-}
-
-static std::string FormatFrequency(double value) {
-    if (value <= 0) return "N/A";
-    std::stringstream ss;
-    ss << std::fixed << std::setprecision(1);
-    if (value >= 1000) ss << (value / 1000.0) << " GHz";
-    else ss << value << " MHz";
-    return ss.str();
-}
-
-static std::string FormatPercentage(double value) {
-    if (value < 0) value = 0;
-    if (value > 100) value = 100;
-    std::stringstream ss;
-    ss << std::fixed << std::setprecision(1) << value << "%";
-    return ss.str();
-}
-
 static std::string FormatSize(uint64_t bytes) {
     const double gb = 1024.0 * 1024.0 * 1024.0;
     const double mb = 1024.0 * 1024.0;
-    const double kb = 1024.0;
     std::stringstream ss;
     ss << std::fixed << std::setprecision(1);
     if (bytes >= (uint64_t)gb) ss << (bytes / gb) << " GB";
     else if (bytes >= (uint64_t)mb) ss << (bytes / mb) << " MB";
-    else if (bytes >= (uint64_t)kb) ss << (bytes / kb) << " KB";
     else ss << bytes << " B";
     return ss.str();
 }
@@ -91,55 +60,54 @@ int main(int argc, char* argv[]) {
 
     try {
         Logger::Initialize("system_monitor.log");
-        Logger::EnableConsoleOutput(true);
+        Logger::EnableConsoleOutput(false);  // TUI takes over console
         Logger::SetLogLevel(LOG_DEBUG);
-        Logger::Info("TCMT macOS Client starting...");
+        Logger::Info("TCMT macOS Client starting (TUI mode)...");
     } catch (const std::exception& e) {
         std::cerr << "Logger init failed: " << e.what() << std::endl;
         return 1;
     }
 
-    // Initialize shared memory
-    if (!SharedMemoryManager::InitSharedMemory()) {
-        Logger::Error("SharedMemory init failed: " + SharedMemoryManager::GetLastError());
-        return 1;
-    }
-    Logger::Info("SharedMemory initialized");
-
     // Initialize temperature wrapper (macOS: limited support)
     TemperatureWrapper::Initialize();
-    Logger::Info("TemperatureWrapper initialized");
+    Logger::Debug("TemperatureWrapper initialized");
 
     // Cache static system info
     OSInfo os;
-    Logger::Info("OS: " + os.GetVersion());
+    Logger::Debug("OS: " + os.GetVersion());
 
     std::unique_ptr<CpuInfo> cpuInfo;
     try {
         cpuInfo = std::make_unique<CpuInfo>();
-        Logger::Info("CPU: " + cpuInfo->GetName()
+        Logger::Debug("CPU: " + cpuInfo->GetName()
                    + " (" + std::to_string(cpuInfo->GetTotalCores()) + " cores)");
     } catch (const std::exception& e) {
         Logger::Error("CpuInfo init failed: " + std::string(e.what()));
     }
 
-    // Thread-safe GPU cache
     std::unique_ptr<GpuInfo> gpuInfo;
     try {
         gpuInfo = std::make_unique<GpuInfo>();
         for (const auto& gpu : gpuInfo->GetGpuData()) {
             std::string gname(gpu.name.begin(), gpu.name.end());
-            Logger::Info("GPU: " + gname
-                       + " mem=" + FormatSize(gpu.dedicatedMemory));
+            Logger::Debug("GPU: " + gname + " mem=" + FormatSize(gpu.dedicatedMemory));
         }
     } catch (const std::exception& e) {
         Logger::Error("GpuInfo init failed: " + std::string(e.what()));
     }
 
-    Logger::Info("System init complete, entering monitor loop...");
+    // Initialize shared memory (optional, for future GUI clients)
+    bool shmOk = SharedMemoryManager::InitSharedMemory();
+    if (shmOk) {
+        Logger::Debug("SharedMemory initialized");
+    } else {
+        Logger::Warn("SharedMemory init failed: " + SharedMemoryManager::GetLastError());
+    }
 
-    int loopCounter = 1;
-    bool isFirstRun = true;
+    // Start TUI
+    tcmt::TuiApp tuiApp;
+    tuiApp.Start();
+    Logger::Info("TUI started");
 
     // Static info caching
     static std::string cachedCpuName;
@@ -157,53 +125,41 @@ int main(int argc, char* argv[]) {
         cachedVirt = cpuInfo->IsVirtualizationEnabled();
     }
 
-    while (!g_shouldExit.load()) {
+    int loopCounter = 1;
+
+    while (!g_shouldExit.load() && tuiApp.IsRunning()) {
         try {
             auto loopStart = std::chrono::high_resolution_clock::now();
-            bool isDetailed = (loopCounter % 5 == 1);
 
-            if (isDetailed)
-                Logger::Debug("Loop #" + std::to_string(loopCounter));
-
-            // === Build SystemInfo ===
-            SystemInfo sysInfo{};
-            sysInfo.cpuUsage = 0.0;
-            sysInfo.performanceCoreFreq = 0.0;
-            sysInfo.efficiencyCoreFreq = 0.0;
-            sysInfo.totalMemory = 0;
-            sysInfo.usedMemory = 0;
-            sysInfo.availableMemory = 0;
-            sysInfo.gpuMemory = 0;
-            sysInfo.gpuCoreFreq = 0.0;
-            sysInfo.gpuUsage = 0.0;  // macOS: GPU usage not available for Apple Silicon
-            sysInfo.gpuIsVirtual = false;
-            sysInfo.networkAdapterSpeed = 0;
-            sysInfo.networkAdapterName.clear();
-            sysInfo.networkAdapterIp.clear();
-            sysInfo.networkAdapterType.clear();
-            sysInfo.osVersion = os.GetVersion();
-            sysInfo.cpuName = cachedCpuName;
-            sysInfo.physicalCores = cachedTotalCores;
-            sysInfo.logicalCores = cachedTotalCores;
-            sysInfo.performanceCores = cachedPCores;
-            sysInfo.efficiencyCores = cachedECores;
-            sysInfo.hyperThreading = cachedHT;
-            sysInfo.virtualization = cachedVirt;
+            // === Build TuiData snapshot ===
+            tcmt::TuiData data;
+            data.cpuName = cachedCpuName;
+            data.physicalCores = cachedTotalCores;
+            data.performanceCores = cachedPCores;
+            data.efficiencyCores = cachedECores;
+            data.cpuUsage = 0.0;
+            data.pCoreFreq = 0.0;
+            data.eCoreFreq = 0.0;
+            data.cpuTemp = 0.0;
+            data.totalMemory = 0;
+            data.usedMemory = 0;
+            data.availableMemory = 0;
+            data.gpuUsage = 0.0;
+            data.gpuTemp = 0.0;
 
             // CPU dynamic info
             if (cpuInfo) {
-                sysInfo.cpuUsage = cpuInfo->GetUsage();
-                sysInfo.performanceCoreFreq = cpuInfo->GetLargeCoreSpeed();
-                sysInfo.efficiencyCoreFreq = cpuInfo->GetSmallCoreSpeed();
-                sysInfo.cpuUsageSampleIntervalMs = cpuInfo->GetLastSampleIntervalMs();
+                data.cpuUsage = cpuInfo->GetUsage();
+                data.pCoreFreq = cpuInfo->GetLargeCoreSpeed();
+                data.eCoreFreq = cpuInfo->GetSmallCoreSpeed();
             }
 
             // Memory
             try {
                 MemoryInfo mem;
-                sysInfo.totalMemory = mem.GetTotalPhysical();
-                sysInfo.usedMemory = mem.GetTotalPhysical() - mem.GetAvailablePhysical();
-                sysInfo.availableMemory = mem.GetAvailablePhysical();
+                data.totalMemory = mem.GetTotalPhysical();
+                data.usedMemory = mem.GetTotalPhysical() - mem.GetAvailablePhysical();
+                data.availableMemory = mem.GetAvailablePhysical();
             } catch (const std::exception& e) {
                 Logger::Error("Memory error: " + std::string(e.what()));
             }
@@ -212,29 +168,10 @@ int main(int argc, char* argv[]) {
             if (gpuInfo) {
                 const auto& gpus = gpuInfo->GetGpuData();
                 for (const auto& gpu : gpus) {
-                    GPUData gd;
-                    memset(&gd, 0, sizeof(GPUData));
-                    std::wstring gname = gpu.name;
-                    if (gname.size() >= sizeof(gd.name)/sizeof(wchar_t))
-                        gname = gname.substr(0, sizeof(gd.name)/sizeof(wchar_t)-1);
-                    wcsncpy(gd.name, gname.c_str(), sizeof(gd.name)/sizeof(wchar_t)-1);
-                    gd.memory = gpu.dedicatedMemory;
-                    gd.coreClock = gpu.coreClock;
-                    gd.isVirtual = gpu.isVirtual;
-                    sysInfo.gpus.push_back(gd);
-
-                    // Fill top-level GPU fields (first GPU)
-                    if (sysInfo.gpuName.empty()) {
+                    if (data.gpuName.empty()) {
                         std::string gn(gpu.name.begin(), gpu.name.end());
-                        sysInfo.gpuName = gn;
-                        sysInfo.gpuBrand = gn; // unified architecture, name=brand
-                    }
-                    sysInfo.gpuMemory = gpu.dedicatedMemory;
-                    sysInfo.gpuCoreFreq = gpu.coreClock;
-                    sysInfo.gpuIsVirtual = gpu.isVirtual;
-                    if (isFirstRun) {
-                        std::string gn(gpu.name.begin(), gpu.name.end());
-                        Logger::Debug("GPU: " + gn + " mem=" + FormatSize(gpu.dedicatedMemory));
+                        data.gpuName = gn;
+                        data.gpuMemory = gpu.dedicatedMemory;
                     }
                 }
             }
@@ -243,43 +180,13 @@ int main(int argc, char* argv[]) {
             try {
                 NetworkAdapter net;
                 const auto& adapters = net.GetAdapters();
-                sysInfo.adapters.clear();
                 for (const auto& adapter : adapters) {
-                    NetworkAdapterData ad;
-                    memset(&ad, 0, sizeof(NetworkAdapterData));
-                    std::string name = adapter.name;
-                    if (name.size() >= sizeof(ad.name)/sizeof(wchar_t))
-                        name = name.substr(0, sizeof(ad.name)/sizeof(wchar_t)-1);
-                    mbstowcs(ad.name, name.c_str(), sizeof(ad.name)/sizeof(wchar_t)-1);
-                    std::string mac = adapter.mac;
-                    if (mac.size() >= sizeof(ad.mac)/sizeof(wchar_t))
-                        mac = mac.substr(0, sizeof(ad.mac)/sizeof(wchar_t)-1);
-                    mbstowcs(ad.mac, mac.c_str(), sizeof(ad.mac)/sizeof(wchar_t)-1);
-                    std::string ip = adapter.ip;
-                    if (ip.size() >= sizeof(ad.ipAddress)/sizeof(wchar_t))
-                        ip = ip.substr(0, sizeof(ad.ipAddress)/sizeof(wchar_t)-1);
-                    mbstowcs(ad.ipAddress, ip.c_str(), sizeof(ad.ipAddress)/sizeof(wchar_t)-1);
-                    std::string type = adapter.adapterType;
-                    if (type.size() >= sizeof(ad.adapterType)/sizeof(wchar_t))
-                        type = type.substr(0, sizeof(ad.adapterType)/sizeof(wchar_t)-1);
-                    mbstowcs(ad.adapterType, type.c_str(), sizeof(ad.adapterType)/sizeof(wchar_t)-1);
-                    ad.speed = adapter.speed;
-                    sysInfo.adapters.push_back(ad);
-
-                    // Fill top-level network fields (first adapter with IP and speed)
-                    if (!adapter.ip.empty() && sysInfo.networkAdapterName.empty()) {
-                        sysInfo.networkAdapterName = adapter.name;
-                        sysInfo.networkAdapterMac = adapter.mac;
-                        sysInfo.networkAdapterIp = adapter.ip;
-                        sysInfo.networkAdapterType = adapter.adapterType;
-                        sysInfo.networkAdapterSpeed = adapter.speed;
-                    }
-
-                    if (isFirstRun) {
-                        Logger::Debug("Network: " + adapter.name
-                                    + " ip=" + adapter.ip
-                                    + " type=" + adapter.adapterType);
-                    }
+                    tcmt::TuiData::NetInfo ni;
+                    ni.name = adapter.name;
+                    ni.ip = adapter.ip;
+                    ni.type = adapter.adapterType;
+                    ni.speed = adapter.speed;
+                    data.adapters.push_back(ni);
                 }
             } catch (const std::exception& e) {
                 Logger::Error("Network error: " + std::string(e.what()));
@@ -288,9 +195,14 @@ int main(int argc, char* argv[]) {
             // Disk
             try {
                 DiskInfo disk;
-                sysInfo.disks = disk.GetDisks();
-                if (isFirstRun) {
-                    Logger::Debug("Disks: " + std::to_string(sysInfo.disks.size()) + " volumes");
+                auto volumes = disk.GetDisks();
+                for (const auto& vol : volumes) {
+                    tcmt::TuiData::DiskInfo di;
+                    di.label = vol.label;
+                    di.totalSize = vol.totalSize;
+                    di.usedSpace = vol.usedSpace;
+                    di.fileSystem = vol.fileSystem;
+                    data.disks.push_back(di);
                 }
             } catch (const std::exception& e) {
                 Logger::Error("Disk error: " + std::string(e.what()));
@@ -299,45 +211,55 @@ int main(int argc, char* argv[]) {
             // Temperature
             try {
                 auto temps = TemperatureWrapper::GetTemperatures();
-                sysInfo.temperatures = temps;
-
-                // Extract CPU / GPU temperatures from the named vector
+                data.temperatures = temps;
                 for (const auto& [name, temp] : temps) {
-                    // CPU sensors: TC0x / TG0x / Ts0x / Rp0T / etc.
-                    // GPU sensors: TGxP / TGxD / TGDD / etc.
                     bool isGpu = (name.find("TG") != std::string::npos ||
-                                  name.find("GPU") != std::string::npos ||
-                                  name.find("Gg") != std::string::npos);
-                    if (isGpu && sysInfo.gpuTemperature == 0)
-                        sysInfo.gpuTemperature = temp;
-                    else if (!isGpu && sysInfo.cpuTemperature == 0)
-                        sysInfo.cpuTemperature = temp;
+                                  name.find("GPU") != std::string::npos);
+                    if (isGpu && data.gpuTemp == 0) data.gpuTemp = temp;
+                    else if (!isGpu && data.cpuTemp == 0) data.cpuTemp = temp;
                 }
-
-                if (isFirstRun)
-                    Logger::Debug("Temperatures: " + std::to_string(temps.size()) + " sensors");
             } catch (const std::exception& e) {
                 Logger::Error("Temperature error: " + std::string(e.what()));
             }
 
-            // Write to shared memory
-            try {
-                if (SharedMemoryManager::GetBuffer()) {
-                    SharedMemoryManager::WriteToSharedMemory(sysInfo);
-                    if (isDetailed)
-                        Logger::Debug("SharedMemory updated");
-                }
-            } catch (const std::exception& e) {
-                Logger::Error("SharedMemory write error: " + std::string(e.what()));
+            // Timestamp
+            auto now = std::chrono::system_clock::now();
+            auto time = std::chrono::system_clock::to_time_t(now);
+            std::tm tm;
+            localtime_r(&time, &tm);
+            char buf[64];
+            std::strftime(buf, sizeof(buf), "%H:%M:%S", &tm);
+            data.timestamp = buf;
+
+            // Update TUI
+            tuiApp.UpdateData(data);
+
+            // Also write to shared memory (optional)
+            if (shmOk) {
+                SystemInfo sysInfo{};
+                sysInfo.cpuName = data.cpuName;
+                sysInfo.cpuUsage = data.cpuUsage;
+                sysInfo.performanceCoreFreq = data.pCoreFreq;
+                sysInfo.efficiencyCoreFreq = data.eCoreFreq;
+                sysInfo.cpuTemperature = data.cpuTemp;
+                sysInfo.totalMemory = data.totalMemory;
+                sysInfo.usedMemory = data.usedMemory;
+                sysInfo.availableMemory = data.availableMemory;
+                sysInfo.physicalCores = data.physicalCores;
+                sysInfo.performanceCores = data.performanceCores;
+                sysInfo.efficiencyCores = data.efficiencyCores;
+                sysInfo.gpuUsage = data.gpuUsage;
+                sysInfo.gpuTemperature = data.gpuTemp;
+                sysInfo.gpuName = data.gpuName;
+                sysInfo.gpuMemory = data.gpuMemory;
+                SharedMemoryManager::WriteToSharedMemory(sysInfo);
             }
 
-            if (isFirstRun) isFirstRun = false;
-
-            // Sleep with interrupt check
+            // Sleep
             auto loopEnd = std::chrono::high_resolution_clock::now();
             int loopMs = (int)std::chrono::duration_cast<std::chrono::milliseconds>(
                 loopEnd - loopStart).count();
-            int sleepMs = std::max(1000 - loopMs, 50);
+            int sleepMs = std::max(500 - loopMs, 50);  // 2 Hz update
             std::this_thread::sleep_for(std::chrono::milliseconds(sleepMs));
             loopCounter++;
         }
@@ -352,6 +274,7 @@ int main(int argc, char* argv[]) {
     }
 
     Logger::Info("Exiting, cleaning up...");
+    tuiApp.Stop();
     TemperatureWrapper::Cleanup();
     SharedMemoryManager::CleanupSharedMemory();
     Logger::Info("Done.");

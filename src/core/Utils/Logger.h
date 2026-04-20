@@ -22,6 +22,11 @@
 #include <windows.h>
 #endif
 
+// Include LogBuffer for TUI support (macOS)
+#ifdef TCMT_MACOS
+#include "../tui/LogBuffer.h"
+#endif
+
 // 日志等级枚举
 enum LogLevel {
     LOG_TRACE = 0,
@@ -70,4 +75,7 @@ public:
     static void Error(const std::string& message);
     static void Critical(const std::string& message);
     static void Fatal(const std::string& message);
+
+    // Get the TUI log buffer (for macOS TUI mode)
+    static tcmt::LogBuffer& GetTuiBuffer();
 };

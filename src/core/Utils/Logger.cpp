@@ -1,5 +1,9 @@
 #include "Logger.h"
 
+#ifdef TCMT_MACOS
+#include "../tui/LogBuffer.h"
+#endif
+
 std::ofstream Logger::logFile;
 std::mutex Logger::logMutex;
 bool Logger::consoleOutputEnabled = true;
@@ -9,6 +13,9 @@ void* Logger::hConsole = nullptr;
 #else
 void* Logger::hConsole = nullptr;
 #endif
+
+// Global TUI log buffer (only used on macOS)
+static tcmt::LogBuffer g_tuiLogBuffer;
 
 #ifdef TCMT_WINDOWS
 // ======================== Windows Implementation ========================
@@ -70,6 +77,9 @@ void Logger::WriteLog(const std::string& level, const std::string& message,
     std::string logEntry = ss.str();
     logFile.write(logEntry.c_str(), logEntry.size());
     logFile.flush();
+
+    // Also push to TUI log buffer (for macOS TUI mode)
+    g_tuiLogBuffer.Push(logEntry);
 
     if (consoleOutputEnabled && hConsole != INVALID_HANDLE_VALUE) {
         HANDLE hCon = (HANDLE)hConsole;
@@ -172,6 +182,9 @@ void Logger::WriteLog(const std::string& level, const std::string& message,
     logFile.write(logEntry.c_str(), logEntry.size());
     logFile.flush();
 
+    // Push to TUI log buffer (for macOS TUI mode)
+    g_tuiLogBuffer.Push(logEntry);
+
     if (consoleOutputEnabled) {
         const char* colorCode = ANSI_RESET;
         if (msgLevel <= LOG_DEBUG) colorCode = ANSI_FG_BRIGHT_MAGENTA;
@@ -252,3 +265,8 @@ void Logger::Critical(const std::string& message) { WriteLog("CRITICAL",message,
 void Logger::Fatal(const std::string& message)    { WriteLog("FATAL",   message, LOG_FATAL,   ConsoleColor::RED); }
 
 #endif
+
+// GetTuiBuffer - returns global log buffer for TUI (macOS only, but defined for all platforms)
+tcmt::LogBuffer& Logger::GetTuiBuffer() {
+    return g_tuiLogBuffer;
+}

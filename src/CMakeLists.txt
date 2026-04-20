@@ -53,6 +53,15 @@ if(TCMT_MACOS)
     )
 endif()
 
+# TUI module (macOS only)
+set(TUI_SOURCES "")
+if(TCMT_MACOS)
+    list(APPEND TUI_SOURCES
+        ${CMAKE_CURRENT_SOURCE_DIR}/tui/TuiApp.cpp
+    )
+    find_package(Curses REQUIRED)
+endif()
+
 # ============================================================
 # Build TCMTCore static library
 # ============================================================
@@ -62,6 +71,7 @@ add_library(TCMTCore STATIC
     ${CORE_MODULES_SOURCES}
     ${DATASTRUCT_SOURCES}
     ${TEMP_SOURCES}
+    ${TUI_SOURCES}
 )
 
 set_target_properties(TCMTCore PROPERTIES
@@ -92,6 +102,12 @@ endif()
 tcmt_target_set_options(TCMTCore)
 tcmt_set_platform_libraries(TCMTCore)
 tcmt_set_output_directories(TCMTCore)
+
+# Link ncurses on macOS
+if(TCMT_MACOS)
+    target_link_libraries(TCMTCore PRIVATE ${CURSES_LIBRARIES})
+    target_include_directories(TCMTCore PRIVATE ${CURSES_INCLUDE_DIR})
+endif()
 
 # ============================================================
 # Build executable
