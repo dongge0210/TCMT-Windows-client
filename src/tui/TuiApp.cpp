@@ -34,9 +34,7 @@ void TuiApp::Stop() {
         thread_.join();
     }
     // Safety: ensure terminal is restored even if Run() didn't reach endwin()
-    // endwin() is safe to call multiple times (second call is a no-op on most implementations)
-    endwin();
-    // Restore terminal echo and buffering
+    SafeEndwin();
     std::fflush(stdout);
 }
 
@@ -259,6 +257,7 @@ void TuiApp::Run() {
 
     // Initialize ncurses
     initscr();
+    cursesActive_ = true;
     cbreak();
     noecho();
     keypad(stdscr, TRUE);
@@ -411,7 +410,14 @@ void TuiApp::Run() {
     }
 
     // Cleanup
-    endwin();
+    SafeEndwin();
+}
+
+void TuiApp::SafeEndwin() {
+    bool expected = true;
+    if (cursesActive_.compare_exchange_strong(expected, false)) {
+        endwin();
+    }
 }
 
 } // namespace tcmt

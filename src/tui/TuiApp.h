@@ -87,6 +87,7 @@ public:
 
 private:
     void Run();
+    void SafeEndwin();
     void InitColors();
     void DrawHeader(WINDOW* win, const TuiData& data);
     void DrawCpuPanel(WINDOW* win, const TuiData& data, int y, int x0, int maxW);
@@ -116,6 +117,9 @@ private:
     // Window dimensions
     int termRows_ = 0;
     int termCols_ = 0;
+
+    // Ensure endwin() is called exactly once
+    std::atomic<bool> cursesActive_{false};
 };
 
 } // namespace tcmt

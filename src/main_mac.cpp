@@ -37,6 +37,11 @@ static std::atomic<bool> g_shouldExit{false};
 static void SignalHandler(int sig) {
     (void)sig;
     g_shouldExit = true;
+    // Force fast exit on second Ctrl+C
+    static std::atomic<int> sigCount{0};
+    if (++sigCount >= 2) {
+        _exit(1);
+    }
 }
 
 // ======================== Formatting Helpers ========================
@@ -271,8 +276,8 @@ int main(int argc, char* argv[]) {
             int loopMs = (int)std::chrono::duration_cast<std::chrono::milliseconds>(
                 loopEnd - loopStart).count();
             int sleepMs = std::max(500 - loopMs, 50);  // 2 Hz update
-            // Interruptible sleep: check exit flag every 50ms
-            for (int s = 0; s < sleepMs / 50 && !g_shouldExit.load(); ++s) {
+            // Sleep with responsive exit (check every 50ms)
+            for (int s = 0; s < 10 && !g_shouldExit.load(); ++s) {
                 std::this_thread::sleep_for(std::chrono::milliseconds(50));
             }
             loopCounter++;
