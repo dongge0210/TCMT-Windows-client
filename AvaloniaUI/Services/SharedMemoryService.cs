@@ -304,17 +304,21 @@ public class SharedMemoryService : IDisposable
             systemInfo.GpuTemperature = sharedData.gpuTemperature;
             systemInfo.CpuUsageSampleIntervalMs = sharedData.cpuUsageSampleIntervalMs;
 
-            // GPU
+            // GPU - 过滤无效设备
             systemInfo.Gpus.Clear();
             if (sharedData.gpus != null)
             {
                 for (int i = 0; i < Math.Min(sharedData.gpuCount, sharedData.gpus.Length); i++)
                 {
                     var g = sharedData.gpus[i];
+                    var name = SafeWideCharArrayToString(g.name);
+                    // 过滤无效名称
+                    if (string.IsNullOrWhiteSpace(name) || name.Contains("Unknown", StringComparison.OrdinalIgnoreCase))
+                        continue;
                     systemInfo.Gpus.Add(new GpuData
                     {
-                        Name = SafeWideCharArrayToString(g.name) ?? "Unknown GPU",
-                        Brand = SafeWideCharArrayToString(g.brand) ?? "Unknown Brand",
+                        Name = name,
+                        Brand = SafeWideCharArrayToString(g.brand) ?? "",
                         Memory = g.memory,
                         CoreClock = g.coreClock,
                         IsVirtual = g.isVirtual,
@@ -323,36 +327,46 @@ public class SharedMemoryService : IDisposable
                 }
             }
 
-            // Network
+            // Network - 过滤无效设备
             systemInfo.Adapters.Clear();
             if (sharedData.adapters != null)
             {
                 for (int i = 0; i < Math.Min(sharedData.adapterCount, sharedData.adapters.Length); i++)
                 {
                     var a = sharedData.adapters[i];
+                    var name = SafeWideCharArrayToString(a.name);
+                    // 过滤无效名称
+                    if (string.IsNullOrWhiteSpace(name) || name.Contains("Unknown", StringComparison.OrdinalIgnoreCase))
+                        continue;
                     systemInfo.Adapters.Add(new NetworkAdapterData
                     {
-                        Name = SafeWideCharArrayToString(a.name) ?? "Unknown",
-                        Mac = SafeWideCharArrayToString(a.mac) ?? "00-00-00-00-00-00",
-                        IpAddress = SafeWideCharArrayToString(a.ipAddress) ?? "N/A",
-                        AdapterType = SafeWideCharArrayToString(a.adapterType) ?? "Unknown",
+                        Name = name,
+                        Mac = SafeWideCharArrayToString(a.mac) ?? "",
+                        IpAddress = SafeWideCharArrayToString(a.ipAddress) ?? "",
+                        AdapterType = SafeWideCharArrayToString(a.adapterType) ?? "",
                         Speed = a.speed
                     });
                 }
             }
 
-            // Disks
+            // Disks - 过滤无效磁盘
             systemInfo.Disks.Clear();
             if (sharedData.disks != null)
             {
                 for (int i = 0; i < Math.Min(sharedData.diskCount, sharedData.disks.Length); i++)
                 {
                     var d = sharedData.disks[i];
+                    // 过滤：容量为0 或 文件系统为 Unknown
+                    if (d.totalSize == 0)
+                        continue;
+                    var fileSystem = SafeWideCharArrayToString(d.fileSystem);
+                    if (!string.IsNullOrWhiteSpace(fileSystem) && fileSystem.Contains("Unknown", StringComparison.OrdinalIgnoreCase))
+                        continue;
                     systemInfo.Disks.Add(new DiskData
                     {
                         Letter = (char)d.letter,
-                        Label = SafeWideCharArrayToString(d.label) ?? "No Label",
-                        FileSystem = SafeWideCharArrayToString(d.fileSystem) ?? "Unknown",
+                        Label = SafeWideCharArrayToString(d.label) ?? "",
+                        FileSystem = fileSystem ?? "",
                         TotalSize = d.totalSize,
                         UsedSpace = d.usedSpace,
                         FreeSpace = d.freeSpace,
@@ -361,16 +375,22 @@ public class SharedMemoryService : IDisposable
                 }
             }
 
-            // Physical Disks + SMART
+            // Physical Disks + SMART - 过滤无效磁盘
             systemInfo.PhysicalDisks.Clear();
             if (sharedData.physicalDisks != null)
             {
                 for (int i = 0; i < Math.Min(sharedData.physicalDiskCount, sharedData.physicalDisks.Length); i++)
                 {
                     var pd = sharedData.physicalDisks[i];
+                    var model = SafeWideCharArrayToString(pd.model);
+                    // 过滤：容量为0、型号为空或包含 Unknown
+                    if (pd.capacity == 0)
+                        continue;
+                    if (string.IsNullOrWhiteSpace(model) || model.Contains("Unknown", StringComparison.OrdinalIgnoreCase))
+                        continue;
                     var physicalDisk = new PhysicalDiskSmartData
                     {
-                        Model = SafeWideCharArrayToString(pd.model) ?? "Unknown Model",
+                        Model = model,
                         SerialNumber = SafeWideCharArrayToString(pd.serialNumber) ?? string.Empty,
                         FirmwareVersion = SafeWideCharArrayToString(pd.firmwareVersion) ?? string.Empty,
                         InterfaceType = SafeWideCharArrayToString(pd.interfaceType) ?? string.Empty,
