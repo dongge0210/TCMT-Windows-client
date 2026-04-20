@@ -43,7 +43,7 @@ void DiskInfo::QueryDrives() {
             Logger::Warn("GetVolumeInformation 失败: " + WinUtils::WstringToString(rootPath));
         } else {
             info.label = volumeName;
-            // 不再设置默认标签，让 UI 决定如何显示
+            if (info.label.empty()) info.label = L"本地磁盘";
             info.fileSystem = fileSystemName;
         }
         drives.push_back(std::move(info));
