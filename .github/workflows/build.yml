@@ -1,4 +1,4 @@
-name: Build TCMT Windows Client
+name: Build TCMT- M
 
 on:
   push:

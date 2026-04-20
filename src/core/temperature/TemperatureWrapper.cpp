@@ -519,6 +519,36 @@ static const char* kGpuKeys[] = {
 };
 
 // =====================================================================
+// Battery temperature via AppleSmartBattery (no root needed)
+// Temperature value is in centidegrees (×100 °C), e.g. 3018 → 30.18°C
+// =====================================================================
+static double iokit_battery_temp(void) {
+    mach_port_t masterPort;
+#if __MAC_OS_X_VERSION_MAX_ALLOWED >= 120000
+    masterPort = kIOMainPortDefault;
+#else
+    masterPort = kIOMasterPortDefault;
+#endif
+
+    io_service_t svc = IOServiceGetMatchingService(
+        masterPort, IOServiceMatching("AppleSmartBattery"));
+    if (!svc) return 0.0;
+
+    double result = 0.0;
+    CFTypeRef ref = IORegistryEntryCreateCFProperty(
+        svc, CFSTR("Temperature"), kCFAllocatorDefault, 0);
+    if (ref && CFGetTypeID(ref) == CFNumberGetTypeID()) {
+        SInt64 raw = 0;
+        if (CFNumberGetValue((CFNumberRef)ref, kCFNumberSInt64Type, &raw)) {
+            result = raw / 100.0;
+        }
+        if (ref) CFRelease(ref);
+    }
+    IOObjectRelease(svc);
+    return result;
+}
+
+// =====================================================================
 // Public interface
 // =====================================================================
 bool TemperatureWrapper::initialized = false;
@@ -559,7 +589,7 @@ std::vector<std::pair<std::string, double>> TemperatureWrapper::GetTemperatures(
 
     if (!initialized) return temps;
 
-    // Priority 1: Direct SMC reads
+    // Priority 1: Direct SMC reads (works on Intel; needs root on Apple Silicon)
     for (int i = 0; kCpuKeys[i]; i++) {
         double t = 0;
         if (smc_read_temp(kCpuKeys[i], "sp78", &t)) {
@@ -573,7 +603,7 @@ std::vector<std::pair<std::string, double>> TemperatureWrapper::GetTemperatures(
         }
     }
 
-    // Priority 2: powermetrics cache
+    // Priority 2: powermetrics cache (needs root, filled by background thread)
     if (temps.empty()) {
         std::lock_guard<std::mutex> lock(g_pm_mutex);
         if (!g_pm_temps.empty()) {
@@ -581,13 +611,19 @@ std::vector<std::pair<std::string, double>> TemperatureWrapper::GetTemperatures(
         }
     }
 
-    // Priority 3: Apple Silicon ARM PMU temp sensors (no root)
+    // Priority 3: Battery temperature (no root, always available on laptops)
+    double batTemp = iokit_battery_temp();
+    if (batTemp > 10 && batTemp < 80) {
+        temps.push_back({"Battery", batTemp});
+    }
+
+    // Priority 4: Apple Silicon ARM PMU temp sensors (no root, often empty)
     if (temps.empty()) {
         auto arm = iokit_arm_temp_sensors();
         temps.insert(temps.end(), arm.begin(), arm.end());
     }
 
-    // Priority 4: IOKit HID (last resort, very few sensors)
+    // Priority 5: IOKit HID (last resort)
     if (temps.empty()) {
         auto hid = iokit_hid_temps();
         temps.insert(temps.end(), hid.begin(), hid.end());
