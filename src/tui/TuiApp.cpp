@@ -181,28 +181,19 @@ void TuiApp::DrawMemoryPanel(WINDOW* win, const TuiData& data, int y, int x0, in
 }
 
 void TuiApp::DrawGpuPanel(WINDOW* win, const TuiData& data, int y, int x0, int maxW) {
+    int bw = std::min(maxW - 16, 20);
     wattron(win, COLOR_PAIR(5) | A_BOLD);
     mvwprintw(win, y++, x0, "GPU");
     wattroff(win, COLOR_PAIR(5) | A_BOLD);
 
-    if (!data.gpuName.empty()) {
-        std::string name = TrimRight(data.gpuName, maxW - 4);
-        mvwprintw(win, y++, x0 + 2, "%s", name.c_str());
-    } else {
-        mvwprintw(win, y++, x0 + 2, "(Apple Silicon GPU)");
-    }
+    std::string name = TrimRight(data.gpuName, maxW - 4);
+    mvwprintw(win, y++, x0 + 2, "%s", name.c_str());
 
-    if (data.gpuUsage > 0.0) {
-        int barLen = maxW - 20;
-        int filled = static_cast<int>(data.gpuUsage / 100.0 * barLen);
-        std::string bar(filled, '=');
-        std::string empty(barLen - filled, '-');
-        wattron(win, COLOR_PAIR(3));
-        mvwprintw(win, y++, x0 + 2, "[%s%s] %.0f%%", bar.c_str(), empty.c_str(), data.gpuUsage);
-        wattroff(win, COLOR_PAIR(3));
-    } else {
-        mvwprintw(win, y++, x0 + 2, "(no usage data)");
-    }
+    mvwprintw(win, y, x0 + 2, "Use:");
+    wattron(win, COLOR_PAIR(6));
+    mvwprintw(win, y++, x0 + 8, "%s", FormatBar(data.gpuUsage, bw).c_str());
+    wattroff(win, COLOR_PAIR(6));
+    mvwprintw(win, y - 1, x0 + 9 + bw, "%.1f%%", data.gpuUsage);
 
     if (data.gpuTemp > 0) {
         int tc = (data.gpuTemp > 80) ? 4 : (data.gpuTemp > 60) ? 3 : 2;
