@@ -122,6 +122,10 @@ void DiskInfo::CollectPhysicalDisks(WmiManager& wmi, const std::vector<DiskData>
             }
             pEnum->Release();
         }
+        // 调试：输出所有盘符和卷标
+        for (auto& kv : letterToLabel) {
+            Logger::Info("磁盘卷标: " + std::string(1, kv.first) + " -> " + WinUtils::WstringToString(kv.second));
+        }
     }
     
     // 使用关联查询获取物理磁盘到逻辑驱动器的映射
