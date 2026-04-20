@@ -1,5 +1,6 @@
 #include "TuiApp.h"
 #include <ncurses.h>
+#include <locale>
 #include <ctime>
 #include <cstring>
 #include <algorithm>
@@ -12,7 +13,9 @@ namespace tcmt {
 // TuiApp
 // ============================================================================
 
-TuiApp::TuiApp() {}
+TuiApp::TuiApp() {
+    logBuf_ = &defaultBuffer_;
+}
 
 TuiApp::~TuiApp() {
     Stop();
@@ -42,7 +45,11 @@ void TuiApp::UpdateData(const TuiData& data) {
 }
 
 LogBuffer& TuiApp::GetLogBuffer() {
-    return logBuffer_;
+    return defaultBuffer_;
+}
+
+void TuiApp::SetLogBuffer(LogBuffer* buf) {
+    logBuf_ = buf ? buf : &defaultBuffer_;
 }
 
 void TuiApp::InitColors() {
@@ -90,11 +97,10 @@ std::string TuiApp::FormatSpeed(uint64_t bps) {
 std::string TuiApp::FormatBar(double pct, int width) {
     if (pct < 0) pct = 0;
     if (pct > 100) pct = 100;
-
     int filled = static_cast<int>(pct * width / 100.0);
     std::string bar;
     for (int i = 0; i < width; ++i) {
-        bar += (i < filled) ? "█" : "░";
+        bar += (i < filled) ? '=' : '-';
     }
     return bar;
 }
@@ -104,245 +110,140 @@ std::string TuiApp::TrimRight(const std::string& s, size_t maxLen) {
     return s.substr(0, maxLen);
 }
 
-void TuiApp::DrawHeader(WINDOW* win) {
+void TuiApp::DrawHeader(WINDOW* win, const TuiData& data) {
     int rows, cols;
     getmaxyx(win, rows, cols);
     (void)rows;
-
     wattron(win, COLOR_PAIR(1) | A_BOLD);
-    std::string title = "TCMT Monitor - macOS";
+    std::string title = "TCMT Monitor - macOS  " + data.timestamp;
     int x = (cols - static_cast<int>(title.size())) / 2;
     mvwprintw(win, 0, std::max(0, x), "%s", title.c_str());
-
-    // Timestamp
-    auto now = std::chrono::system_clock::now();
-    auto time = std::chrono::system_clock::to_time_t(now);
-    std::tm tm;
-    localtime_r(&time, &tm);
-    char buf[32];
-    std::strftime(buf, sizeof(buf), "%H:%M:%S", &tm);
-
     wattroff(win, COLOR_PAIR(1) | A_BOLD);
-    mvwprintw(win, 0, cols - 10, "%s", buf);
 }
 
-void TuiApp::DrawCpuPanel(WINDOW* win, const TuiData& data) {
-    int rows, cols;
-    getmaxyx(win, rows, cols);
-    (void)rows; (void)cols;
-
-    int y = 0;
+void TuiApp::DrawCpuPanel(WINDOW* win, const TuiData& data, int y, int x0, int maxW) {
+    int bw = std::min(maxW - 14, 20);
     wattron(win, COLOR_PAIR(5) | A_BOLD);
-    mvwprintw(win, y++, 1, "CPU");
+    mvwprintw(win, y++, x0, "CPU");
     wattroff(win, COLOR_PAIR(5) | A_BOLD);
 
-    // Name (truncate if needed)
-    std::string name = TrimRight(data.cpuName, cols - 12);
-    mvwprintw(win, y++, 2, "%s", name.c_str());
+    std::string name = TrimRight(data.cpuName, maxW - 4);
+    mvwprintw(win, y++, x0 + 2, "%s", name.c_str());
 
-    // Usage bar
-    int barWidth = std::min(cols - 20, 30);
-    mvwprintw(win, y, 2, "Usage:");
+    mvwprintw(win, y, x0 + 2, "Use:");
     wattron(win, COLOR_PAIR(6));
-    mvwprintw(win, y, 9, "%s", FormatBar(data.cpuUsage, barWidth).c_str());
+    mvwprintw(win, y++, x0 + 8, "%s", FormatBar(data.cpuUsage, bw).c_str());
     wattroff(win, COLOR_PAIR(6));
-    mvwprintw(win, y, 10 + barWidth, "%5.1f%%", data.cpuUsage);
-    y++;
+    mvwprintw(win, y - 1, x0 + 9 + bw, "%.1f%%", data.cpuUsage);
 
-    // Cores
     if (data.performanceCores > 0 || data.efficiencyCores > 0) {
-        mvwprintw(win, y++, 2, "P-cores: %d (%.0f MHz)  E-cores: %d (%.0f MHz)",
+        mvwprintw(win, y++, x0 + 2, "P:%d(%.0fM) E:%d(%.0fM)",
                   data.performanceCores, data.pCoreFreq,
                   data.efficiencyCores, data.eCoreFreq);
     } else {
-        mvwprintw(win, y++, 2, "Cores: %d physical, %d logical",
-                  data.physicalCores, data.physicalCores);
+        mvwprintw(win, y++, x0 + 2, "Cores: %d", data.physicalCores);
     }
 
-    // Temperature
     if (data.cpuTemp > 0) {
-        int tempColor = (data.cpuTemp > 80) ? 4 : (data.cpuTemp > 60) ? 3 : 2;
-        wattron(win, COLOR_PAIR(tempColor));
-        mvwprintw(win, y++, 2, "Temp: %.0f°C", data.cpuTemp);
-        wattroff(win, COLOR_PAIR(tempColor));
+        int tc = (data.cpuTemp > 80) ? 4 : (data.cpuTemp > 60) ? 3 : 2;
+        wattron(win, COLOR_PAIR(tc));
+        mvwprintw(win, y++, x0 + 2, "Temp: %.0f C", data.cpuTemp);
+        wattroff(win, COLOR_PAIR(tc));
     }
 }
 
-void TuiApp::DrawMemoryPanel(WINDOW* win, const TuiData& data) {
-    int rows, cols;
-    getmaxyx(win, rows, cols);
-    (void)rows; (void)cols;
-
-    int y = 0;
+void TuiApp::DrawMemoryPanel(WINDOW* win, const TuiData& data, int y, int x0, int maxW) {
+    int bw = std::min(maxW - 16, 20);
     wattron(win, COLOR_PAIR(5) | A_BOLD);
-    mvwprintw(win, y++, 1, "Memory");
+    mvwprintw(win, y++, x0, "Memory");
     wattroff(win, COLOR_PAIR(5) | A_BOLD);
 
-    double usagePct = (data.totalMemory > 0)
-                      ? 100.0 * data.usedMemory / data.totalMemory : 0;
-
-    int barWidth = std::min(cols - 22, 30);
-    mvwprintw(win, y, 2, "Used:");
+    double upct = (data.totalMemory > 0) ? 100.0 * data.usedMemory / data.totalMemory : 0;
+    mvwprintw(win, y, x0 + 2, "Used:");
     wattron(win, COLOR_PAIR(6));
-    mvwprintw(win, y, 8, "%s", FormatBar(usagePct, barWidth).c_str());
+    mvwprintw(win, y++, x0 + 8, "%s", FormatBar(upct, bw).c_str());
     wattroff(win, COLOR_PAIR(6));
-    mvwprintw(win, y, 9 + barWidth, "%s / %s",
+    mvwprintw(win, y - 1, x0 + 9 + bw, "%s / %s",
               FormatSize(data.usedMemory).c_str(),
               FormatSize(data.totalMemory).c_str());
-    y++;
-
-    mvwprintw(win, y++, 2, "Avail: %s", FormatSize(data.availableMemory).c_str());
+    mvwprintw(win, y++, x0 + 2, "Avail: %s", FormatSize(data.availableMemory).c_str());
 }
 
-void TuiApp::DrawGpuPanel(WINDOW* win, const TuiData& data) {
-    int rows, cols;
-    getmaxyx(win, rows, cols);
-    (void)rows; (void)cols;
-
-    int y = 0;
+void TuiApp::DrawGpuPanel(WINDOW* win, const TuiData& data, int y, int x0, int maxW) {
     wattron(win, COLOR_PAIR(5) | A_BOLD);
-    mvwprintw(win, y++, 1, "GPU");
+    mvwprintw(win, y++, x0, "GPU");
     wattroff(win, COLOR_PAIR(5) | A_BOLD);
 
     if (!data.gpuName.empty()) {
-        std::string name = TrimRight(data.gpuName, cols - 4);
-        mvwprintw(win, y++, 2, "%s", name.c_str());
+        std::string name = TrimRight(data.gpuName, maxW - 4);
+        mvwprintw(win, y++, x0 + 2, "%s", name.c_str());
     } else {
-        mvwprintw(win, y++, 2, "(no GPU detected)");
-        return;
+        mvwprintw(win, y++, x0 + 2, "(Apple Silicon GPU)");
     }
 
-    if (data.gpuMemory > 0) {
-        mvwprintw(win, y++, 2, "VRAM: %s", FormatSize(data.gpuMemory).c_str());
-    }
-
-    if (data.gpuUsage > 0) {
-        int barWidth = std::min(cols - 20, 30);
-        mvwprintw(win, y, 2, "Use:");
-        wattron(win, COLOR_PAIR(6));
-        mvwprintw(win, y, 7, "%s", FormatBar(data.gpuUsage, barWidth).c_str());
-        wattroff(win, COLOR_PAIR(6));
-        mvwprintw(win, y, 8 + barWidth, "%5.1f%%", data.gpuUsage);
-        y++;
-    }
+    if (data.gpuMemory > 0)
+        mvwprintw(win, y++, x0 + 2, "VRAM: %s", FormatSize(data.gpuMemory).c_str());
 
     if (data.gpuTemp > 0) {
-        int tempColor = (data.gpuTemp > 80) ? 4 : (data.gpuTemp > 60) ? 3 : 2;
-        wattron(win, COLOR_PAIR(tempColor));
-        mvwprintw(win, y++, 2, "Temp: %.0f°C", data.gpuTemp);
-        wattroff(win, COLOR_PAIR(tempColor));
+        int tc = (data.gpuTemp > 80) ? 4 : (data.gpuTemp > 60) ? 3 : 2;
+        wattron(win, COLOR_PAIR(tc));
+        mvwprintw(win, y++, x0 + 2, "Temp: %.0f C", data.gpuTemp);
+        wattroff(win, COLOR_PAIR(tc));
     }
 }
 
-void TuiApp::DrawDiskPanel(WINDOW* win, const TuiData& data) {
-    int rows, cols;
-    getmaxyx(win, rows, cols);
-    (void)cols;
-
-    int y = 0;
+void TuiApp::DrawDiskPanel(WINDOW* win, const TuiData& data, int y, int x0, int maxW) {
+    int bw = std::min(maxW - 22, 14);
     wattron(win, COLOR_PAIR(5) | A_BOLD);
-    mvwprintw(win, y++, 1, "Disks");
+    mvwprintw(win, y++, x0, "Disks");
     wattroff(win, COLOR_PAIR(5) | A_BOLD);
 
-    int maxRows = rows - 1;
-    for (size_t i = 0; i < data.disks.size() && y < maxRows; ++i) {
-        const auto& d = data.disks[i];
-        double usagePct = (d.totalSize > 0)
-                          ? 100.0 * d.usedSpace / d.totalSize : 0;
-
-        std::string label = TrimRight(d.label.empty() ? "Untitled" : d.label, 20);
-        mvwprintw(win, y, 2, "%-20s", label.c_str());
-
+    for (const auto& d : data.disks) {
+        double upct = (d.totalSize > 0) ? 100.0 * d.usedSpace / d.totalSize : 0;
+        std::string label = TrimRight(d.label.empty() ? "Untitled" : d.label, 14);
+        mvwprintw(win, y, x0 + 2, "%-14s", label.c_str());
         wattron(win, COLOR_PAIR(6));
-        wprintw(win, "%s", FormatBar(usagePct, 15).c_str());
+        wprintw(win, "%s", FormatBar(upct, bw).c_str());
         wattroff(win, COLOR_PAIR(6));
-
-        wprintw(win, " %5.1f%% %s",
-                usagePct,
-                FormatSize(d.usedSpace).c_str());
+        wprintw(win, "%.0f%% %s", upct, FormatSize(d.usedSpace).c_str());
         y++;
     }
 }
 
-void TuiApp::DrawNetworkPanel(WINDOW* win, const TuiData& data) {
-    int rows, cols;
-    getmaxyx(win, rows, cols);
-    (void)cols;
-
-    int y = 0;
+void TuiApp::DrawNetworkPanel(WINDOW* win, const TuiData& data, int y, int x0, int maxW) {
     wattron(win, COLOR_PAIR(5) | A_BOLD);
-    mvwprintw(win, y++, 1, "Network");
+    mvwprintw(win, y++, x0, "Network");
     wattroff(win, COLOR_PAIR(5) | A_BOLD);
 
-    int maxRows = rows - 1;
-    for (size_t i = 0; i < data.adapters.size() && y < maxRows; ++i) {
-        const auto& n = data.adapters[i];
-        if (n.ip.empty()) continue; // skip disconnected
-
-        std::string name = TrimRight(n.name, 12);
-        std::string type = TrimRight(n.type, 10);
-        std::string ip = TrimRight(n.ip, 16);
-
-        mvwprintw(win, y, 2, "%-12s %-10s %-16s",
-                  name.c_str(), type.c_str(), ip.c_str());
-
+    for (const auto& n : data.adapters) {
+        if (n.ip.empty()) continue;
+        std::string name = TrimRight(n.name, 10);
+        std::string ip = TrimRight(n.ip, maxW - 14);
+        mvwprintw(win, y++, x0 + 2, "%-10s %s", name.c_str(), ip.c_str());
         if (n.speed > 0) {
-            wprintw(win, " %s", FormatSpeed(n.speed).c_str());
+            mvwprintw(win, y++, x0 + 4, "%s", FormatSpeed(n.speed).c_str());
         }
-        y++;
     }
 }
 
-void TuiApp::DrawTempPanel(WINDOW* win, const TuiData& data) {
-    int rows, cols;
-    getmaxyx(win, rows, cols);
-    (void)cols;
-
-    int y = 0;
+void TuiApp::DrawTempPanel(WINDOW* win, const TuiData& data, int y, int x0, int maxW) {
     wattron(win, COLOR_PAIR(5) | A_BOLD);
-    mvwprintw(win, y++, 1, "Temps");
+    mvwprintw(win, y++, x0, "Temps");
     wattroff(win, COLOR_PAIR(5) | A_BOLD);
 
-    int maxRows = rows - 1;
-    for (size_t i = 0; i < data.temperatures.size() && y < maxRows; ++i) {
-        const auto& [name, temp] = data.temperatures[i];
-
-        int tempColor = (temp > 80) ? 4 : (temp > 60) ? 3 : 2;
-        std::string sensor = TrimRight(name, 16);
-
-        wattron(win, COLOR_PAIR(tempColor));
-        mvwprintw(win, y++, 2, "%-16s %5.1f°C", sensor.c_str(), temp);
-        wattroff(win, COLOR_PAIR(tempColor));
-    }
-}
-
-void TuiApp::DrawLogPanel(WINDOW* win) {
-    int rows, cols;
-    getmaxyx(win, rows, cols);
-    (void)cols;
-
-    wattron(win, COLOR_PAIR(5) | A_BOLD);
-    mvwprintw(win, 0, 1, "Log");
-    wattroff(win, COLOR_PAIR(5) | A_BOLD);
-
-    auto lines = logBuffer_.GetRecent(rows - 1);
-    for (size_t i = 0; i < lines.size(); ++i) {
-        const std::string& line = lines[i];
-
-        // Determine color based on log level
-        int color = 2; // default green
-        if (line.find("[ERROR]") != std::string::npos) color = 4;
-        else if (line.find("[WARN]") != std::string::npos) color = 3;
-        else if (line.find("[DEBUG]") != std::string::npos) color = 6;
-
-        wattron(win, COLOR_PAIR(color));
-        std::string trimmed = TrimRight(line, cols - 2);
-        mvwprintw(win, i + 1, 1, "%s", trimmed.c_str());
-        wattroff(win, COLOR_PAIR(color));
+    for (const auto& [name, temp] : data.temperatures) {
+        int tc = (temp > 80) ? 4 : (temp > 60) ? 3 : 2;
+        std::string sensor = TrimRight(name, maxW - 12);
+        wattron(win, COLOR_PAIR(tc));
+        mvwprintw(win, y++, x0 + 2, "%-14s %.0f C", sensor.c_str(), temp);
+        wattroff(win, COLOR_PAIR(tc));
     }
 }
 
 void TuiApp::Run() {
+    // Set locale for UTF-8 support
+    setlocale(LC_ALL, "");
+
     // Initialize ncurses
     initscr();
     cbreak();
@@ -358,44 +259,29 @@ void TuiApp::Run() {
 
     // Main loop
     while (running_.load()) {
-        // Handle resize
-        int newRows, newCols;
-        getmaxyx(stdscr, newRows, newCols);
-        if (newRows != termRows_ || newCols != termCols_) {
-            termRows_ = newRows;
-            termCols_ = newCols;
-            resizeterm(termRows_, termCols_);
-        }
+        // Get current terminal size
+        int rows, cols;
+        getmaxyx(stdscr, rows, cols);
 
-        // Handle input
+        // Handle input (non-blocking)
         int ch = getch();
-        if (ch == 'q' || ch == 'Q' || ch == 27) { // q or ESC
+        if (ch == 'q' || ch == 'Q' || ch == 27) {
             running_ = false;
             break;
         }
 
-        // Clear
-        erase();
+        // Handle resize
+        if (rows != termRows_ || cols != termCols_) {
+            termRows_ = rows;
+            termCols_ = cols;
+        }
 
-        // Calculate panel layout
-        int headerH = 2;
-        int logH = std::max(5, termRows_ / 4);
-        int mainH = termRows_ - headerH - logH - 2; // -2 for separators
-
-        int leftW = termCols_ / 2;
-        int rightW = termCols_ - leftW;
-
-        int leftPanelH = mainH / 3;
-        int rightPanelH = mainH - leftPanelH;
-
-        // Draw header
-        WINDOW* header = newwin(headerH, termCols_, 0, 0);
-        DrawHeader(header);
-        wrefresh(header);
-        delwin(header);
-
-        // Draw separator
-        mvhline(headerH, 0, ACS_HLINE, termCols_);
+        if (rows < 10 || cols < 40) {
+            mvprintw(0, 0, "Terminal too small (min 40x10). Current: %dx%d", cols, rows);
+            refresh();
+            std::this_thread::sleep_for(std::chrono::milliseconds(500));
+            continue;
+        }
 
         // Get current data
         TuiData data;
@@ -404,64 +290,107 @@ void TuiApp::Run() {
             data = data_;
         }
 
-        // Left column: CPU + Memory
-        int cpuH = leftPanelH;
-        int memH = leftPanelH;
-        WINDOW* cpuWin = newwin(cpuH, leftW, headerH + 1, 0);
-        DrawCpuPanel(cpuWin, data);
-        wrefresh(cpuWin);
-        delwin(cpuWin);
+        // Clear screen
+        erase();
 
-        WINDOW* memWin = newwin(memH, leftW, headerH + 1 + cpuH, 0);
-        DrawMemoryPanel(memWin, data);
-        wrefresh(memWin);
-        delwin(memWin);
+        // === Layout calculation ===
+        int y = 0;
+        int leftW = cols / 2;
+        int rightW = cols - leftW;
 
-        // Right column: GPU + Disk/Network/Temp
-        int gpuH = rightPanelH / 2;
-        int miscH = rightPanelH - gpuH;
+        // --- Header (2 lines) ---
+        DrawHeader(stdscr, data);
+        y += 2;
+        mvwhline(stdscr, y, 0, '-', cols);
+        y++;
 
-        WINDOW* gpuWin = newwin(gpuH, rightW, headerH + 1, leftW);
-        DrawGpuPanel(gpuWin, data);
-        wrefresh(gpuWin);
-        delwin(gpuWin);
+        // --- Main panels: CPU+Memory (left), GPU+Disk+Net+Temp (right) ---
+        int mainTop = y;
+        y++;
 
-        // Misc panel (Disk/Network/Temp stacked)
-        WINDOW* miscWin = newwin(miscH, rightW, headerH + 1 + gpuH, leftW);
-        // Split misc into 3 rows
-        int miscRows, miscCols;
-        getmaxyx(miscWin, miscRows, miscCols);
-        int rowH = miscRows / 3;
+        // Left: CPU (fixed 6 lines)
+        DrawCpuPanel(stdscr, data, mainTop, 1, leftW - 1);
+        y = mainTop + 7;
+        mvwhline(stdscr, y, 0, '-', leftW);
+        y++;
 
-        WINDOW* diskWin = subwin(miscWin, rowH, miscCols, headerH + 1 + gpuH, leftW);
-        DrawDiskPanel(diskWin, data);
-        wrefresh(diskWin);
-        delwin(diskWin);
+        // Left: Memory (fixed 4 lines)
+        DrawMemoryPanel(stdscr, data, y, 1, leftW - 1);
+        y += 4;
+        mvwhline(stdscr, y, 0, '-', leftW);
+        y++;
 
-        WINDOW* netWin = subwin(miscWin, rowH, miscCols, headerH + 1 + gpuH + rowH, leftW);
-        DrawNetworkPanel(netWin, data);
-        wrefresh(netWin);
-        delwin(netWin);
+        // Right: GPU (fixed 5 lines)
+        DrawGpuPanel(stdscr, data, mainTop, leftW + 1, rightW - 1);
+        int rightY = mainTop + 6;
+        mvwhline(stdscr, rightY, leftW, '-', rightW);
+        rightY++;
 
-        WINDOW* tempWin = subwin(miscWin, miscRows - 2*rowH, miscCols, headerH + 1 + gpuH + 2*rowH, leftW);
-        DrawTempPanel(tempWin, data);
-        wrefresh(tempWin);
-        delwin(tempWin);
+        // Right: Disk (remaining space / 3)
+        DrawDiskPanel(stdscr, data, rightY, leftW + 1, rightW - 1);
+        int diskLines = std::min(static_cast<int>(data.disks.size() + 1), rows / 6);
+        rightY += diskLines;
+        mvwhline(stdscr, rightY, leftW, '-', rightW);
+        rightY++;
 
-        delwin(miscWin);
+        // Right: Network
+        DrawNetworkPanel(stdscr, data, rightY, leftW + 1, rightW - 1);
+        int netLines = std::min(static_cast<int>(data.adapters.size() + 1), rows / 8);
+        rightY += netLines;
+        mvwhline(stdscr, rightY, leftW, '-', rightW);
+        rightY++;
 
-        // Draw separator before log
-        mvhline(termRows_ - logH - 1, 0, ACS_HLINE, termCols_);
+        // Right: Temperature
+        DrawTempPanel(stdscr, data, rightY, leftW + 1, rightW - 1);
 
-        // Draw log panel
-        WINDOW* logWin = newwin(logH, termCols_, termRows_ - logH, 0);
-        DrawLogPanel(logWin);
-        wrefresh(logWin);
-        delwin(logWin);
+        // --- Log panel (bottom) ---
+        int logTop = rows - rows / 4 - 1;
+        if (logTop < y + 1) logTop = y + 1;
+        mvwhline(stdscr, logTop, 0, '-', cols);
+        logTop++;
 
-        // Refresh and sleep
+        // Draw log panel directly using stdscr
+        wattron(stdscr, COLOR_PAIR(5) | A_BOLD);
+        mvwprintw(stdscr, logTop, 1, "Log");
+        wattroff(stdscr, COLOR_PAIR(5) | A_BOLD);
+
+        auto logLines = logBuf_->GetRecent(rows - logTop - 2);
+        for (size_t i = 0; i < logLines.size() && static_cast<int>(i + logTop + 1) < rows - 1; ++i) {
+            const std::string& line = logLines[i];
+            int color = 2;
+            if (line.find("[ERROR]") != std::string::npos) color = 4;
+            else if (line.find("[WARN]") != std::string::npos) color = 3;
+            else if (line.find("[DEBUG]") != std::string::npos) color = 6;
+
+            wattron(stdscr, COLOR_PAIR(color));
+            std::string trimmed = TrimRight(line, cols - 2);
+            mvwprintw(stdscr, logTop + 1 + i, 1, "%s", trimmed.c_str());
+            wattroff(stdscr, COLOR_PAIR(color));
+        }
+
+        // Border around entire screen
+        // ASCII border
+        for (int c = 0; c < cols; c++) {
+            mvaddch(0, c, '-');
+            mvaddch(rows-1, c, '-');
+        }
+        for (int r = 0; r < rows; r++) {
+            mvaddch(r, 0, '|');
+            mvaddch(r, cols-1, '|');
+        }
+        mvaddch(0, 0, '+');
+        mvaddch(0, cols-1, '+');
+        mvaddch(rows-1, 0, '+');
+        mvaddch(rows-1, cols-1, '+');
+
+        // Left/right separator line
+        for (int r = 2; r < logTop; r++) {
+            mvwvline(stdscr, r, leftW, '|', 1);
+        }
+
+        // Refresh
         refresh();
-        std::this_thread::sleep_for(std::chrono::milliseconds(100));
+        std::this_thread::sleep_for(std::chrono::milliseconds(200));
     }
 
     // Cleanup

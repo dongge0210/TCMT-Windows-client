@@ -61,7 +61,7 @@ int main(int argc, char* argv[]) {
     try {
         Logger::Initialize("system_monitor.log");
         Logger::EnableConsoleOutput(false);  // TUI takes over console
-        Logger::SetLogLevel(LOG_DEBUG);
+        Logger::SetLogLevel(LOG_INFO);
         Logger::Info("TCMT macOS Client starting (TUI mode)...");
     } catch (const std::exception& e) {
         std::cerr << "Logger init failed: " << e.what() << std::endl;
@@ -106,6 +106,7 @@ int main(int argc, char* argv[]) {
 
     // Start TUI
     tcmt::TuiApp tuiApp;
+    tuiApp.SetLogBuffer(&Logger::GetTuiBuffer());
     tuiApp.Start();
     Logger::Info("TUI started");
 

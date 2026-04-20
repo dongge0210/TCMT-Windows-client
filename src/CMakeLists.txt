@@ -59,6 +59,7 @@ if(TCMT_MACOS)
     list(APPEND TUI_SOURCES
         ${CMAKE_CURRENT_SOURCE_DIR}/tui/TuiApp.cpp
     )
+    set(CURSES_NEED_WIDE TRUE)
     find_package(Curses REQUIRED)
 endif()
 

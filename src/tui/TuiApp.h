@@ -81,17 +81,19 @@ public:
     // Get the log buffer for Logger to write into
     LogBuffer& GetLogBuffer();
 
+    // Inject external log buffer (e.g. from Logger)
+    void SetLogBuffer(LogBuffer* buf);
+
 private:
     void Run();
     void InitColors();
-    void DrawHeader(WINDOW* win);
-    void DrawCpuPanel(WINDOW* win, const TuiData& data);
-    void DrawMemoryPanel(WINDOW* win, const TuiData& data);
-    void DrawGpuPanel(WINDOW* win, const TuiData& data);
-    void DrawDiskPanel(WINDOW* win, const TuiData& data);
-    void DrawNetworkPanel(WINDOW* win, const TuiData& data);
-    void DrawTempPanel(WINDOW* win, const TuiData& data);
-    void DrawLogPanel(WINDOW* win);
+    void DrawHeader(WINDOW* win, const TuiData& data);
+    void DrawCpuPanel(WINDOW* win, const TuiData& data, int y, int x0, int maxW);
+    void DrawMemoryPanel(WINDOW* win, const TuiData& data, int y, int x0, int maxW);
+    void DrawGpuPanel(WINDOW* win, const TuiData& data, int y, int x0, int maxW);
+    void DrawDiskPanel(WINDOW* win, const TuiData& data, int y, int x0, int maxW);
+    void DrawNetworkPanel(WINDOW* win, const TuiData& data, int y, int x0, int maxW);
+    void DrawTempPanel(WINDOW* win, const TuiData& data, int y, int x0, int maxW);
 
     // Utility
     static std::string FormatSize(uint64_t bytes);
@@ -105,14 +107,14 @@ private:
     TuiData data_;
     mutable std::mutex dataMutex_;
 
-    LogBuffer logBuffer_;
+    // Internal buffer (fallback), or use external via SetLogBuffer()
+    LogBuffer defaultBuffer_;
+    // Points to either &defaultBuffer_ or an external buffer
+    LogBuffer* logBuf_ = nullptr;
 
     // Window dimensions
     int termRows_ = 0;
     int termCols_ = 0;
-
-    // Log panel scroll offset
-    int logScrollOffset_ = 0;
 };
 
 } // namespace tcmt
