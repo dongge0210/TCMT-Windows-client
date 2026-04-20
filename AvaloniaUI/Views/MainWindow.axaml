@@ -150,7 +150,7 @@
                                 HorizontalAlignment="Stretch" Margin="0,0,0,10"/>
                         <TextBlock Text="{Binding SelectedNetwork.Name, TargetNullValue='未检测到'}" Foreground="White"/>
                         <TextBlock Text="{Binding SelectedNetwork.IpAddress, TargetNullValue='N/A', StringFormat='IP: {0}'}" Foreground="#FFB3B3B3"/>
-                        <Grid Margin="0,5,0,0">
+<Grid Margin="0,5,0,0">
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="*"/>
                                 <ColumnDefinition Width="*"/>
@@ -181,7 +181,7 @@
                         <StackPanel Orientation="Horizontal" Margin="0,3,0,0">
                             <TextBlock Text="标称速率: " Foreground="#FF666666" FontSize="11"/>
                             <TextBlock Text="{Binding SelectedNetwork.SpeedDisplay, TargetNullValue='N/A'}" Foreground="#FF666666" FontSize="11"/>
-                        </Grid>
+                        </StackPanel>
                     </StackPanel>
                 </Border>
 
