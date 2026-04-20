@@ -249,7 +249,7 @@ void TuiApp::DrawTempPanel(WINDOW* win, const TuiData& data, int y, int x0, int 
         int tc = (temp > 80) ? 4 : (temp > 60) ? 3 : 2;
         std::string sensor = TrimRight(name, maxW - 12);
         wattron(win, COLOR_PAIR(tc));
-        mvwprintw(win, y++, x0 + 2, "%-14s %.0f C", sensor.c_str(), temp);
+        mvwprintw(win, y++, x0 + 2, "%-14s %.1f C", sensor.c_str(), temp);
         wattroff(win, COLOR_PAIR(tc));
     }
 }
