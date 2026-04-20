@@ -133,6 +133,7 @@ void DiskInfo::CollectPhysicalDisks(WmiManager& wmi, const std::vector<DiskData>
         if (SUCCEEDED(hr)&&pEnum){ IWbemClassObject* obj=nullptr; ULONG ret=0; while(pEnum->Next(WBEM_INFINITE,1,&obj,&ret)==S_OK){ VARIANT ant; VARIANT dep; VariantInit(&ant); VariantInit(&dep); if (SUCCEEDED(obj->Get(L"Antecedent",0,&ant,0,0)) && ant.vt==VT_BSTR && SUCCEEDED(obj->Get(L"Dependent",0,&dep,0,0)) && dep.vt==VT_BSTR){ int diskIdx=-1; if (ParseDiskPartition(ant.bstrVal,diskIdx)){ std::wstring depStr = dep.bstrVal; size_t pos = depStr.find(L"DeviceID=\""); if (pos!=std::wstring::npos){ pos+=10; if (pos<depStr.size()){ wchar_t letterW = depStr[pos]; if(letterW && letterW!=L'"'){ letterToDiskIndex[ static_cast<char>(::toupper(letterW)) ] = diskIdx; } } } } } VariantClear(&ant); VariantClear(&dep); obj->Release(); } pEnum->Release(); } else { Logger::Warn("查询 Win32_LogicalDiskToPartition 失败"); } 
     }
     for (auto& kv: letterToDiskIndex) physicalIndexToLetters[kv.second].push_back(kv.first);
+    Logger::Info("物理磁盘映射: " + std::to_string(letterToDiskIndex.size()) + " 个盘符 -> " + std::to_string(physicalIndexToLetters.size()) + " 个物理磁盘");
     // 3. Win32_DiskDrive 基本信息
     std::map<int,PhysicalDiskSmartData> tempDisks; {
         IEnumWbemClassObject* pEnum=nullptr; HRESULT hr=svc->ExecQuery(bstr_t(L"WQL"), bstr_t(L"SELECT Index,Model,SerialNumber,InterfaceType,Size,MediaType FROM Win32_DiskDrive"), WBEM_FLAG_FORWARD_ONLY|WBEM_FLAG_RETURN_IMMEDIATELY,nullptr,&pEnum);
