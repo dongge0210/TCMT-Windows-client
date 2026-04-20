@@ -511,8 +511,6 @@ public class SharedMemoryService : IDisposable
 
             // TPM
             systemInfo.Tpm = null;
-            Log.Information("TPM debug: tpmCount={Count}, isPresent={Present}, manufacturer={Manuf}", 
-                sharedData.tpmCount, sharedData.tpm.isPresent, SafeWideCharArrayToString(sharedData.tpm.manufacturer));
             if (sharedData.tpmCount > 0 && sharedData.tpm.isPresent)
             {
                 systemInfo.Tpm = new TpmData
@@ -524,7 +522,6 @@ public class SharedMemoryService : IDisposable
                     IsEnabled = sharedData.tpm.isEnabled,
                     IsActive = sharedData.tpm.isActive
                 };
-                Log.Information("TPM data created: {Manuf}, {Firmware}", systemInfo.Tpm.Manufacturer, systemInfo.Tpm.FirmwareVersion);
             }
 
             systemInfo.LastUpdate = DateTime.Now;

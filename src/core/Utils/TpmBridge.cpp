@@ -14,12 +14,6 @@ bool TpmBridge::Initialize() {
     // 检查 TPM 是否存在
     tpmPresent = IsTpmPresent();
     
-    if (tpmPresent) {
-        Logger::Info("TPM 2.0 detected");
-    } else {
-        Logger::Info("No TPM 2.0 detected");
-    }
-    
     initialized = true;
     return true;
 }
