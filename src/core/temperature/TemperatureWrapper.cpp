@@ -429,6 +429,57 @@ static std::vector<std::pair<std::string, double>> iokit_hid_temps(void) {
 }
 
 // =====================================================================
+// Apple Silicon ARM PMU Temp Sensors — no root needed
+// AppleARMPMUTempSensor exposes CPU die temperature via IOKit
+// =====================================================================
+static std::vector<std::pair<std::string, double>> iokit_arm_temp_sensors(void) {
+    std::vector<std::pair<std::string, double>> temps;
+
+    mach_port_t masterPort;
+#if __MAC_OS_X_VERSION_MAX_ALLOWED >= 120000
+    masterPort = kIOMainPortDefault;
+#else
+    masterPort = kIOMasterPortDefault;
+#endif
+
+    io_iterator_t iter = 0;
+    kern_return_t kr = IOServiceGetMatchingServices(
+        masterPort,
+        IOServiceMatching("AppleARMPMUTempSensor"),
+        &iter);
+    if (kr != KERN_SUCCESS) return temps;
+
+    io_registry_entry_t entry;
+    int idx = 0;
+    while ((entry = IOIteratorNext(iter)) != 0) {
+        // Try reading Temperature property
+        CFTypeRef ref = IORegistryEntryCreateCFProperty(
+            entry, CFSTR("Temperature"), kCFAllocatorDefault, 0);
+        if (ref) {
+            if (CFGetTypeID(ref) == CFNumberGetTypeID()) {
+                double tC = 0;
+                if (CFNumberGetValue((CFNumberRef)ref, kCFNumberDoubleType, &tC)
+                    && tC > 10 && tC < 150) {
+                    std::string label = (idx == 0) ? "CPU Die" : "CPU Die #" + std::to_string(idx);
+                    temps.push_back({label, tC});
+                }
+            }
+            CFRelease(ref);
+        }
+        // Also try reading via IOHIDEventService approach
+        if (temps.empty()) {
+            CFTypeRef svcRef = IORegistryEntryCreateCFProperty(
+                entry, CFSTR("IOHIDEventService"), kCFAllocatorDefault, 0);
+            if (svcRef) CFRelease(svcRef);
+        }
+        IOObjectRelease(entry);
+        idx++;
+    }
+    IOObjectRelease(iter);
+    return temps;
+}
+
+// =====================================================================
 // Temperature keys to probe on Apple Silicon (no root for most keys)
 // =====================================================================
 static const char* kCpuKeys[] = {
@@ -518,7 +569,13 @@ std::vector<std::pair<std::string, double>> TemperatureWrapper::GetTemperatures(
         }
     }
 
-    // Priority 3: IOKit HID (last resort, very few sensors)
+    // Priority 3: Apple Silicon ARM PMU temp sensors (no root)
+    if (temps.empty()) {
+        auto arm = iokit_arm_temp_sensors();
+        temps.insert(temps.end(), arm.begin(), arm.end());
+    }
+
+    // Priority 4: IOKit HID (last resort, very few sensors)
     if (temps.empty()) {
         auto hid = iokit_hid_temps();
         temps.insert(temps.end(), hid.begin(), hid.end());
