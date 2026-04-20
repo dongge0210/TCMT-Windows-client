@@ -127,12 +127,6 @@ bool TpmBridge::GetTpmInfo(TpmInfo& info) {
     // 自检状态 - 简化处理
     info.selfTestStatus = (info.status == static_cast<uint8_t>(StatusOk)) ? 0 : 1;
     
-    // 输出 TPM 详细信息用于调试
-    Logger::Info("TPM 调试: isPresent=" + std::to_string(info.isPresent) + 
-                 ", status=" + std::to_string(static_cast<int>(info.status)) +
-                 ", isEnabled=" + std::to_string(info.isEnabled) +
-                 ", isActive=" + std::to_string(info.isActive));
-    
     return true;
 }
 
