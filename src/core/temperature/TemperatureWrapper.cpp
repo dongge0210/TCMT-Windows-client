@@ -320,10 +320,17 @@ static void powermetrics_thread_func(void) {
     // Warm up: wait 5s before first run so system settles
     std::this_thread::sleep_for(std::chrono::seconds(5));
 
+    // SIGALRM timeout helper: interrupt a blocking read
+    // Signal is process-wide but safe since only this thread uses it
+    sig_t oldAlrm = signal(SIGALRM, [](int) {});
+    signal(SIGALRM, oldAlrm);  // restore; just want to test signal works
+
     while (g_pm_running.load()) {
         // Run powermetrics for 10s sampling interval, output 1 sample
+        alarm(12);  // 12s hard timeout — fires if powermetrics blocks
         FILE* fp = popen("/usr/bin/powermetrics --samplers thermal -i 10000 -n 1 2>/dev/null", "r");
         if (!fp) {
+            alarm(0);
             std::this_thread::sleep_for(std::chrono::seconds(30));
             continue;
         }
@@ -350,6 +357,7 @@ static void powermetrics_thread_func(void) {
                 in_thermal = false;
             }
         }
+        alarm(0);  // cancel SIGALRM
         pclose(fp);
 
         if (!batch.empty()) {
@@ -447,7 +455,11 @@ static std::vector<std::pair<std::string, double>> iokit_arm_temp_sensors(void) 
         masterPort,
         IOServiceMatching("AppleARMPMUTempSensor"),
         &iter);
-    if (kr != KERN_SUCCESS) return temps;
+    if (kr != KERN_SUCCESS) {
+        Logger::Debug("TemperatureWrapper: AppleARMPMUTempSensor not found (kr="
+                      + std::to_string(kr) + ")");
+        return temps;
+    }
 
     io_registry_entry_t entry;
     int idx = 0;
