@@ -173,7 +173,6 @@ void DiskInfo::CollectPhysicalDisks(WmiManager& wmi, const std::vector<DiskData>
                                             if (logicalDeviceID.length() >= 2 && logicalDeviceID[1] == L':') {
                                                 char letter = static_cast<char>(::toupper(logicalDeviceID[0]));
                                                 physicalIndexToLetters[diskIndex].push_back(letter);
-                                                Logger::Info("映射: 物理磁盘" + std::to_string(diskIndex) + " -> 驱动器 " + letter + ":");
                                             }
                                         }
                                         VariantClear(&vtLogicalDeviceID);
