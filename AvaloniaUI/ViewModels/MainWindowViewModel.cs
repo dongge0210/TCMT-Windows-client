@@ -206,7 +206,9 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
         {
             GpuList.Add(new GpuData { Name = "等待数据..." });
         }
-        SelectedGpu = GpuList.First();
+        // 只在 SelectedGpu 为 null 时才设置第一个，保持用户选择
+        if (SelectedGpu == null && GpuList.Count > 0)
+            SelectedGpu = GpuList.First();
         GpuTemperature = ValidateDouble(info.GpuTemperature);
 
         // Network - preserve selection
@@ -225,7 +227,9 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
         {
             NetworkList.Add(new NetworkAdapterData { Name = "等待数据..." });
         }
-        SelectedNetwork = NetworkList.First();
+        // 只在 SelectedNetwork 为 null 时才设置第一个，保持用户选择
+        if (SelectedNetwork == null && NetworkList.Count > 0)
+            SelectedNetwork = NetworkList.First();
 
         // Physical Disks with SMART
         BuildOrUpdatePhysicalDisks(info);
@@ -246,7 +250,9 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
         {
             DiskList.Add(new DiskData { Letter = '?' });
         }
-        SelectedDisk = DiskList.First();
+        // 只在 SelectedDisk 为 null 时才设置第一个，保持用户选择
+        if (SelectedDisk == null && DiskList.Count > 0)
+            SelectedDisk = DiskList.First();
 
         // Temperature charts
         UpdateTemperatureCharts(info.CpuTemperature, info.GpuTemperature);
