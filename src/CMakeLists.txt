@@ -60,6 +60,19 @@ if(TCMT_MACOS)
         ${CMAKE_CURRENT_SOURCE_DIR}/tui/TuiApp.cpp
     )
     set(CURSES_NEED_WIDE TRUE)
+    # Prefer Homebrew ncurses (has wide chars) over system SDK (no ncursesw)
+    if(APPLE)
+        find_program(BREW brew)
+        if(BREW)
+            execute_process(COMMAND ${BREW} --prefix ncurses
+                OUTPUT_VARIABLE NCURSES_PREFIX OUTPUT_STRIP_TRAILING_WHITESPACE
+                ERROR_QUIET RESULT_VARIABLE _brew_rc)
+            if(_brew_rc EQUAL 0)
+                set(CURSES_INCLUDE_PATH "${NCURSES_PREFIX}/include" CACHE PATH "Homebrew ncurses include")
+                list(APPEND CMAKE_PREFIX_PATH "${NCURSES_PREFIX}")
+            endif()
+        endif()
+    endif()
     find_package(Curses REQUIRED)
 endif()
 
