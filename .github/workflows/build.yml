@@ -20,13 +20,13 @@ jobs:
 
     steps:
     - name: Checkout repository
-      uses: actions/checkout@v5
+      uses: actions/checkout@v6
       with:
         submodules: recursive
         fetch-depth: 0
 
     - name: Cache CUDA Toolkit
-      uses: actions/cache@v4
+      uses: actions/cache@v5
       with:
         path: C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA
         key: cuda-13.2
@@ -41,7 +41,7 @@ jobs:
       uses: microsoft/setup-msbuild@v3
 
     - name: Cache .NET tools
-      uses: actions/cache@v4
+      uses: actions/cache@v5
       with:
         path: ~/.dotnet/tools
         key: dotnet-tools-${{ runner.os }}-${{ hashFiles('**/*.csproj') }}
@@ -78,7 +78,7 @@ jobs:
         msbuild ${{ env.SOLUTION_FILE_PATH }} /p:Configuration=${{ env.BUILD_CONFIGURATION }} /p:Platform=${{ env.BUILD_PLATFORM }} /p:PlatformToolset=v143 /p:WindowsTargetPlatformVersion=10.0 /p:LangVersion=preview /m
 
     - name: Upload build artifacts
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@v6
       with:
         name: TCMT-Windows-x64-Release
         path: |
@@ -93,7 +93,7 @@ jobs:
 
     steps:
     - name: Checkout repository
-      uses: actions/checkout@v5
+      uses: actions/checkout@v6
       with:
         fetch-depth: 0
 
@@ -109,7 +109,7 @@ jobs:
         cmake --build build -j$(sysctl -n hw.ncpu)
 
     - name: Upload build artifact
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@v6
       with:
         name: TCMT-macOS-arm64-Release
         path: build/src/TCMT-M 
