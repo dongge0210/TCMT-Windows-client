@@ -1,10 +1,56 @@
 using System.Collections.ObjectModel;
-using System.ComponentModel; // ĞÂÔö
-using System.Runtime.CompilerServices; // ĞÂÔö
+using System.ComponentModel;
+using System.Runtime.CompilerServices;
 
-namespace WPF_UI1.Models
+namespace AvaloniaUI.Models
 {
-    // ¶ÔÓ¦C++ÖĞµÄSystemInfo½á¹¹
+    public static class FormatUtil
+    {
+        public static string FormatBytes(ulong bytes)
+        {
+            string[] sizes = { "B", "KB", "MB", "GB", "TB" };
+            double len = bytes;
+            int order = 0;
+            while (len >= 1024 && order < sizes.Length - 1)
+            {
+                order++;
+                len /= 1024;
+            }
+            return order == 0 ? $"{len:0} {sizes[order]}" : $"{len:0.##} {sizes[order]}";
+        }
+
+        // ç½‘ç»œé€Ÿåº¦æ ¼å¼åŒ– (ä½¿ç”¨ 1000 è€Œä¸æ˜¯ 1024)
+        public static string FormatNetworkSpeed(ulong bytes)
+        {
+            if (bytes == 0) return "N/A";
+            // è½¬æ¢ä¸º bits (x8) å¹¶ä½¿ç”¨ 1000 ä½œä¸º base
+            ulong bitsPerSec = bytes * 8;
+            string[] sizes = { "bps", "Kbps", "Mbps", "Gbps", "Tbps" };
+            double len = bitsPerSec;
+            int order = 0;
+            while (len >= 1000 && order < sizes.Length - 1)
+            {
+                order++;
+                len /= 1000;
+            }
+            return $"{len:0.##} {sizes[order]}";
+        }
+
+        public static string FormatSpeed(ulong bytesPerSec)
+        {
+            if (bytesPerSec == 0) return "N/A";
+            string[] sizes = { "B/s", "KB/s", "MB/s", "GB/s" };
+            double len = bytesPerSec;
+            int order = 0;
+            while (len >= 1024 && order < sizes.Length - 1)
+            {
+                order++;
+                len /= 1024;
+            }
+            return order == 0 ? $"{len:0} {sizes[order]}" : $"{len:0.##} {sizes[order]}";
+        }
+    }
+
     public class SystemInfo
     {
         public string CpuName { get; set; } = string.Empty;
@@ -17,33 +63,33 @@ namespace WPF_UI1.Models
         public double EfficiencyCoreFreq { get; set; }
         public bool HyperThreading { get; set; }
         public bool Virtualization { get; set; }
-        // ÄÚ´æĞÅÏ¢
+        
         public ulong TotalMemory { get; set; }
         public ulong UsedMemory { get; set; }
         public ulong AvailableMemory { get; set; }
-        // GPUĞÅÏ¢
+        
         public List<GpuData> Gpus { get; set; } = new();
         public string GpuName { get; set; } = string.Empty;
         public string GpuBrand { get; set; } = string.Empty;
         public ulong GpuMemory { get; set; }
         public double GpuCoreFreq { get; set; }
         public bool GpuIsVirtual { get; set; }
-        // ÍøÂçĞÅÏ¢
+        
         public List<NetworkAdapterData> Adapters { get; set; } = new();
         public string NetworkAdapterName { get; set; } = string.Empty;
         public string NetworkAdapterMac { get; set; } = string.Empty;
         public string NetworkAdapterIp { get; set; } = string.Empty;
         public string NetworkAdapterType { get; set; } = string.Empty;
         public ulong NetworkAdapterSpeed { get; set; }
-        // Âß¼­´ÅÅÌĞÅÏ¢£¨°´Çı¶¯Æ÷ºÅ£©
+        
         public List<DiskData> Disks { get; set; } = new();
-        // ÎïÀí´ÅÅÌĞÅÏ¢£¨SMART»ã×Ü£©
         public List<PhysicalDiskSmartData> PhysicalDisks { get; set; } = new();
-        // ÎÂ¶ÈĞÅÏ¢
+        
         public List<TemperatureData> Temperatures { get; set; } = new();
+        public TpmData? Tpm { get; set; }
         public double CpuTemperature { get; set; }
         public double GpuTemperature { get; set; }
-        public double CpuUsageSampleIntervalMs { get; set; } // ĞÂÔö£ºCPUÊ¹ÓÃÂÊ²ÉÑù¼ä¸ô
+        public double CpuUsageSampleIntervalMs { get; set; }
         public DateTime LastUpdate { get; set; }
     }
 
@@ -66,11 +112,19 @@ namespace WPF_UI1.Models
         private ulong _memory;
         private double _coreClock;
         private bool _isVirtual;
+        private double _temperature;
+        private double _usage;
+
         public string Name { get => _name; set => SetProperty(ref _name, value); }
         public string Brand { get => _brand; set => SetProperty(ref _brand, value); }
         public ulong Memory { get => _memory; set => SetProperty(ref _memory, value); }
         public double CoreClock { get => _coreClock; set => SetProperty(ref _coreClock, value); }
         public bool IsVirtual { get => _isVirtual; set => SetProperty(ref _isVirtual, value); }
+        public double Temperature { get => _temperature; set => SetProperty(ref _temperature, value); }
+        public double Usage { get => _usage; set => SetProperty(ref _usage, value); }
+        public string DisplayName => string.IsNullOrEmpty(Name) ? "æœªçŸ¥æ˜¾å¡" : (IsVirtual ? $"{Name} (è™šæ‹Ÿ)" : Name);
+        public string MemoryDisplay => FormatUtil.FormatBytes(Memory);
+        public override string ToString() => DisplayName;
     }
 
     public class NetworkAdapterData : NotifyBase
@@ -80,14 +134,17 @@ namespace WPF_UI1.Models
         private string _ipAddress = string.Empty;
         private string _adapterType = string.Empty;
         private ulong _speed;
+
         public string Name { get => _name; set => SetProperty(ref _name, value); }
         public string Mac { get => _mac; set => SetProperty(ref _mac, value); }
         public string IpAddress { get => _ipAddress; set => SetProperty(ref _ipAddress, value); }
         public string AdapterType { get => _adapterType; set => SetProperty(ref _adapterType, value); }
         public ulong Speed { get => _speed; set => SetProperty(ref _speed, value); }
+        public string DisplayName => string.IsNullOrEmpty(Name) ? "æœªçŸ¥ç½‘å¡" : $"{Name} ({IpAddress})";
+        public string SpeedDisplay => FormatUtil.FormatNetworkSpeed(Speed);
+        public override string ToString() => DisplayName;
     }
 
-    // Âß¼­Çı¶¯Æ÷£¨¾í£©
     public class DiskData : NotifyBase
     {
         private char _letter;
@@ -97,6 +154,7 @@ namespace WPF_UI1.Models
         private ulong _usedSpace;
         private ulong _freeSpace;
         private int _physicalDiskIndex = -1;
+
         public char Letter { get => _letter; set => SetProperty(ref _letter, value); }
         public string Label { get => _label; set => SetProperty(ref _label, value); }
         public string FileSystem { get => _fileSystem; set => SetProperty(ref _fileSystem, value); }
@@ -104,9 +162,16 @@ namespace WPF_UI1.Models
         public ulong UsedSpace { get => _usedSpace; set => SetProperty(ref _usedSpace, value); }
         public ulong FreeSpace { get => _freeSpace; set => SetProperty(ref _freeSpace, value); }
         public int PhysicalDiskIndex { get => _physicalDiskIndex; set => SetProperty(ref _physicalDiskIndex, value); }
+
+        public double UsagePercent => TotalSize > 0 ? (double)UsedSpace / TotalSize * 100 : 0;
+        public string DisplayName => Letter == '\0' ? "æœªçŸ¥åˆ†åŒº" : $"{Letter}: {Label}";
+        public string TotalSizeDisplay => FormatUtil.FormatBytes(TotalSize);
+        public string UsedSpaceDisplay => FormatUtil.FormatBytes(UsedSpace);
+        public string FreeSpaceDisplay => FormatUtil.FormatBytes(FreeSpace);
+        public string UsageDisplay => $"{UsagePercent:0.#}%";
+        public override string ToString() => DisplayName;
     }
 
-    // SMARTÊôĞÔ
     public class SmartAttributeData
     {
         public byte Id { get; set; }
@@ -121,14 +186,13 @@ namespace WPF_UI1.Models
         public string Units { get; set; } = string.Empty;
     }
 
-    // ÎïÀí´ÅÅÌ£¨¾ÛºÏ¶à¸öÂß¼­¾í£©
     public class PhysicalDiskSmartData
     {
         public string Model { get; set; } = string.Empty;
         public string SerialNumber { get; set; } = string.Empty;
         public string FirmwareVersion { get; set; } = string.Empty;
         public string InterfaceType { get; set; } = string.Empty;
-        public string DiskType { get; set; } = string.Empty; // SSD/HDD
+        public string DiskType { get; set; } = string.Empty;
         public ulong Capacity { get; set; }
         public double Temperature { get; set; }
         public byte HealthPercentage { get; set; }
@@ -144,6 +208,7 @@ namespace WPF_UI1.Models
         public ulong TotalBytesWritten { get; set; }
         public ulong TotalBytesRead { get; set; }
         public List<char> LogicalDriveLetters { get; set; } = new();
+        public List<string> PartitionLabels { get; set; } = new();
         public List<SmartAttributeData> Attributes { get; set; } = new();
     }
 
@@ -151,15 +216,42 @@ namespace WPF_UI1.Models
     {
         public string SensorName { get; set; } = string.Empty;
         public double Temperature { get; set; }
+        public string DisplayName => string.IsNullOrEmpty(SensorName) ? "æœªçŸ¥ä¼ æ„Ÿå™¨" : SensorName;
+        public string TemperatureDisplay => $"{Temperature:0.#}Â°C";
+        public override string ToString() => $"{DisplayName}: {TemperatureDisplay}";
     }
 
-    // WPF·Ö×é°ü×°£ºÎïÀí´ÅÅÌ + ÆäÏÂ·ÖÇø
     public class PhysicalDiskView : NotifyBase
     {
-        private PhysicalDiskSmartData _disk;
-        public PhysicalDiskSmartData Disk { get => _disk; set => SetProperty(ref _disk, value); }
+        private PhysicalDiskSmartData? _disk;
+        public PhysicalDiskSmartData? Disk { get => _disk!; set => SetProperty(ref _disk, value); }
         public ObservableCollection<DiskData> Partitions { get; } = new();
-        public string LettersDisplay => Partitions.Count == 0 ? "ÎŞ·ÖÇø" : string.Join(", ", Partitions.Select(p => p.Letter + ":"));
-        public string DisplayName => Disk == null ? "Î´Öª´ÅÅÌ" : $"{Disk.Model} ({LettersDisplay})";
+        public string LettersDisplay {
+        get {
+            if (Disk?.LogicalDriveLetters == null || Disk.LogicalDriveLetters.Count == 0)
+                return "æ— åˆ†åŒº";
+            // ç›´æ¥ä½¿ç”¨ç›˜ç¬¦ï¼Œä¸å†æ˜¾ç¤ºå·æ ‡åç§°
+            return string.Join(", ", Disk.LogicalDriveLetters.Select(l => l + ":"));
+        }
+    }
+        public string DisplayName => Disk == null ? "æœªçŸ¥ç£ç›˜" : $"{Disk.Model} ({LettersDisplay})";
+    }
+
+    public class TpmData : NotifyBase
+    {
+        private string _manufacturer = string.Empty;
+        private string _firmwareVersion = string.Empty;
+        private string _status = string.Empty;
+        private string _selfTestStatus = string.Empty;
+        private bool _isEnabled;
+        private bool _isActive;
+
+        public string Manufacturer { get => _manufacturer; set => SetProperty(ref _manufacturer, value); }
+        public string FirmwareVersion { get => _firmwareVersion; set => SetProperty(ref _firmwareVersion, value); }
+        public string Status { get => _status; set => SetProperty(ref _status, value); }
+        public string SelfTestStatus { get => _selfTestStatus; set => SetProperty(ref _selfTestStatus, value); }
+        public bool IsEnabled { get => _isEnabled; set => SetProperty(ref _isEnabled, value); }
+        public bool IsActive { get => _isActive; set => SetProperty(ref _isActive, value); }
+        public string DisplayName => string.IsNullOrEmpty(Manufacturer) ? "æœªæ£€æµ‹åˆ° TPM" : $"{Manufacturer} TPM";
     }
 }
