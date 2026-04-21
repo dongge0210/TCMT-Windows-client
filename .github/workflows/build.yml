@@ -2,16 +2,15 @@ name: Build TCMT-M
 
 on:
   push:
-    branches: [ main, dev ]
+    branches: [ main, dev, mac ]
   pull_request:
-    branches: [ main, dev ]
+    branches: [ main, dev, mac ]
   workflow_dispatch:
 
 jobs:
   build-windows:
     name: Windows (MSBuild + CUDA)
     runs-on: windows-2025
-    if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/dev' || github.base_ref == 'main' || github.base_ref == 'dev'
 
     env:
       SOLUTION_FILE_PATH: TCMT.sln
@@ -89,7 +88,6 @@ jobs:
   build-macos:
     name: macOS (CMake + Clang)
     runs-on: macos-14
-    if: github.ref == 'refs/heads/mac' || github.base_ref == 'mac'
 
     steps:
     - name: Checkout repository
