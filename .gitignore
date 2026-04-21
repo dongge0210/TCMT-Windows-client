@@ -88,11 +88,11 @@ Project1/x64/
 UI_README.md
 
 # Local IDE configurations
-.codemap/main-panel.json
+.codemap/
 claude.md
 CLAUDE.md
 cmake-build/
-.codemap/
 
 
+# Superpowers docs (local specs)
 docs/superpowers/

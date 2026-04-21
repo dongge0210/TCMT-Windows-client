@@ -1,7 +1,7 @@
 # TCMT Client core library build
 # Cross-platform build with conditional compilation
 
-message(STATUS "Configuring TCMTClient build system...")
+message(STATUS "Configuring TCMT-M build system...")
 
 # ============================================================
 # Source files (cross-platform)
@@ -128,7 +128,7 @@ endif()
 # ============================================================
 if(TCMT_WINDOWS)
     # Windows: use main.cpp
-    add_executable(TCMTClient
+    add_executable(TCMT-M
         ${CMAKE_CURRENT_SOURCE_DIR}/main.cpp
         # Windows-specific GPU bridge (C++/CLI)
         ${CMAKE_CURRENT_SOURCE_DIR}/core/Utils/LibreHardwareMonitorBridge.cpp
@@ -146,14 +146,14 @@ if(TCMT_WINDOWS)
 
 elseif(TCMT_MACOS)
     # macOS: use main_mac.cpp
-    add_executable(TCMTClient
+    add_executable(TCMT-M
         ${CMAKE_CURRENT_SOURCE_DIR}/main_mac.cpp
     )
 endif()
 
-target_link_libraries(TCMTClient PRIVATE TCMTCore)
+target_link_libraries(TCMT-M PRIVATE TCMTCore)
 
-set_target_properties(TCMTClient PROPERTIES
+set_target_properties(TCMT-M PROPERTIES
     CXX_STANDARD 20
     CXX_STANDARD_REQUIRED ON
     CXX_EXTENSIONS OFF
@@ -162,7 +162,7 @@ set_target_properties(TCMTClient PROPERTIES
 # Platform-specific exe settings
 if(TCMT_WINDOWS)
     if(NOT CMAKE_BUILD_TYPE STREQUAL "Debug")
-        target_link_options(TCMTClient PRIVATE
+        target_link_options(TCMT-M PRIVATE
             /SUBSYSTEM:CONSOLE /ENTRY:mainCRTStartup
         )
     endif()
@@ -170,4 +170,4 @@ elseif(TCMT_MACOS)
     # macOS executable settings
 endif()
 
-message(STATUS "TCMTClient build configured successfully")
+message(STATUS "TCMT-M build configured successfully")

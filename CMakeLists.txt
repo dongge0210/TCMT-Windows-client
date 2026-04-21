@@ -2,7 +2,7 @@
 # 支持Windows和macOS平台，使用条件编译实现跨平台
 
 cmake_minimum_required(VERSION 3.20)
-project(TCMTClient
+project(TCMT-M
     VERSION 0.14.0
     DESCRIPTION "TCMT Windows Client - Cross-platform hardware monitoring tool"
     LANGUAGES CXX
@@ -35,7 +35,7 @@ add_subdirectory(src)
 
 # 安装配置（如果需要）
 if(TCMT_INSTALL)
-    install(TARGETS TCMTClient
+    install(TARGETS TCMT-M
         RUNTIME DESTINATION bin
         LIBRARY DESTINATION lib
         ARCHIVE DESTINATION lib

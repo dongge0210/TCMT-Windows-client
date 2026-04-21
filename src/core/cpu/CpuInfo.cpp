@@ -156,8 +156,6 @@ int CpuInfo::GetTotalCores() const { return totalCores; }
 int CpuInfo::GetSmallCores() const { return smallCores; }
 int CpuInfo::GetLargeCores() const { return largeCores; }
 
-DWORD CpuInfo::GetCurrentSpeed() const { return 0; }
-
 std::string CpuInfo::GetName() { return cpuName; }
 
 bool CpuInfo::IsHyperThreadingEnabled() const {

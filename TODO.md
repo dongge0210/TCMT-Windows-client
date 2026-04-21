@@ -64,5 +64,5 @@ cd TCMT-Windows-client
 mkdir -p cmake-build && cd cmake-build
 cmake .. -DCMAKE_BUILD_TYPE=Debug
 make -j4
-./src/TCMTClient
+./src/TCMT-M
 ```
