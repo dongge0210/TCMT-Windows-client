@@ -110,7 +110,7 @@ std::string WinUtils::WstringToUtf8(const std::wstring& wstr) {
     int size_needed = WideCharToMultiByte(CP_UTF8, 0, wstr.c_str(), (int)wstr.size(), nullptr, 0, nullptr, nullptr);
     if (size_needed <= 0) return {};
     std::string out(size_needed, '\0');
-    WideCharToMultiByte(CP_UTF8, 0, wstr.c_str(), (int)wstr.size(), out.data(), size_needed, nullptr, nullptr);
+    WideCharToMultiByte(CP_UTF8, 0, wstr.c_str(), (int)wstr.size(), &out[0], size_needed, nullptr, nullptr);
     return out;
 #elif defined(TCMT_MACOS) || defined(TCMT_LINUX)
     // Direct code-point conversion (avoids locale issues)
@@ -142,7 +142,7 @@ std::wstring WinUtils::Utf8ToWstring(const std::string& str) {
     int size_needed = MultiByteToWideChar(CP_UTF8, 0, str.c_str(), (int)str.size(), nullptr, 0);
     if (size_needed <= 0) return {};
     std::wstring out(size_needed, L'\0');
-    MultiByteToWideChar(CP_UTF8, 0, str.c_str(), (int)str.size(), out.data(), size_needed);
+    MultiByteToWideChar(CP_UTF8, 0, str.c_str(), (int)str.size(), &out[0], size_needed);
     return out;
 #elif defined(TCMT_MACOS) || defined(TCMT_LINUX)
     std::wstring result;
