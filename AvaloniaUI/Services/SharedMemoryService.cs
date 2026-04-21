@@ -187,6 +187,13 @@ public class SharedMemoryService : IDisposable
             if (IsInitialized)
                 return true;
 
+            // MemoryMappedFile is Windows-only; skip on other platforms
+            if (!OperatingSystem.IsWindows())
+            {
+                Log.Debug("SharedMemoryService: not supported on this platform (non-Windows)");
+                return false;
+            }
+
             try
             {
                 string[] names = { GLOBAL_SHARED_MEMORY_NAME, LOCAL_SHARED_MEMORY_NAME, SHARED_MEMORY_NAME };
