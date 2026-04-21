@@ -24,17 +24,12 @@ jobs:
         submodules: recursive
         fetch-depth: 0
 
-    - name: Cache CUDA Toolkit
-      uses: actions/cache@v5
-      with:
-        path: C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA
-        key: cuda-13.2
-
     - name: Setup CUDA 13.2
       uses: Jimver/cuda-toolkit@v0.2.35
       with:
         cuda: '13.2.0'
         method: 'network'
+        cache: true
 
     - name: Setup MSBuild
       uses: microsoft/setup-msbuild@v3
