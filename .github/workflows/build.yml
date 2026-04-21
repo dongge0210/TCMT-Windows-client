@@ -29,7 +29,7 @@ jobs:
       with:
         cuda: '13.2.0'
         method: 'network'
-        cache: true
+        use-github-cache: true
 
     - name: Setup MSBuild
       uses: microsoft/setup-msbuild@v3
