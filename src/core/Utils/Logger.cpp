@@ -32,7 +32,7 @@ static tcmt::LogBuffer g_tuiLogBuffer;
 void Logger::Initialize(const std::string& logFilePath) {
     logFile.open(logFilePath, std::ios::binary | std::ios::app);
     if (!logFile.is_open()) {
-        throw std::runtime_error("无法打开日志文件");
+        throw std::runtime_error("Cannot open log file");
     }
     if (logFile.tellp() == 0) {
         const unsigned char bom[] = {0xEF, 0xBB, 0xBF};

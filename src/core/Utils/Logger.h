@@ -27,7 +27,7 @@
 #include "../tui/LogBuffer.h"
 #endif
 
-// 日志等级枚举
+// Log level enumeration
 enum LogLevel {
     LOG_TRACE = 0,
     LOG_DEBUG = 1,
@@ -38,7 +38,7 @@ enum LogLevel {
     LOG_FATAL = 6
 };
 
-// 控制台颜色枚举
+// Console color enumeration
 enum class ConsoleColor {
     BLACK = 0, DARK_BLUE = 1, DARK_GREEN = 2, DARK_CYAN = 3,
     DARK_RED = 4, DARK_MAGENTA = 5, DARK_YELLOW = 6, LIGHT_GRAY = 7,

@@ -1,10 +1,10 @@
 name: Build TCMT-M
 
 on:
-  push:
-    branches: [ main, dev, mac ]
+  #push:
+  #  branches: [ main, dev ]
   pull_request:
-    branches: [ main, dev, mac ]
+    branches: [ main, dev ]
   workflow_dispatch:
 
 jobs:

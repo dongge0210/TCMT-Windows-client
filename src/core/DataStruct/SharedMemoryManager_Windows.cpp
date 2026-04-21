@@ -1,4 +1,4 @@
-﻿
+
 #ifndef NOMINMAX
 #define NOMINMAX
 #endif
@@ -20,7 +20,7 @@
 // Fallback implementation for FormatWindowsErrorMessage
 inline std::string FallbackFormatWindowsErrorMessage(DWORD errorCode) {
     std::stringstream ss;
-    ss << "错误码: " << errorCode;
+    ss << "Error code: " << errorCode;
     return ss.str();
 }
 #endif
@@ -30,29 +30,29 @@ inline std::string FallbackFormatWindowsErrorMessage(DWORD errorCode) {
 HANDLE SharedMemoryManager::hMapFile = NULL;
 SharedMemoryBlock* SharedMemoryManager::pBuffer = nullptr;
 std::string SharedMemoryManager::lastError = "";
-// 跨进程互斥体用于同步共享内存
+// Cross-process mutex for synchronizing shared memory
 static HANDLE g_hMutex = NULL;
 
 bool SharedMemoryManager::InitSharedMemory() {
     // Clear any previous error
     lastError.clear();
-        
+
     try {
         // Try to enable privileges needed for creating global objects
         bool hasPrivileges = WinUtils::EnablePrivilege(L"SeCreateGlobalPrivilege");
         if (!hasPrivileges) {
-            Logger::Warn("未能启用 SeCreateGlobalPrivilege - 尝试继续");
+            Logger::Warn("Failed to enable SeCreateGlobalPrivilege - attempting to continue");
         }
     } catch(...) {
-        Logger::Warn("启用 SeCreateGlobalPrivilege 时发生异常 - 尝试继续");
+        Logger::Warn("Exception occurred when enabling SeCreateGlobalPrivilege - attempting to continue");
         // Continue execution as this is not critical
     }
 
-    // 创建全局互斥体用于多进程同步
+    // Create global mutex for multi-process synchronization
     if (!g_hMutex) {
         g_hMutex = CreateMutexW(NULL, FALSE, L"Global\\SystemMonitorSharedMemoryMutex");
         if (!g_hMutex) {
-            Logger::Error("未能创建全局互斥体用于共享内存同步");
+            Logger::Error("Failed to create global mutex for shared memory synchronization");
             return false;
         }
     }
@@ -65,7 +65,7 @@ bool SharedMemoryManager::InitSharedMemory() {
     if (!InitializeSecurityDescriptor(&securityDescriptor, SECURITY_DESCRIPTOR_REVISION)) {
         DWORD errorCode = ::GetLastError();
         std::stringstream ss;
-        ss << "未能初始化安全描述符。错误码: " << errorCode
+        ss << "Failed to initialize security descriptor. Error code: " << errorCode
            << " ("
            #ifdef WINUTILS_IMPLEMENTED
                 << WinUtils::FormatWindowsErrorMessage(errorCode)
@@ -82,7 +82,7 @@ bool SharedMemoryManager::InitSharedMemory() {
     if (!SetSecurityDescriptorDacl(&securityDescriptor, TRUE, NULL, FALSE)) {
         DWORD errorCode = ::GetLastError();
         std::stringstream ss;
-        ss << "未能设置安全描述符 DACL。错误码: " << errorCode
+        ss << "Failed to set security descriptor DACL. Error code: " << errorCode
            << " ("
            #ifdef WINUTILS_IMPLEMENTED
                 << WinUtils::FormatWindowsErrorMessage(errorCode)
@@ -112,7 +112,7 @@ bool SharedMemoryManager::InitSharedMemory() {
     if (hMapFile == NULL) {
         DWORD errorCode = ::GetLastError();
         // Fallback if Global is not permitted, try Local or no prefix
-        Logger::Warn("未能创建全局共享内存，尝试本地命名空间");
+        Logger::Warn("Failed to create global shared memory, trying local namespace");
 
         hMapFile = CreateFileMapping(
             INVALID_HANDLE_VALUE,
@@ -137,7 +137,7 @@ bool SharedMemoryManager::InitSharedMemory() {
         if (hMapFile == NULL) {
             errorCode = ::GetLastError();
             std::stringstream ss;
-            ss << "未能创建共享内存。错误码: " << errorCode
+            ss << "Failed to create shared memory. Error code: " << errorCode
                << " ("
                #ifdef WINUTILS_IMPLEMENTED
                     << WinUtils::FormatWindowsErrorMessage(errorCode)
@@ -147,7 +147,7 @@ bool SharedMemoryManager::InitSharedMemory() {
                << ")";
             // Possibly shared memory already exists
             if (errorCode == ERROR_ALREADY_EXISTS) {
-                ss << " (共享内存已存在)";
+                ss << " (Shared memory already exists)";
             }
             lastError = ss.str();
             Logger::Error(lastError);
@@ -158,9 +158,9 @@ bool SharedMemoryManager::InitSharedMemory() {
     // Check if we created a new mapping or opened an existing one
     DWORD errorCode = ::GetLastError();
     if (errorCode == ERROR_ALREADY_EXISTS) {
-        Logger::Info("打开了现有的共享内存映射.");
+        Logger::Info("Opened existing shared memory mapping.");
     } else {
-        Logger::Info("创建了新的共享内存映射.");
+        Logger::Info("Created new shared memory mapping.");
     }
 
     // Map to process address space
@@ -170,7 +170,7 @@ bool SharedMemoryManager::InitSharedMemory() {
     if (pBuffer == nullptr) {
         DWORD errorCode = ::GetLastError();
         std::stringstream ss;
-        ss << "未能映射共享内存视图。错误码: " << errorCode
+        ss << "Failed to map shared memory view. Error code: " << errorCode
            << " ("
            #ifdef WINUTILS_IMPLEMENTED
                 << WinUtils::FormatWindowsErrorMessage(errorCode)
@@ -186,14 +186,14 @@ bool SharedMemoryManager::InitSharedMemory() {
     }
 
 
-    // 不再在共享内存结构体中初始化CriticalSection
+    // No longer initialize CriticalSection in shared memory structure
 
     // Zero out the shared memory to avoid dirty data (only on first creation)
     if (errorCode != ERROR_ALREADY_EXISTS) {
         memset(pBuffer, 0, sizeof(SharedMemoryBlock));
     }
 
-    Logger::Info("共享内存成功初始化.");
+    Logger::Info("Shared memory successfully initialized.");
     return true;
 }
 
@@ -214,14 +214,14 @@ std::string SharedMemoryManager::GetLastError() {
 
 void SharedMemoryManager::WriteToSharedMemory(const SystemInfo& systemInfo) {
     if (!pBuffer) {
-        lastError = "共享内存未初始化";
+        lastError = "Shared memory not initialized";
         Logger::Critical(lastError);
         return;
     }
 
-    DWORD waitResult = WaitForSingleObject(g_hMutex, 5000); // 最多等5秒
+    DWORD waitResult = WaitForSingleObject(g_hMutex, 5000); // Wait up to 5 seconds
     if (waitResult != WAIT_OBJECT_0) {
-        Logger::Critical("未能获取共享内存互斥体");
+        Logger::Critical("Failed to acquire shared memory mutex");
         return;
     }
     auto SafeCopyWideString = [](wchar_t* dest, size_t destSize, const std::wstring& src) {
@@ -245,7 +245,7 @@ void SharedMemoryManager::WriteToSharedMemory(const SystemInfo& systemInfo) {
         dest[len] = L'\0';
     };
     try {
-        // 清零主要字符串/数组区域
+        // Clear main string/array areas
         memset(pBuffer->cpuName, 0, sizeof(pBuffer->cpuName));
         for (int i = 0; i < 2; ++i) { memset(pBuffer->gpus[i].name, 0, sizeof(pBuffer->gpus[i].name)); memset(pBuffer->gpus[i].brand, 0, sizeof(pBuffer->gpus[i].brand)); }
         for (int i = 0; i < 8; ++i) { memset(&pBuffer->disks[i], 0, sizeof(pBuffer->disks[i])); memset(&pBuffer->physicalDisks[i], 0, sizeof(pBuffer->physicalDisks[i])); }
@@ -263,12 +263,12 @@ void SharedMemoryManager::WriteToSharedMemory(const SystemInfo& systemInfo) {
         pBuffer->hyperThreading = systemInfo.hyperThreading;
         pBuffer->virtualization = systemInfo.virtualization;
 
-        // 内存
+        // Memory
         pBuffer->totalMemory = systemInfo.totalMemory;
         pBuffer->usedMemory = systemInfo.usedMemory;
         pBuffer->availableMemory = systemInfo.availableMemory;
 
-        // GPU（兼容旧字段）
+        // GPU (compatible with old fields)
         pBuffer->gpuCount = 0;
         if (!systemInfo.gpuName.empty()) {
             SafeCopyWideString(pBuffer->gpus[0].name, 128, WinUtils::StringToWstring(systemInfo.gpuName));
@@ -278,9 +278,9 @@ void SharedMemoryManager::WriteToSharedMemory(const SystemInfo& systemInfo) {
             pBuffer->gpus[0].isVirtual = systemInfo.gpuIsVirtual;
             pBuffer->gpuCount = 1;
         }
-        // 如后续要支持 vector<GPUData> 可在此扩展
+        // If later want to support vector<GPUData>, can extend here
 
-        // 网络适配器（SystemInfo.adapters 里的 NetworkAdapterData 为 wchar_t 数组字段）
+        // Network adapters (NetworkAdapterData in SystemInfo.adapters has wchar_t array fields)
         pBuffer->adapterCount = 0;
         int adapterWriteCount = static_cast<int>(std::min(systemInfo.adapters.size(), size_t(4)));
         for (int i = 0; i < adapterWriteCount; ++i) {
@@ -301,16 +301,16 @@ void SharedMemoryManager::WriteToSharedMemory(const SystemInfo& systemInfo) {
             pBuffer->adapterCount = 1;
         }
 
-        // 逻辑磁盘（SystemInfo.disks 中 label / fileSystem 是 std::string）
+        // Logical disks (label / fileSystem in SystemInfo.disks are std::string)
         pBuffer->diskCount = static_cast<int>(std::min(systemInfo.disks.size(), static_cast<size_t>(8)));
         for (int i = 0; i < pBuffer->diskCount; ++i) {
             const auto& disk = systemInfo.disks[i];
             pBuffer->disks[i].letter = disk.letter;
             std::string safeLabel = disk.label;
-            if (safeLabel.empty()) safeLabel = ""; // 未命名允许为空，在UI端替换
+            if (safeLabel.empty()) safeLabel = ""; // Allow unnamed, replace in UI
             else if (!WinUtils::IsLikelyUtf8(safeLabel)) {
-                // 退化处理：按当前ACP转 wide 再回 UTF-8，尽量 salvage
-                std::wstring w = WinUtils::Utf8ToWstring(safeLabel); // 若不是utf8会得到空
+                // Degraded handling: convert via current ACP to wide then back to UTF-8, try to salvage
+                std::wstring w = WinUtils::Utf8ToWstring(safeLabel); // If not utf8 will get empty
                 if (w.empty()) {
                     int len = MultiByteToWideChar(CP_ACP, 0, safeLabel.c_str(), (int)safeLabel.size(), nullptr, 0);
                     if (len > 0) { w.resize(len); MultiByteToWideChar(CP_ACP, 0, safeLabel.c_str(), (int)safeLabel.size(), &w[0], len); }
@@ -324,7 +324,7 @@ void SharedMemoryManager::WriteToSharedMemory(const SystemInfo& systemInfo) {
             pBuffer->disks[i].freeSpace = disk.freeSpace;
         }
 
-        // 物理磁盘 + SMART（SystemInfo.physicalDisks 里字段已为 wchar_t 数组）
+        // Physical disks + SMART (fields in SystemInfo.physicalDisks are already wchar_t arrays)
         pBuffer->physicalDiskCount = static_cast<int>(std::min(systemInfo.physicalDisks.size(), static_cast<size_t>(8)));
         for (int i = 0; i < pBuffer->physicalDiskCount; ++i) {
             const auto& src = systemInfo.physicalDisks[i];
@@ -373,7 +373,7 @@ void SharedMemoryManager::WriteToSharedMemory(const SystemInfo& systemInfo) {
             }
         }
 
-        // 温度数组（传感器名字在 vector<pair<string,double>> 中）
+        // Temperature array (sensor names in vector<pair<string,double>>)
         pBuffer->tempCount = static_cast<int>(std::min(systemInfo.temperatures.size(), static_cast<size_t>(10)));
         for (int i = 0; i < pBuffer->tempCount; ++i) {
             const auto& temp = systemInfo.temperatures[i];
@@ -381,18 +381,18 @@ void SharedMemoryManager::WriteToSharedMemory(const SystemInfo& systemInfo) {
             pBuffer->temperatures[i].temperature = temp.second;
         }
 
-        // 独立 CPU / GPU 温度
+        // Independent CPU / GPU temperatures
         pBuffer->cpuTemperature = systemInfo.cpuTemperature;
         pBuffer->gpuTemperature = systemInfo.gpuTemperature;
         pBuffer->cpuUsageSampleIntervalMs = systemInfo.cpuUsageSampleIntervalMs;
 
         GetSystemTime(&pBuffer->lastUpdate);
-        Logger::Trace("成功写入系统/磁盘/SMART 信息到共享内存");
+        Logger::Trace("Successfully wrote system/disk/SMART information to shared memory");
     } catch (const std::exception& e) {
-        lastError = std::string("WriteToSharedMemory 中的异常: ") + e.what();
+        lastError = std::string("Exception in WriteToSharedMemory: ") + e.what();
         Logger::Error(lastError);
     } catch (...) {
-        lastError = "WriteToSharedMemory 中的未知异常";
+        lastError = "Unknown exception in WriteToSharedMemory";
         Logger::Error(lastError);
     }
     ReleaseMutex(g_hMutex);

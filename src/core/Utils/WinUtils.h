@@ -10,14 +10,14 @@ typedef uint32_t DWORD;
 
 class WinUtils {
 public:
-    // UTF-8 转换（跨平台）
+    // UTF-8 conversion (cross-platform)
     static std::string WstringToUtf8(const std::wstring& wstr);
     static std::wstring Utf8ToWstring(const std::string& str);
     static std::wstring StringToWstring(const std::string& str);
     static std::string WstringToString(const std::wstring& wstr);
     static bool IsLikelyUtf8(const std::string& s);
 
-    // Windows 特有（所有平台都有声明）
+    // Windows specific (declarations on all platforms)
     static bool EnablePrivilege(const std::wstring& privilegeName, bool enable = true);
     static bool CheckPrivilege(const std::wstring& privilegeName);
     static bool IsRunAsAdmin();

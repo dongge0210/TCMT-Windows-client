@@ -1,10 +1,10 @@
-// SharedMemoryManager.cpp - 通过条件编译包含平台特定实现
-// 注意：此文件不包含实际实现，仅作为平台特定实现的分发器
+// SharedMemoryManager.cpp - Include platform-specific implementation via conditional compilation
+// Note: This file does not contain actual implementation, only serves as a dispatcher for platform-specific implementations
 
 #include "SharedMemoryManager.h"
 #include "../Utils/Logger.h"
 
-// 自动检测平台并定义相应的TCMT_宏
+// Auto-detect platform and define corresponding TCMT_ macros
 #if defined(_WIN32) || defined(_WIN64)
     #ifndef TCMT_WINDOWS
         #define TCMT_WINDOWS
@@ -19,7 +19,7 @@
     #endif
 #endif
 
-// 如果仍未定义任何平台宏，尝试根据其他宏猜测
+// If no platform macro is defined, try to guess based on other macros
 #if !defined(TCMT_WINDOWS) && !defined(TCMT_MACOS) && !defined(TCMT_LINUX)
     #if defined(_WIN32) || defined(_WIN64)
         #define TCMT_WINDOWS
@@ -28,12 +28,12 @@
     #elif defined(__linux__)
         #define TCMT_LINUX
     #else
-        // 无法检测平台，默认使用macOS（因为当前开发目标）
+        // Cannot detect platform, default to macOS (as current development target)
         #define TCMT_MACOS
     #endif
 #endif
 
-// 根据平台包含相应的实现
+// Include corresponding implementation based on platform
 #ifdef TCMT_WINDOWS
 #include "SharedMemoryManager_Windows.cpp"
 #elif defined(TCMT_MACOS)

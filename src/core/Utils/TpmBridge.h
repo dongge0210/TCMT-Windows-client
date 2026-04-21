@@ -4,7 +4,7 @@
 #include <vector>
 #include "../DataStruct/DataStruct.h"
 
-// TPM 状态代码
+// TPM status codes
 enum TpmStatus : uint8_t {
     StatusUnknown = 0,
     StatusOk = 1,
@@ -12,7 +12,7 @@ enum TpmStatus : uint8_t {
     StatusDisabled = 3
 };
 
-// TPM 供应商 ID (实际存储为 uint32_t)
+// TPM vendor ID (actually stored as uint32_t)
 enum TpmVendorId : uint32_t {
     VendorUnknown = 0,
     VendorAMD = 0x414D44,      // "AMD"
@@ -27,23 +27,23 @@ enum TpmVendorId : uint32_t {
 
 class TpmBridge {
 public:
-    // 初始化 TPM 桥接
+    // Initialize TPM bridge
     static bool Initialize();
-    
-    // 清理 TPM 桥接
+
+    // Cleanup TPM bridge
     static void Cleanup();
-    
-    // 获取 TPM 信息
+
+    // Get TPM information
     static bool GetTpmInfo(TpmInfo& info);
-    
-    // 检查 TPM 是否存在
+
+    // Check if TPM exists
     static bool IsTpmPresent();
-    
+
 private:
     static bool initialized;
     static bool tpmPresent;
-    
-    // 内部方法
+
+    // Internal methods
     static HRESULT GetTpmProperty(DWORD propertyId, LPBYTE buffer, DWORD bufferSize);
     static std::wstring GetVendorString(uint32_t vendorId);
     static TpmStatus CheckTpmStatus();

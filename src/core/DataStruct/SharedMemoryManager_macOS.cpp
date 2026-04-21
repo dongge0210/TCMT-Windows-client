@@ -1,5 +1,5 @@
-// SharedMemoryManager_macOS.cpp - macOS平台共享内存管理器实现
-// 使用POSIX共享内存和Platform抽象层
+// SharedMemoryManager_macOS.cpp - macOS platform shared memory manager implementation
+// Uses POSIX shared memory and Platform abstraction layer
 
 #ifndef TCMT_MACOS
 #error "This file should only be compiled for macOS platform (TCMT_MACOS defined)"
@@ -14,13 +14,13 @@
 #include <cstring>
 #include <algorithm>
 
-// 定义静态成员（macOS平台）
+// Define static members (macOS platform)
 void* SharedMemoryManager::shmPtr = nullptr;
 SharedMemoryBlock* SharedMemoryManager::pBuffer = nullptr;
 std::string SharedMemoryManager::lastError = "";
 void* SharedMemoryManager::interprocessMutex = nullptr;
 
-// 辅助函数：安全拷贝宽字符串
+// Helper function: safely copy wide string
 static void SafeCopyWideString(wchar_t* dest, size_t destSize, const std::wstring& src) {
     try {
         if (dest == nullptr || destSize == 0) return;
@@ -32,7 +32,7 @@ static void SafeCopyWideString(wchar_t* dest, size_t destSize, const std::wstrin
     } catch (...) { if (dest && destSize > 0) dest[0] = L'\0'; }
 }
 
-// 辅助函数：从宽字符数组安全拷贝
+// Helper function: safely copy from wide character array
 static void SafeCopyFromWideArray(wchar_t* dest, size_t destSize, const wchar_t* src, size_t srcCapacity) {
     if (!dest || destSize == 0) return;
     memset(dest, 0, destSize * sizeof(wchar_t));
@@ -45,14 +45,14 @@ static void SafeCopyFromWideArray(wchar_t* dest, size_t destSize, const wchar_t*
 }
 
 bool SharedMemoryManager::InitSharedMemory() {
-    // 清空之前的错误
+    // Clear previous errors
     lastError.clear();
 
-    // 创建或打开进程间互斥锁
+    // Create or open inter-process mutex
     if (!interprocessMutex) {
         auto* mutex = new Platform::InterprocessMutex();
         if (!mutex->Create("SystemMonitorSharedMemoryMutex")) {
-            lastError = "未能创建进程间互斥锁: " + mutex->GetLastError();
+            lastError = "Failed to create inter-process mutex: " + mutex->GetLastError();
             Logger::Error(lastError);
             delete mutex;
             return false;
@@ -60,19 +60,19 @@ bool SharedMemoryManager::InitSharedMemory() {
         interprocessMutex = mutex;
     }
 
-    // 创建共享内存对象
+    // Create shared memory object
     if (!shmPtr) {
         auto* shm = new Platform::SharedMemory();
         if (!shm->Create("SystemMonitorSharedMemory", sizeof(SharedMemoryBlock))) {
-            lastError = "未能创建共享内存: " + shm->GetLastError();
+            lastError = "Failed to create shared memory: " + shm->GetLastError();
             Logger::Error(lastError);
             delete shm;
             return false;
         }
 
-        // 映射到进程地址空间
+        // Map to process address space
         if (!shm->Map()) {
-            lastError = "未能映射共享内存: " + shm->GetLastError();
+            lastError = "Failed to map shared memory: " + shm->GetLastError();
             Logger::Error(lastError);
             delete shm;
             return false;
@@ -81,22 +81,22 @@ bool SharedMemoryManager::InitSharedMemory() {
         shmPtr = shm;
         pBuffer = static_cast<SharedMemoryBlock*>(shm->GetAddress());
 
-        // 如果是新创建的共享内存，清零
+        // If newly created shared memory, zero it
         if (shm->IsCreated()) {
             memset(pBuffer, 0, sizeof(SharedMemoryBlock));
-            Logger::Info("创建了新的共享内存映射.");
+            Logger::Info("Created new shared memory mapping.");
         } else {
-            Logger::Info("打开了现有的共享内存映射.");
+            Logger::Info("Opened existing shared memory mapping.");
         }
 
-        Logger::Info("共享内存成功初始化.");
+        Logger::Info("Shared memory successfully initialized.");
         return true;
     }
 
-    // 如果已经初始化，检查是否仍然有效
+    // If already initialized, check if still valid
     auto* shm = static_cast<Platform::SharedMemory*>(shmPtr);
     if (!shm->GetAddress()) {
-        lastError = "共享内存已初始化但映射无效";
+        lastError = "Shared memory initialized but mapping is invalid";
         Logger::Error(lastError);
         return false;
     }
@@ -105,7 +105,7 @@ bool SharedMemoryManager::InitSharedMemory() {
 }
 
 void SharedMemoryManager::CleanupSharedMemory() {
-    // 清理共享内存
+    // Cleanup shared memory
     if (shmPtr) {
         auto* shm = static_cast<Platform::SharedMemory*>(shmPtr);
         shm->Unmap();
@@ -114,7 +114,7 @@ void SharedMemoryManager::CleanupSharedMemory() {
         pBuffer = nullptr;
     }
 
-    // 清理互斥锁
+    // Cleanup mutex
     if (interprocessMutex) {
         auto* mutex = static_cast<Platform::InterprocessMutex*>(interprocessMutex);
         delete mutex;
@@ -128,26 +128,26 @@ std::string SharedMemoryManager::GetLastError() {
 
 void SharedMemoryManager::WriteToSharedMemory(const SystemInfo& systemInfo) {
     if (!pBuffer) {
-        lastError = "共享内存未初始化";
+        lastError = "Shared memory not initialized";
         Logger::Critical(lastError);
         return;
     }
 
-    // 获取互斥锁
+    // Acquire mutex
     auto* mutex = static_cast<Platform::InterprocessMutex*>(interprocessMutex);
     if (!mutex) {
-        lastError = "进程间互斥锁未初始化";
+        lastError = "Inter-process mutex not initialized";
         Logger::Critical(lastError);
         return;
     }
 
-    if (!mutex->Lock(5000)) { // 最多等5秒
-        Logger::Critical("未能获取共享内存互斥锁");
+    if (!mutex->Lock(5000)) { // Wait up to 5 seconds
+        Logger::Critical("Failed to acquire shared memory mutex");
         return;
     }
 
     try {
-        // 清零主要字符串/数组区域
+        // Clear main string/array areas
         memset(pBuffer->cpuName, 0, sizeof(pBuffer->cpuName));
         for (int i = 0; i < 2; ++i) {
             memset(pBuffer->gpus[i].name, 0, sizeof(pBuffer->gpus[i].name));
@@ -161,7 +161,7 @@ void SharedMemoryManager::WriteToSharedMemory(const SystemInfo& systemInfo) {
             memset(pBuffer->temperatures[i].sensorName, 0, sizeof(pBuffer->temperatures[i].sensorName));
         }
 
-        // CPU信息
+        // CPU information
         SafeCopyWideString(pBuffer->cpuName, 128,
                           Platform::StringConverter::Utf8ToWide(systemInfo.cpuName));
         pBuffer->physicalCores = systemInfo.physicalCores;
@@ -174,12 +174,12 @@ void SharedMemoryManager::WriteToSharedMemory(const SystemInfo& systemInfo) {
         pBuffer->hyperThreading = systemInfo.hyperThreading;
         pBuffer->virtualization = systemInfo.virtualization;
 
-        // 内存信息
+        // Memory information
         pBuffer->totalMemory = systemInfo.totalMemory;
         pBuffer->usedMemory = systemInfo.usedMemory;
         pBuffer->availableMemory = systemInfo.availableMemory;
 
-        // GPU信息（兼容旧字段）
+        // GPU information (compatible with old fields)
         pBuffer->gpuCount = 0;
         if (!systemInfo.gpuName.empty()) {
             SafeCopyWideString(pBuffer->gpus[0].name, 128,
@@ -192,9 +192,9 @@ void SharedMemoryManager::WriteToSharedMemory(const SystemInfo& systemInfo) {
             pBuffer->gpus[0].usage = systemInfo.gpuUsage;
             pBuffer->gpuCount = 1;
         }
-        // 如后续要支持 vector<GPUData> 可在此扩展
+        // If later want to support vector<GPUData>, can extend here
 
-        // 网络适配器信息
+        // Network adapter information
         pBuffer->adapterCount = 0;
         int adapterWriteCount = static_cast<int>(std::min(systemInfo.adapters.size(), size_t(4)));
         for (int i = 0; i < adapterWriteCount; ++i) {
@@ -207,7 +207,7 @@ void SharedMemoryManager::WriteToSharedMemory(const SystemInfo& systemInfo) {
         }
         pBuffer->adapterCount = adapterWriteCount;
 
-        // 兼容旧的网络适配器字段
+        // Compatible with old network adapter fields
         if (adapterWriteCount == 0 && !systemInfo.networkAdapterName.empty()) {
             SafeCopyWideString(pBuffer->adapters[0].name, 128,
                               Platform::StringConverter::Utf8ToWide(systemInfo.networkAdapterName));
@@ -221,19 +221,19 @@ void SharedMemoryManager::WriteToSharedMemory(const SystemInfo& systemInfo) {
             pBuffer->adapterCount = 1;
         }
 
-        // 逻辑磁盘信息
+        // Logical disk information
         pBuffer->diskCount = static_cast<int>(std::min(systemInfo.disks.size(), static_cast<size_t>(8)));
         for (int i = 0; i < pBuffer->diskCount; ++i) {
             const auto& disk = systemInfo.disks[i];
             pBuffer->disks[i].letter = disk.letter;
 
-            // 处理卷标编码
+            // Handle volume label encoding
             std::string safeLabel = disk.label;
             if (safeLabel.empty()) {
                 safeLabel = "";
             } else if (!Platform::StringConverter::IsValidUtf8(safeLabel)) {
-                // 如果不是有效的UTF-8，尝试使用当前locale转换
-                // 简化处理：直接使用原始字符串
+                // If not valid UTF-8, try using current locale conversion
+                // Simplified handling: use raw string directly
             }
 
             SafeCopyWideString(pBuffer->disks[i].label, 128,
@@ -245,7 +245,7 @@ void SharedMemoryManager::WriteToSharedMemory(const SystemInfo& systemInfo) {
             pBuffer->disks[i].freeSpace = disk.freeSpace;
         }
 
-        // 物理磁盘SMART信息
+        // Physical disk SMART information
         pBuffer->physicalDiskCount = static_cast<int>(std::min(systemInfo.physicalDisks.size(), static_cast<size_t>(8)));
         for (int i = 0; i < pBuffer->physicalDiskCount; ++i) {
             const auto& src = systemInfo.physicalDisks[i];
@@ -269,7 +269,7 @@ void SharedMemoryManager::WriteToSharedMemory(const SystemInfo& systemInfo) {
             pBuffer->physicalDisks[i].totalBytesWritten = src.totalBytesWritten;
             pBuffer->physicalDisks[i].totalBytesRead = src.totalBytesRead;
 
-            // 逻辑驱动器盘符
+            // Logical drive letters
             int ldCount = 0;
             for (char l : src.logicalDriveLetters) {
                 if (ldCount >= 8 || l == 0) break;
@@ -279,7 +279,7 @@ void SharedMemoryManager::WriteToSharedMemory(const SystemInfo& systemInfo) {
             }
             pBuffer->physicalDisks[i].logicalDriveCount = ldCount;
 
-            // SMART属性
+            // SMART attributes
             int attrCount = src.attributeCount;
             if (attrCount < 0) attrCount = 0;
             if (attrCount > 32) attrCount = 32;
@@ -302,7 +302,7 @@ void SharedMemoryManager::WriteToSharedMemory(const SystemInfo& systemInfo) {
             }
         }
 
-        // 温度传感器信息
+        // Temperature sensor information
         pBuffer->tempCount = static_cast<int>(std::min(systemInfo.temperatures.size(), static_cast<size_t>(10)));
         for (int i = 0; i < pBuffer->tempCount; ++i) {
             const auto& temp = systemInfo.temperatures[i];
@@ -311,27 +311,27 @@ void SharedMemoryManager::WriteToSharedMemory(const SystemInfo& systemInfo) {
             pBuffer->temperatures[i].temperature = temp.second;
         }
 
-        // 独立 CPU/GPU 温度
+        // Independent CPU/GPU temperatures
         pBuffer->cpuTemperature = systemInfo.cpuTemperature;
         pBuffer->gpuTemperature = systemInfo.gpuTemperature;
         pBuffer->cpuUsageSampleIntervalMs = systemInfo.cpuUsageSampleIntervalMs;
 
-        // TPM 数据 (macOS 无 TPM，清零)
+        // TPM data (macOS has no TPM, zero it)
         memset(&pBuffer->tpm, 0, sizeof(TpmInfo));
         pBuffer->tpmCount = 0;
 
-        // 更新时间戳
+        // Update timestamp
         pBuffer->lastUpdate = Platform::SystemTime::Now();
 
-        Logger::Trace("成功写入系统/磁盘/SMART 信息到共享内存");
+        Logger::Trace("Successfully wrote system/disk/SMART information to shared memory");
     } catch (const std::exception& e) {
-        lastError = std::string("WriteToSharedMemory 中的异常: ") + e.what();
+        lastError = std::string("Exception in WriteToSharedMemory: ") + e.what();
         Logger::Error(lastError);
     } catch (...) {
-        lastError = "WriteToSharedMemory 中的未知异常";
+        lastError = "Unknown exception in WriteToSharedMemory";
         Logger::Error(lastError);
     }
 
-    // 释放互斥锁
+    // Release mutex
     mutex->Unlock();
 }

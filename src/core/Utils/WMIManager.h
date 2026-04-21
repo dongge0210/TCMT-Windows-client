@@ -10,7 +10,7 @@ public:
     ~WmiManager();
     bool IsInitialized() const;
 
-    // IServiceProvider接口实现
+    // IServiceProvider interface implementation
     HRESULT STDMETHODCALLTYPE QueryInterface(REFIID riid, void** ppv) override;
     ULONG STDMETHODCALLTYPE AddRef() override;
     ULONG STDMETHODCALLTYPE Release() override;
