@@ -1,6 +1,6 @@
 #include "DataStruct.h"
 #include "SharedMemoryManager.h"
-#include "../utils/WinUtils.h"
+#include "../Utils/WinUtils.h"
 #include <iostream>
 #include <string>
 #include <cwchar>

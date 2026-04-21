@@ -91,6 +91,10 @@ typedef struct {
     char data[32];
 } SmcKeyData_t;
 
+// Suppress missing field initializer warnings for SMC structs
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wmissing-field-initializers"
+
 typedef struct {
     char vers[8];
     char flags;
@@ -117,12 +121,12 @@ static std::mutex   g_smc_mutex;
 
 // Open/close AppleSMC service
 static kern_return_t open_smc_service(io_connect_t* conn) {
-    mach_port_t masterPort;
-#if __MAC_OS_X_VERSION_MAX_ALLOWED >= 120000
-    masterPort = kIOMainPortDefault;
-#else
-    masterPort = kIOMasterPortDefault;
-#endif
+    // Use kIOMasterPortDefault for compatibility with macOS 11+
+    // kIOMainPortDefault is just a rename in macOS 12+ but functionally identical
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
+    mach_port_t masterPort = kIOMasterPortDefault;
+#pragma clang diagnostic pop
     io_service_t svc = IOServiceGetMatchingService(
         masterPort, IOServiceMatching("AppleSMC"));
     if (!svc) return kIOReturnNotFound;
@@ -134,7 +138,8 @@ static kern_return_t open_smc_service(io_connect_t* conn) {
 // Read SMC key info (selector 5, subfn 2)
 static kern_return_t smc_read_key_info(io_connect_t conn, uint32_t key,
                                        SmcKeyInfoVal_t* info) {
-    SmcKeyData_t in = {0}, out = {0};
+    SmcKeyData_t in = {};
+    SmcKeyData_t out = {};
     in.key   = key;
     in.data8 = KSmcReadKeyInfo;
     size_t sz = sizeof(out);
@@ -152,7 +157,8 @@ static kern_return_t smc_read_key_info(io_connect_t conn, uint32_t key,
 static kern_return_t smc_read_key_value(io_connect_t conn, uint32_t key,
                                          uint32_t dataSize,
                                          char* outBuf, size_t maxLen) {
-    SmcKeyData_t in = {0}, out = {0};
+    SmcKeyData_t in = {};
+    SmcKeyData_t out = {};
     in.key    = key;
     in.data8  = KSmcReadKeyValue;
     in.keyInfo = dataSize;
@@ -164,6 +170,8 @@ static kern_return_t smc_read_key_value(io_connect_t conn, uint32_t key,
     }
     return kr;
 }
+
+#pragma clang diagnostic pop
 
 // Decode temperature from raw SMC bytes
 // Common types: 'sp78' (signed 7.8 fixed-point), 'flt' (IEEE754 float),
@@ -337,7 +345,7 @@ static void powermetrics_thread_func(void) {
 
         std::vector<std::pair<std::string, double>> batch;
         char line[512] = {0};
-        bool in_thermal = false;
+        [[maybe_unused]] bool in_thermal = false;
 
         while (fgets(line, sizeof(line), fp)) {
             if (std::strstr(line, "Thermal pressure")) {
@@ -403,12 +411,10 @@ static void start_powermetrics_thread(void) {
 // =====================================================================
 static std::vector<std::pair<std::string, double>> iokit_hid_temps(void) {
     std::vector<std::pair<std::string, double>> temps;
-    mach_port_t masterPort;
-#if __MAC_OS_X_VERSION_MAX_ALLOWED >= 120000
-    masterPort = kIOMainPortDefault;
-#else
-    masterPort = kIOMasterPortDefault;
-#endif
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
+    mach_port_t masterPort = kIOMasterPortDefault;
+#pragma clang diagnostic pop
 
     io_iterator_t iter = 0;
     if (IOServiceGetMatchingServices(masterPort,
@@ -443,12 +449,10 @@ static std::vector<std::pair<std::string, double>> iokit_hid_temps(void) {
 static std::vector<std::pair<std::string, double>> iokit_arm_temp_sensors(void) {
     std::vector<std::pair<std::string, double>> temps;
 
-    mach_port_t masterPort;
-#if __MAC_OS_X_VERSION_MAX_ALLOWED >= 120000
-    masterPort = kIOMainPortDefault;
-#else
-    masterPort = kIOMasterPortDefault;
-#endif
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
+    mach_port_t masterPort = kIOMasterPortDefault;
+#pragma clang diagnostic pop
 
     io_iterator_t iter = 0;
     kern_return_t kr = IOServiceGetMatchingServices(
@@ -523,12 +527,10 @@ static const char* kGpuKeys[] = {
 // Temperature value is in centidegrees (×100 °C), e.g. 3018 → 30.18°C
 // =====================================================================
 static double iokit_battery_temp(void) {
-    mach_port_t masterPort;
-#if __MAC_OS_X_VERSION_MAX_ALLOWED >= 120000
-    masterPort = kIOMainPortDefault;
-#else
-    masterPort = kIOMasterPortDefault;
-#endif
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
+    mach_port_t masterPort = kIOMasterPortDefault;
+#pragma clang diagnostic pop
 
     io_service_t svc = IOServiceGetMatchingService(
         masterPort, IOServiceMatching("AppleSmartBattery"));
