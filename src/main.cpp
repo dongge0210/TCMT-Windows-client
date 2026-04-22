@@ -1,7 +1,6 @@
-// Use #pragma unmanaged to ensure main compiles to native code
 #pragma unmanaged
 
-#pragma comment(linker, "/STACK:8388608")  // Set stack size to 8MB
+#pragma comment(linker, "/STACK:8388608")  // Set stack size
 
 /*
 If you see warning MSB8077: Some files are set to C++/CLI but "Enable CLR Support for Single File" property is not defined.
@@ -14,7 +13,6 @@ Please ignore this warning - the project structure doesn't support this scenario
 #include <conio.h>
 #include <eh.h>
 
-// Then include standard library headers
 #include <chrono>
 #include <iostream>
 #include <sstream>
@@ -23,15 +21,14 @@ Please ignore this warning - the project structure doesn't support this scenario
 #include <thread>
 #include <io.h>
 #include <fcntl.h>
-#include <algorithm> // Include for std::transform
-#include <vector> // Include for std::vector
+#include <algorithm>
+#include <vector>
 #include <mutex>
 #include <atomic>
 #include <locale>
 #include <new>
 #include <stdexcept>
 
-// Finally include project headers
 #include "core/cpu/CpuInfo.h"
 #include "core/gpu/GpuInfo.h"
 #include "core/memory/MemoryInfo.h"
@@ -44,7 +41,7 @@ Please ignore this warning - the project structure doesn't support this scenario
 #include "core/disk/DiskInfo.h"
 #include "core/utils/TpmBridge.h"
 #include "core/DataStruct/DataStruct.h"
-#include "core/DataStruct/SharedMemoryManager.h"  // Include the new shared memory manager
+#include "core/DataStruct/SharedMemoryManager.h"
 #include "core/temperature/TemperatureWrapper.h"
 
 #pragma comment(lib, "kernel32.lib")
@@ -110,7 +107,7 @@ void SafeConsoleOutput(const std::string& message) {
         }
     }
     catch (...) {
-        // Ignore console output errors to avoid recursive exceptions
+
     }
 }
 
@@ -124,7 +121,6 @@ void SafeConsoleOutput(const std::string& message, int color) {
             GetConsoleScreenBufferInfo(hConsole, &csbi);
             WORD originalColor = csbi.wAttributes;
             
-            // Set new color
             SetConsoleTextAttribute(hConsole, color);
             
             // Ensure input string is not empty
@@ -477,7 +473,6 @@ static void PrintInfoItem(const std::string& label, const std::string& value, in
 }
 
 // Main function
-// Check if running as administrator
 bool IsRunAsAdmin() {
     BOOL isAdmin = FALSE;
     PSID adminGroup = NULL;
@@ -501,7 +496,7 @@ private:
     uint64_t cachedGpuMemory_ = 0;
     uint32_t cachedGpuCoreFreq_ = 0;
     bool cachedGpuIsVirtual_ = false;
-    double cachedGpuUsage_ = 0.0;  // GPU usage
+    double cachedGpuUsage_ = 0.0;
 
 public:
     void Initialize(WmiManager& wmiManager) {
@@ -524,7 +519,6 @@ public:
                                        gpuName.find("AMD") != std::string::npos ? "Yes" : "No") + ")");
             }
             
-            // Prefer non-virtual GPU
             const GpuInfo::GpuData* selectedGpu = nullptr;
             for (const auto& gpu : gpus) {
                 if (!gpu.isVirtual) {
@@ -533,7 +527,6 @@ public:
                 }
             }
             
-            // If no non-virtual GPU, select first GPU
             if (!selectedGpu && !gpus.empty()) {
                 selectedGpu = &gpus[0];
             }
@@ -557,8 +550,7 @@ public:
         }
         catch (const std::exception& e) {
             Logger::Error("GPU info initialization failed: " + std::string(e.what()));
-            // Keep default values
-            initialized_ = true;  // Mark as initialized to avoid retry attempts
+            initialized_ = true;
         }
     }
     
@@ -577,35 +569,28 @@ public:
         std::lock_guard<std::mutex> lock(mtx_);
         return initialized_;
     }
-}; // Add missing semicolon
+};
 
-// Main function - Console mode
 int main(int argc, char* argv[]) {
-    // Set structured exception handling
     _set_se_translator(SEHTranslator);
     
-    // Set memory allocation failure handler
     std::set_new_handler([]() {
         Logger::Fatal("Memory allocation failed - system out of memory");
         throw std::bad_alloc();
     });
     
-    // Set console encoding to UTF-8 to ensure correct display
     SetConsoleCP(65001);
     SetConsoleOutputCP(65001);
     
-    // Set locale support for UTF-8
     setlocale(LC_ALL, "en_US.UTF-8");
     
-    // Set console signal handler
     SetConsoleCtrlHandler(ConsoleCtrlHandler, TRUE);
     
     try {
-        // Initialize logging system
         try {
-            Logger::EnableConsoleOutput(true); // Enable console output for Logger
+            Logger::EnableConsoleOutput(true);
             Logger::Initialize("system_monitor.log");
-            Logger::SetLogLevel(LOG_INFO); // Set log level to INFO to reduce verbose output
+            Logger::SetLogLevel(LOG_INFO);
             Logger::Info("Program started");
         }
         catch (const std::exception& e) {
@@ -613,12 +598,10 @@ int main(int argc, char* argv[]) {
             return 1;
         }
 
-        // Check admin privileges
         if (!IsRunAsAdmin()) {
             wchar_t szPath[MAX_PATH];
             GetModuleFileNameW(NULL, szPath, MAX_PATH);
 
-            // Restart itself with admin privileges
             SHELLEXECUTEINFOW sei = { sizeof(sei) };
             sei.lpVerb = L"runas";
             sei.lpFile = szPath;
@@ -626,22 +609,18 @@ int main(int argc, char* argv[]) {
             sei.nShow = SW_NORMAL;
 
             if (ShellExecuteExW(&sei)) {
-                // Startup successful, exit current process
                 exit(0);
             } else {
-                // Startup failed, show message box
                 MessageBoxW(NULL, L"Auto elevation failed, please right-click and run as administrator.", L"Insufficient Privileges", MB_OK | MB_ICONERROR);
                 SafeExit(1);
             }
         }
 
-        // Safely initialize COM for multi-threaded mode
         try {
             HRESULT hr = CoInitializeEx(nullptr, COINIT_MULTITHREADED);
             if (FAILED(hr)) {
                 if (hr == RPC_E_CHANGED_MODE) {
                     Logger::Warn("COM initialization mode conflict: thread already initialized in different mode, trying single-threaded mode");
-                    // Try single-threaded mode
                     hr = CoInitializeEx(nullptr, COINIT_APARTMENTTHREADED);
                     if (FAILED(hr)) {
                         Logger::Error("COM initialization failed: 0x" + std::to_string(hr));
@@ -661,13 +640,11 @@ int main(int argc, char* argv[]) {
             return -1;
         }
 
-        // Initialize shared memory - enhanced error handling
         try {
             if (!SharedMemoryManager::InitSharedMemory()) {
                 std::string error = SharedMemoryManager::GetLastError();
                 Logger::Error("Shared memory initialization failed: " + error);
                 
-                // Attempt to reinitialize
                 Logger::Info("Attempting to reinitialize shared memory...");
                 std::this_thread::sleep_for(std::chrono::milliseconds(1000));
                 
@@ -723,9 +700,8 @@ int main(int argc, char* argv[]) {
 
         Logger::Info("Program startup complete");
         
-        // Initialize loop counter to reduce frequent logging
-        int loopCounter = 1; // Start from 1 for more human-friendly counting
-        bool isFirstRun = true; // First run flag
+        int loopCounter = 1;
+        bool isFirstRun = true;
         
         // Cache static system info (only on first fetch)
         static std::atomic<bool> systemInfoCached{false};
@@ -738,7 +714,6 @@ int main(int argc, char* argv[]) {
         static bool cachedHyperThreading = false;
         static bool cachedVirtualization = false;
         
-        // Create CPU object once, reuse (avoid reinitializing performance counter) - enhanced exception handling
         std::unique_ptr<CpuInfo> cpuInfo;
         try {
             cpuInfo = std::make_unique<CpuInfo>();
@@ -761,30 +736,25 @@ int main(int argc, char* argv[]) {
             SafeExit(1);
         }
         
-        // Thread-safe GPU cache
         ThreadSafeGpuCache gpuCache;
         
         while (!g_shouldExit.load()) {
             try {
                 auto loopStart = std::chrono::high_resolution_clock::now();
                 
-                // Log detailed info only every 5 loops (~5 seconds)
-                bool isDetailedLogging = (loopCounter % 5 == 1); // Loop 1, 6, 11, 16, 21...
+                bool isDetailedLogging = (loopCounter % 5 == 1);
                 
                 if (isDetailedLogging) {
                     Logger::Debug("Starting main monitoring loop iteration #" + std::to_string(loopCounter));
                 }
                 
-                // After 5 loops, monitoring is stable
                 if (loopCounter == 5) {
                     g_monitoringStarted = true;
                     Logger::Info("Program is running stably");
                 }
                 
-                // Get system information
                 SystemInfo sysInfo;
 
-                // Safely initialize all fields to avoid undefined behavior - enhanced exception handling
                 try {
                     sysInfo.cpuUsage = 0.0;
                     sysInfo.performanceCoreFreq = 0.0;
@@ -796,33 +766,28 @@ int main(int argc, char* argv[]) {
                     sysInfo.gpuCoreFreq = 0.0;
                     sysInfo.gpuIsVirtual = false;
                     sysInfo.networkAdapterSpeed = 0;
-                    // Safely initialize SYSTEMTIME structure
                     sysInfo.lastUpdate = Platform::SystemTime::Now();
                     
-                    // Verify system time is reasonable
                     if (sysInfo.lastUpdate.year < 2020 || sysInfo.lastUpdate.year > 2050) {
                         Logger::Warn("Abnormal system time: " + std::to_string(sysInfo.lastUpdate.year));
                     }
                 }
                 catch (const std::exception& e) {
                     Logger::Error("SystemInfo initialization failed: " + std::string(e.what()));
-                    continue; // Skip current loop
+                    continue;
                 }
                 catch (...) {
                     Logger::Error("SystemInfo initialization failed - unknown exception");
-                    continue; // Skip current loop
+                    continue;
                 }
 
-                // Static system info (only on first fetch)
                 if (!systemInfoCached.load()) {
                     try {
                         Logger::Info("Initializing system information");
                         
-                        // OS information
                         OSInfo os;
                         cachedOsVersion = os.GetVersion();
 
-                        // Basic CPU info (using cpuInfo object)
                         if (cpuInfo) {
                             cachedCpuName = cpuInfo->GetName();
                             cachedPhysicalCores = cpuInfo->GetLargeCores() + cpuInfo->GetSmallCores();
@@ -838,14 +803,12 @@ int main(int argc, char* argv[]) {
                     }
                     catch (const std::exception& e) {
                         Logger::Error("System info initialization failed: " + std::string(e.what()));
-                        // Set default values
                         cachedOsVersion = "Unknown";
                         cachedCpuName = "Unknown";
-                        systemInfoCached = true; // Prevent repeated attempts
+                        systemInfoCached = true;
                     }
                 }
                 
-                // Use cached static info
                 sysInfo.osVersion = cachedOsVersion;
                 sysInfo.cpuName = cachedCpuName;
                 sysInfo.physicalCores = cachedPhysicalCores;
@@ -855,7 +818,6 @@ int main(int argc, char* argv[]) {
                 sysInfo.hyperThreading = cachedHyperThreading;
                 sysInfo.virtualization = cachedVirtualization;
 
-                // Dynamic CPU info (need to get each loop)
                 try {
                     if (cpuInfo) {
                         sysInfo.cpuUsage = cpuInfo->GetUsage();
@@ -866,10 +828,8 @@ int main(int argc, char* argv[]) {
                 }
                 catch (const std::exception& e) {
                     Logger::Error("Failed to get CPU dynamic info: " + std::string(e.what()));
-                    // Keep default values
                 }
 
-                // Memory info (get each loop to ensure data is real-time)
                 try {
                     MemoryInfo mem;
                     sysInfo.totalMemory = mem.GetTotalPhysical();
@@ -878,10 +838,8 @@ int main(int argc, char* argv[]) {
                 }
                 catch (const std::exception& e) {
                     Logger::Error("Failed to get memory info: " + std::string(e.what()));
-                    // Keep default values
                 }
 
-                // GPU info - use thread-safe caching mechanism
                 if (!gpuCache.IsInitialized()) {
                     try {
                         gpuCache.Initialize(*wmiManager);
@@ -891,7 +849,6 @@ int main(int argc, char* argv[]) {
                     }
                 }
                 
-                // Get cached GPU info
                 try {
                     std::string cachedGpuName, cachedGpuBrand;
                     uint64_t cachedGpuMemory;
@@ -964,7 +921,6 @@ int main(int argc, char* argv[]) {
                 }
                 catch (const std::bad_alloc& e) {
                     Logger::Error("GPU cache info processing failed - Out of memory: " + std::string(e.what()));
-                    // Clear GPU data to avoid displaying error info
                     sysInfo.gpus.clear();
                     sysInfo.gpuName = "Out of memory";
                     sysInfo.gpuBrand = "Unknown";
@@ -974,7 +930,6 @@ int main(int argc, char* argv[]) {
                 }
                 catch (const std::exception& e) {
                     Logger::Error("Failed to get GPU cache info: " + std::string(e.what()));
-                    // Clear GPU data to avoid displaying error info
                     sysInfo.gpus.clear();
                     sysInfo.gpuName = "Failed to get GPU info";
                     sysInfo.gpuBrand = "Unknown";
@@ -996,8 +951,8 @@ int main(int argc, char* argv[]) {
                 sysInfo.networkAdapterName = "No network adapter detected";
                 sysInfo.networkAdapterMac = "00-00-00-00-00-00";
                 sysInfo.networkAdapterSpeed = 0;
-                sysInfo.networkAdapterIp = "N/A"; // Add default IP address
-                sysInfo.networkAdapterType = "Unknown"; // Add default adapter type
+                sysInfo.networkAdapterIp = "N/A";
+                sysInfo.networkAdapterType = "Unknown";
 
                 // Populate all network adapter info
                 try {
@@ -1007,19 +962,17 @@ int main(int argc, char* argv[]) {
                     if (!adapters.empty()) {
                         for (const auto& adapter : adapters) {
                             NetworkAdapterData data;
-                            // Name, MAC, IP and type are wstring, need to convert to wchar_t arrays
                             wcsncpy_s(data.name, adapter.name.c_str(), _TRUNCATE);
                             wcsncpy_s(data.mac, adapter.mac.c_str(), _TRUNCATE);
-                            wcsncpy_s(data.ipAddress, adapter.ip.c_str(), _TRUNCATE); // Add IP address
-                            wcsncpy_s(data.adapterType, adapter.adapterType.c_str(), _TRUNCATE); // Add adapter type
+                            wcsncpy_s(data.ipAddress, adapter.ip.c_str(), _TRUNCATE);
+                            wcsncpy_s(data.adapterType, adapter.adapterType.c_str(), _TRUNCATE);
                             data.speed = adapter.speed;
                             sysInfo.adapters.push_back(data);
                         }
-                        // For backward compatibility, get the first adapter
                         sysInfo.networkAdapterName = WinUtils::WstringToString(adapters[0].name);
                         sysInfo.networkAdapterMac = WinUtils::WstringToString(adapters[0].mac);
-                        sysInfo.networkAdapterIp = WinUtils::WstringToString(adapters[0].ip); // Add IP address
-                        sysInfo.networkAdapterType = WinUtils::WstringToString(adapters[0].adapterType); // Add adapter type
+                        sysInfo.networkAdapterIp = WinUtils::WstringToString(adapters[0].ip);
+                        sysInfo.networkAdapterType = WinUtils::WstringToString(adapters[0].adapterType);
                         sysInfo.networkAdapterSpeed = adapters[0].speed;
                     } else {
                         sysInfo.networkAdapterName = "No network adapter detected";
@@ -1374,7 +1327,6 @@ bool CheckForKeyPress() {
     }
 }
 
-// Get key press (non-blocking) - enhanced exception handling
 char GetKeyPress() {
     try {
         if (_kbhit()) {

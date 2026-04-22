@@ -10,7 +10,6 @@
 
 #include "SharedMemoryManager.h"
 #include "../Platform/Platform.h"
-// Fix the include path case sensitivity
 #include "../Utils/WinUtils.h"
 #include "../Utils/Logger.h"
 #include <iostream>
@@ -220,7 +219,7 @@ void SharedMemoryManager::WriteToSharedMemory(const SystemInfo& systemInfo) {
         return;
     }
 
-    DWORD waitResult = WaitForSingleObject(g_hMutex, 5000); // Wait up to 5 seconds
+    DWORD waitResult = WaitForSingleObject(g_hMutex, 5000);
     if (waitResult != WAIT_OBJECT_0) {
         Logger::Critical("Failed to acquire shared memory mutex");
         return;
@@ -230,7 +229,7 @@ void SharedMemoryManager::WriteToSharedMemory(const SystemInfo& systemInfo) {
             if (dest == nullptr || destSize == 0) return;
             memset(dest, 0, destSize * sizeof(wchar_t));
             if (src.empty()) { dest[0] = L'\0'; return; }
-            size_t copyLen = std::min(src.length(), destSize - 1);
+            size_t copyLen = std::min<size_t>(src.length(), destSize - 1);
             for (size_t i = 0; i < copyLen; ++i) dest[i] = src[i];
             dest[copyLen] = L'\0';
         } catch (...) { if (dest && destSize > 0) dest[0] = L'\0'; }
@@ -283,7 +282,7 @@ void SharedMemoryManager::WriteToSharedMemory(const SystemInfo& systemInfo) {
 
         // Network adapters (NetworkAdapterData in SystemInfo.adapters has wchar_t array fields)
         pBuffer->adapterCount = 0;
-        int adapterWriteCount = static_cast<int>(std::min(systemInfo.adapters.size(), size_t(4)));
+        int adapterWriteCount = static_cast<int>(std::min<size_t>(systemInfo.adapters.size(), size_t(4)));
         for (int i = 0; i < adapterWriteCount; ++i) {
             const auto& src = systemInfo.adapters[i];
             SafeCopyFromWideArray(pBuffer->adapters[i].name, 128, src.name, 128);
@@ -303,7 +302,7 @@ void SharedMemoryManager::WriteToSharedMemory(const SystemInfo& systemInfo) {
         }
 
         // Logical disks (label / fileSystem in SystemInfo.disks are std::string)
-        pBuffer->diskCount = static_cast<int>(std::min(systemInfo.disks.size(), static_cast<size_t>(8)));
+        pBuffer->diskCount = static_cast<int>(std::min<size_t>(systemInfo.disks.size(), static_cast<size_t>(8)));
         for (int i = 0; i < pBuffer->diskCount; ++i) {
             const auto& disk = systemInfo.disks[i];
             pBuffer->disks[i].letter = disk.letter;
@@ -326,7 +325,7 @@ void SharedMemoryManager::WriteToSharedMemory(const SystemInfo& systemInfo) {
         }
 
         // Physical disks + SMART (fields in SystemInfo.physicalDisks are already wchar_t arrays)
-        pBuffer->physicalDiskCount = static_cast<int>(std::min(systemInfo.physicalDisks.size(), static_cast<size_t>(8)));
+        pBuffer->physicalDiskCount = static_cast<int>(std::min<size_t>(systemInfo.physicalDisks.size(), static_cast<size_t>(8)));
         for (int i = 0; i < pBuffer->physicalDiskCount; ++i) {
             const auto& src = systemInfo.physicalDisks[i];
             SafeCopyFromWideArray(pBuffer->physicalDisks[i].model, 128, src.model, 128);
@@ -375,7 +374,7 @@ void SharedMemoryManager::WriteToSharedMemory(const SystemInfo& systemInfo) {
         }
 
         // Temperature array (sensor names in vector<pair<string,double>>)
-        pBuffer->tempCount = static_cast<int>(std::min(systemInfo.temperatures.size(), static_cast<size_t>(10)));
+        pBuffer->tempCount = static_cast<int>(std::min<size_t>(systemInfo.temperatures.size(), static_cast<size_t>(10)));
         for (int i = 0; i < pBuffer->tempCount; ++i) {
             const auto& temp = systemInfo.temperatures[i];
             SafeCopyWideString(pBuffer->temperatures[i].sensorName, 64, WinUtils::StringToWstring(temp.first));
