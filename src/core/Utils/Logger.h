@@ -76,6 +76,8 @@ public:
     static void Critical(const std::string& message);
     static void Fatal(const std::string& message);
 
+#ifdef TCMT_MACOS
     // Get the TUI log buffer (for macOS TUI mode)
     static tcmt::LogBuffer& GetTuiBuffer();
+#endif
 };

@@ -9,6 +9,7 @@
 #include <Windows.h>
 
 #include "SharedMemoryManager.h"
+#include "../Platform/Platform.h"
 // Fix the include path case sensitivity
 #include "../Utils/WinUtils.h"
 #include "../Utils/Logger.h"
