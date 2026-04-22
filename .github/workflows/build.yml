@@ -55,21 +55,19 @@ jobs:
 
     - name: Set CUDA_PATH
       run: |
-        $paths = @(
-          "C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v13.2",
-          "C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v13.2.0",
-          "C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v13.1.0"
-        )
-        $cudaPath = $null
-        foreach ($p in $paths) {
-          if (Test-Path "$p\bin\nvcc.exe") {
-            $cudaPath = $p
-            break
-          }
+        $env:CUDA_PATH = "C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v13.2"
+        if (!(Test-Path "$env:CUDA_PATH\bin\nvcc.exe")) {
+          $env:CUDA_PATH = "C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v13.2.0"
         }
-        if ($cudaPath) {
-          echo "CUDA_PATH=$cudaPath" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
-          Write-Host "CUDA_PATH set to $cudaPath"
+        if (!(Test-Path "$env:CUDA_PATH\bin\nvcc.exe")) {
+          $env:CUDA_PATH = "C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v13.1.0"
+        }
+        if (Test-Path "$env:CUDA_PATH\bin\nvcc.exe") {
+          echo "CUDA_PATH=$env:CUDA_PATH" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+          Write-Host "CUDA_PATH=$env:CUDA_PATH"
+        } else {
+          Write-Host "Warning: CUDA not found, setting empty path"
+          echo "CUDA_PATH=" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
         }
 
     - name: Save CUDA cache

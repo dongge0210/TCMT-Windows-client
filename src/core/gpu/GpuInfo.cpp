@@ -8,6 +8,11 @@
 #include <algorithm>
 #include <cwctype>
 
+// NVML is only available when CUDA is installed
+#if defined(CUDA_SUPPORT) || defined(SUPPORT_NVIDIA_GPU)
+#include <nvml.h>
+#endif
+
 GpuInfo::GpuInfo(WmiManager& manager) : wmiManager(manager) {
     if (!wmiManager.IsInitialized()) {
         Logger::Error("WMI service not initialized");
@@ -101,11 +106,41 @@ void GpuInfo::QueryIntelGpuInfo(int index) {
 }
 
 void GpuInfo::QueryNvidiaGpuInfo(int index) {
+#if defined(CUDA_SUPPORT) || defined(SUPPORT_NVIDIA_GPU)
     nvmlReturn_t initResult = nvmlInit();
     if (NVML_SUCCESS != initResult) {
         Logger::Error("NVML initialization failed: " + std::string(nvmlErrorString(initResult)));
         return;
     }
+    nvmlDevice_t device;
+    nvmlReturn_t result = nvmlDeviceGetHandleByIndex(0, &device);
+    if (NVML_SUCCESS != result) { nvmlShutdown(); return; }
+
+    nvmlMemory_t memory;
+    result = nvmlDeviceGetMemoryInfo(device, &memory);
+    if (NVML_SUCCESS == result) gpuList[index].dedicatedMemory = memory.total;
+
+    unsigned int clockMHz = 0;
+    result = nvmlDeviceGetClockInfo(device, NVML_CLOCK_GRAPHICS, &clockMHz);
+    if (NVML_SUCCESS == result) gpuList[index].coreClock = static_cast<double>(clockMHz);
+
+    unsigned int temp = 0;
+    result = nvmlDeviceGetTemperature(device, NVML_TEMPERATURE_GPU, &temp);
+    if (NVML_SUCCESS == result) gpuList[index].temperature = temp;
+
+    int major = 0, minor = 0;
+    result = nvmlDeviceGetCudaComputeCapability(device, &major, &minor);
+    if (NVML_SUCCESS == result) {
+        gpuList[index].computeCapabilityMajor = major;
+        gpuList[index].computeCapabilityMinor = minor;
+    }
+
+    nvmlShutdown();
+#else
+    // NVIDIA GPU monitoring not available without CUDA
+    gpuList[index].name = "NVIDIA GPU (CUDA not available)";
+#endif
+}
     nvmlDevice_t device;
     nvmlReturn_t result = nvmlDeviceGetHandleByIndex(0, &device);
     if (NVML_SUCCESS != result) { nvmlShutdown(); return; }
