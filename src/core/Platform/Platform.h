@@ -24,6 +24,8 @@
 #include <fcntl.h>
 #include <unistd.h>
 #include <errno.h>
+// Define HANDLE for non-Windows platforms
+typedef void* HANDLE;
 #elif defined(TCMT_LINUX)
 #include <sys/time.h>
 #include <pthread.h>

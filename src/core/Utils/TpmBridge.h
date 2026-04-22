@@ -1,8 +1,16 @@
 // TpmBridge.h
 #pragma once
+#ifdef TCMT_WINDOWS
 // winsock2.h must be before windows.h
 #include <winsock2.h>
 #include <windows.h>
+#else
+// Define Windows types for non-Windows platforms
+typedef uint32_t DWORD;
+typedef uint8_t LPBYTE;
+typedef int64_t HRESULT;
+#endif
+
 #include <vector>
 #include "../DataStruct/DataStruct.h"
 

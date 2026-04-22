@@ -9,6 +9,9 @@
 #include <windows.h>
 #include <ws2tcpip.h>
 #include <iphlpapi.h>
+#else
+// Define DWORD for non-Windows platforms
+typedef uint32_t DWORD;
 #endif
 
 #ifdef TCMT_MACOS
