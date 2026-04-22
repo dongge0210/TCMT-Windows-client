@@ -29,21 +29,55 @@ jobs:
       uses: actions/cache/restore@v4
       with:
         path: C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA
-        key: cuda-13.2.0-${{ hashFiles('.github/workflows/build.yml') }}
+        key: cuda-13.2.0
         restore-keys: |
-          cuda-13.2.0-
+          cuda-13.2-
+
+    - name: Check CUDA exists
+      id: check-cuda
+      run: |
+        if (Test-Path "C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v13.2\bin\nvcc.exe") {
+          Write-Host "CUDA found"
+          echo "cuda_found=true" >> $env:GITHUB_OUTPUT
+        } elseif (Test-Path "C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v13.2.0\bin\nvcc.exe") {
+          Write-Host "CUDA found at v13.2.0"
+          echo "cuda_found=true" >> $env:GITHUB_OUTPUT
+        } else {
+          Write-Host "CUDA not found"
+          echo "cuda_found=false" >> $env:GITHUB_OUTPUT
+        }
 
     - name: Setup CUDA 13.2
+      if: steps.check-cuda.outputs.cuda_found != 'true'
       uses: Jimver/cuda-toolkit@v0.2.35
       with:
         cuda: '13.2.0'
 
+    - name: Set CUDA_PATH
+      run: |
+        $paths = @(
+          "C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v13.2",
+          "C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v13.2.0",
+          "C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v13.1.0"
+        )
+        $cudaPath = $null
+        foreach ($p in $paths) {
+          if (Test-Path "$p\bin\nvcc.exe") {
+            $cudaPath = $p
+            break
+          }
+        }
+        if ($cudaPath) {
+          echo "CUDA_PATH=$cudaPath" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+          Write-Host "CUDA_PATH set to $cudaPath"
+        }
+
     - name: Save CUDA cache
-      if: always() && steps.cache-cuda.outputs.cache-hit != 'true'
+      if: steps.check-cuda.outputs.cuda_found != 'true'
       uses: actions/cache/save@v4
       with:
         path: C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA
-        key: ${{ steps.cache-cuda.outputs.cache-primary-key }}
+        key: cuda-13.2.0
 
     - name: Setup MSBuild
       uses: microsoft/setup-msbuild@v3
@@ -120,4 +154,4 @@ jobs:
       uses: actions/upload-artifact@v7
       with:
         name: TCMT-macOS-arm64-Release
-        path: build/src/TCMT-M 
+        path: build/src/TCMT-M
