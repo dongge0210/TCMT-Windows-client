@@ -1,4 +1,4 @@
-﻿#include "GpuInfo.h"
+#include "GpuInfo.h"
 #include "Logger.h"
 #include "WmiManager.h"
 #include <comutil.h>
@@ -9,7 +9,7 @@
 
 GpuInfo::GpuInfo(WmiManager& manager) : wmiManager(manager) {
     if (!wmiManager.IsInitialized()) {
-        Logger::Error("WMI服务未初始化");
+        Logger::Error("WMI service not initialized");
         return;
     }
     pSvc = wmiManager.GetWmiService();
@@ -17,11 +17,11 @@ GpuInfo::GpuInfo(WmiManager& manager) : wmiManager(manager) {
 }
 
 GpuInfo::~GpuInfo() {
-    Logger::Info("GPU信息检测结束");
+    Logger::Info("GPU information detection complete");
 }
 
 bool GpuInfo::IsVirtualGpu(const std::wstring& name) {
-    // 扩展虚拟显卡检测列表
+    // Extend virtual graphics card detection list
     const std::vector<std::wstring> virtualGpuNames = {
         L"Microsoft Basic Display Adapter",
         L"Microsoft Hyper-V Video",
@@ -58,7 +58,7 @@ bool GpuInfo::IsVirtualGpu(const std::wstring& name) {
         }
     }
 
-    // 检查关键词
+    // Check keywords
     const std::vector<std::wstring> virtualKeywords = {
         L"virtual", L"remote", L"basic", L"generic", L"standard vga",
         L"rdp", L"vnc", L"citrix", L"vmware", L"virtualbox", L"hyper-v"
@@ -84,7 +84,7 @@ void GpuInfo::DetectGpusViaWmi() {
     );
 
     if (FAILED(hres)) {
-        Logger::Error("WMI查询失败");
+        Logger::Error("WMI query failed");
         return;
     }
 
@@ -114,21 +114,21 @@ void GpuInfo::DetectGpusViaWmi() {
             data.coreClock = static_cast<double>(vtCurrentClockSpeed.uintVal) / 1e6;
         }
 
-        // 改进的虚拟显卡检测
+        // Improved virtual GPU detection
         data.isVirtual = IsVirtualGpu(data.name);
         
-        // 记录所有GPU，包括虚拟GPU，但标记它们
+        // Record all GPUs, including virtual GPUs, but mark them
         data.isNvidia = (data.name.find(L"NVIDIA") != std::wstring::npos);
         data.isIntegrated = (data.deviceId.find(L"VEN_8086") != std::wstring::npos);
         
         gpuList.push_back(data);
         
-        // 记录GPU信息到日志
+        // Log GPU information
         std::string gpuNameStr(data.name.begin(), data.name.end());
-        Logger::Info("检测到GPU: " + gpuNameStr + 
-                    " (虚拟: " + (data.isVirtual ? "是" : "否") + 
-                    ", NVIDIA: " + (data.isNvidia ? "是" : "否") + 
-                    ", 集成: " + (data.isIntegrated ? "是" : "否") + ")");
+        Logger::Info("Detected GPU: " + gpuNameStr +
+                    " (virtual: " + (data.isVirtual ? "yes" : "no") +
+                    ", NVIDIA: " + (data.isNvidia ? "yes" : "no") +
+                    ", integrated: " + (data.isIntegrated ? "yes" : "no") + ")");
 
         VariantClear(&vtName);
         VariantClear(&vtPnpId);
@@ -139,7 +139,7 @@ void GpuInfo::DetectGpusViaWmi() {
 
     pEnumerator->Release();
 
-    // 为NVIDIA GPU查询详细信息
+    // Query detailed info for NVIDIA GPUs
     for (size_t i = 0; i < gpuList.size(); ++i) {
         if (gpuList[i].isNvidia && !gpuList[i].isVirtual) {
             QueryNvidiaGpuInfo(static_cast<int>(i));
@@ -150,7 +150,7 @@ void GpuInfo::DetectGpusViaWmi() {
 void GpuInfo::QueryIntelGpuInfo(int index) {
     IDXGIFactory* pFactory = nullptr;
     if (FAILED(CreateDXGIFactory(__uuidof(IDXGIFactory), (void**)&pFactory))) {
-        Logger::Error("无法创建DXGI工厂");
+        Logger::Error("Cannot create DXGI factory");
         return;
     }
 
@@ -168,33 +168,33 @@ void GpuInfo::QueryIntelGpuInfo(int index) {
 void GpuInfo::QueryNvidiaGpuInfo(int index) {
     nvmlReturn_t initResult = nvmlInit();
     if (NVML_SUCCESS != initResult) {
-        Logger::Error("NVML初始化失败: " + std::string(nvmlErrorString(initResult)));
+        Logger::Error("NVML initialization failed: " + std::string(nvmlErrorString(initResult)));
         return;
     }
 
     nvmlDevice_t device;
     nvmlReturn_t result = nvmlDeviceGetHandleByIndex(0, &device);
     if (NVML_SUCCESS != result) {
-        Logger::Error("获取设备句柄失败: " + std::string(nvmlErrorString(result)));
+        Logger::Error("Failed to get device handle: " + std::string(nvmlErrorString(result)));
         nvmlShutdown();
         return;
     }
 
-    // 获取显存信息
+    // Get VRAM info
     nvmlMemory_t memory;
     result = nvmlDeviceGetMemoryInfo(device, &memory);
     if (NVML_SUCCESS == result) {
         gpuList[index].dedicatedMemory = memory.total;
     }
 
-    // 获取核心频率，保持 MHz 单位
+    // Get core clock, keep MHz unit
     unsigned int clockMHz = 0;
     result = nvmlDeviceGetClockInfo(device, NVML_CLOCK_GRAPHICS, &clockMHz);
     if (NVML_SUCCESS == result) {
-        gpuList[index].coreClock = static_cast<double>(clockMHz); // 直接使用 MHz
+        gpuList[index].coreClock = static_cast<double>(clockMHz); // Use MHz directly
     }
 
-    // 获取计算能力
+    // Get compute capability
     int major, minor;
     result = nvmlDeviceGetCudaComputeCapability(device, &major, &minor);
     if (NVML_SUCCESS == result) {

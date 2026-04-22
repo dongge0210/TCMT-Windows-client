@@ -1,5 +1,5 @@
-// Platform.cpp - 平台抽象实现主文件
-// 通过条件编译包含平台特定实现
+// Platform.cpp - Platform abstraction implementation main file
+// Platform-specific implementations included via conditional compilation
 
 #include "Platform.h"
 #include <ctime>
@@ -8,7 +8,7 @@
 #include <sstream>
 
 // ============================================================================
-// 平台特定实现包含
+// Platform-specific implementation includes
 // ============================================================================
 
 #ifdef TCMT_WINDOWS
@@ -18,15 +18,15 @@
 #elif defined(TCMT_LINUX)
 #include "Platform_Linux.cpp"
 #else
-// #error "Unsupported platform" - 暂时注释以进行调试
-// 临时包含一个空实现
+// #error "Unsupported platform" - temporarily commented for debug
+// Temporarily include empty implementation
 namespace Platform {
-    // 空实现
+    // Empty implementation
 }
 #endif
 
 // ============================================================================
-// SystemTime实现（平台无关部分）
+// SystemTime implementation (platform-independent part)
 // ============================================================================
 
 namespace Platform {
@@ -73,19 +73,19 @@ bool SystemTime::operator>(const SystemTime& other) const {
 }
 
 // ============================================================================
-// CriticalSection实现（平台无关部分）
+// CriticalSection implementation (platform-independent part)
 // ============================================================================
 
 CriticalSection::CriticalSection(CriticalSection&& other) noexcept {
 #ifdef TCMT_WINDOWS
-    // Windows: 从other转移资源
+    // Windows: transfer resources from other
     cs_ = other.cs_;
     other.cs_ = CRITICAL_SECTION();
     InitializeCriticalSection(&cs_);
 #elif defined(TCMT_MACOS) || defined(TCMT_LINUX)
-    // macOS/Linux: 从other转移资源
+    // macOS/Linux: transfer resources from other
     mutex_ = other.mutex_;
-    // 将other重置为初始状态
+    // reset other to initial state
     pthread_mutexattr_t attr;
     pthread_mutexattr_init(&attr);
     pthread_mutexattr_settype(&attr, PTHREAD_MUTEX_RECURSIVE);
@@ -96,20 +96,20 @@ CriticalSection::CriticalSection(CriticalSection&& other) noexcept {
 
 CriticalSection& CriticalSection::operator=(CriticalSection&& other) noexcept {
     if (this != &other) {
-        // 使用swap方式交换资源
-        // 注意：对于CriticalSection，简单的按位交换可能不安全
-        // 这里使用简化实现，假设平台特定类型可以安全交换
+        // use swap to exchange resources
+        // Note: for CriticalSection, simple bitwise swap may not be safe
+        // using simplified implementation, assuming platform-specific types can be safely swapped
 #ifdef TCMT_WINDOWS
-        // Windows: 销毁当前对象，从other转移资源
+        // Windows: destroy current object, transfer resources from other
         DeleteCriticalSection(&cs_);
         cs_ = other.cs_;
         other.cs_ = CRITICAL_SECTION();
         InitializeCriticalSection(&cs_);
 #elif defined(TCMT_MACOS) || defined(TCMT_LINUX)
-        // macOS/Linux: 销毁当前对象，从other转移资源
+        // macOS/Linux: destroy current object, transfer resources from other
         pthread_mutex_destroy(&mutex_);
         mutex_ = other.mutex_;
-        // 将other重置为初始状态
+        // reset other to initial state
         pthread_mutexattr_t attr;
         pthread_mutexattr_init(&attr);
         pthread_mutexattr_settype(&attr, PTHREAD_MUTEX_RECURSIVE);
@@ -121,15 +121,15 @@ CriticalSection& CriticalSection::operator=(CriticalSection&& other) noexcept {
 }
 
 // ============================================================================
-// StringConverter实现（平台无关部分）
+// StringConverter implementation (platform-independent part)
 // ============================================================================
 
-// StringConverter的实现通过条件编译包含在平台特定文件中
-// 这些函数在Platform.h中声明为静态成员函数
-// 具体实现在Platform_Windows.cpp或Platform_macOS.cpp中提供
+// StringConverter implementation included via conditional compilation in platform-specific files
+// These functions are declared as static member functions in Platform.h
+// Concrete implementations provided in Platform_Windows.cpp or Platform_macOS.cpp
 
 // ============================================================================
-// SystemUtils实现（平台无关部分）
+// SystemUtils implementation (platform-independent part)
 // ============================================================================
 
 void SystemUtils::Sleep(uint32_t milliseconds) {
@@ -167,7 +167,7 @@ std::string SystemUtils::GetEnvironmentVariable(const std::string& name) {
     const char* value = std::getenv(name.c_str());
     return value ? std::string(value) : "";
 #else
-    // 如果没有平台宏定义，返回空字符串
+    // if no platform macro defined, return empty string
     return "";
 #endif
 }
@@ -178,7 +178,7 @@ bool SystemUtils::SetEnvironmentVariable(const std::string& name, const std::str
 #elif defined(TCMT_MACOS) || defined(TCMT_LINUX)
     return setenv(name.c_str(), value.c_str(), 1) == 0;
 #else
-    // 如果没有平台宏定义，返回false
+    // if no platform macro defined, return false
     return false;
 #endif
 }

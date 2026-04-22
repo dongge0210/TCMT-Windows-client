@@ -1,5 +1,5 @@
 # Dependencies management for TCMT Client
-# 依赖管理模块
+# Dependency management module
 
 function(tcmt_find_dependencies)
     message(STATUS "Finding dependencies...")
@@ -11,30 +11,30 @@ function(tcmt_find_dependencies)
 
     message(STATUS "  Compiler: ${CMAKE_CXX_COMPILER_ID} ${CMAKE_CXX_COMPILER_VERSION}")
 
-    # 平台特定依赖
+    # Platform-specific dependencies
     if(TCMT_WINDOWS)
         tcmt_find_windows_dependencies()
     elseif(TCMT_MACOS)
         tcmt_find_macos_dependencies()
     endif()
 
-    # 第三方库检查
+    # Third-party library check
     tcmt_check_third_party_libs()
 
     message(STATUS "Dependencies check completed")
 endfunction()
 
-# Windows平台依赖
+# Windows platform dependencies
 function(tcmt_find_windows_dependencies)
     message(STATUS "  Checking Windows dependencies...")
 
-    # Windows SDK检查
+    # Windows SDK check
     if(NOT CMAKE_VS_WINDOWS_TARGET_PLATFORM_VERSION)
         message(WARNING "Windows SDK version not specified, using default")
         set(CMAKE_VS_WINDOWS_TARGET_PLATFORM_VERSION "10.0.26100.0" CACHE STRING "Windows Target Platform Version" FORCE)
     endif()
 
-    # 检查必要的Windows头文件
+    # Check required Windows headers
     check_include_file_cxx(windows.h HAVE_WINDOWS_H)
     if(NOT HAVE_WINDOWS_H)
         message(FATAL_ERROR "windows.h not found - Windows SDK may not be installed")
@@ -50,7 +50,7 @@ function(tcmt_find_windows_dependencies)
         message(FATAL_ERROR "wbemidl.h not found - WMI library missing")
     endif()
 
-    # 检查必要的库
+    # Check required libraries
     check_library_exists(kernel32 GetSystemTime "" HAVE_KERNEL32)
     check_library_exists(user32 MessageBoxW "" HAVE_USER32)
     check_library_exists(pdh PdhOpenQueryW "" HAVE_PDH_LIB)
@@ -66,7 +66,7 @@ function(tcmt_find_windows_dependencies)
         message(FATAL_ERROR "wbemuuid library not found")
     endif()
 
-    # CUDA检查（如果启用）
+    # CUDA check (if enabled)
     if(TCMT_ENABLE_CUDA)
         find_package(CUDAToolkit QUIET)
         if(CUDAToolkit_FOUND)
@@ -86,11 +86,11 @@ function(tcmt_find_windows_dependencies)
     message(STATUS "  Windows dependencies OK")
 endfunction()
 
-# macOS平台依赖
+# macOS platform dependencies
 function(tcmt_find_macos_dependencies)
     message(STATUS "  Checking macOS dependencies...")
 
-    # 检查macOS框架
+    # Check macOS frameworks
     check_include_file_cxx(IOKit/IOKitLib.h HAVE_IOKIT_H)
     check_include_file_cxx(CoreFoundation/CoreFoundation.h HAVE_COREFOUNDATION_H)
     check_include_file_cxx(sys/sysctl.h HAVE_SYSCTL_H)
@@ -109,7 +109,7 @@ function(tcmt_find_macos_dependencies)
         message(FATAL_ERROR "mach.h not found")
     endif()
 
-    # 检查必要的函数
+    # Check required functions
     check_symbol_exists(sysctlbyname "sys/sysctl.h" HAVE_SYSCTLBYNAME)
     check_symbol_exists(host_statistics "mach/mach_host.h" HAVE_HOST_STATISTICS)
     check_symbol_exists(shm_open "sys/mman.h" HAVE_SHM_OPEN)
@@ -124,7 +124,7 @@ function(tcmt_find_macos_dependencies)
         message(FATAL_ERROR "shm_open function not found (POSIX shared memory)")
     endif()
 
-    # 检查Metal框架（用于GPU监控）
+    # Check Metal framework (for GPU monitoring)
     check_include_file_cxx(Metal/Metal.h HAVE_METAL_H)
     if(HAVE_METAL_H)
         message(STATUS "    Metal framework found")
@@ -139,7 +139,7 @@ endfunction()
 function(tcmt_check_third_party_libs)
     message(STATUS "  Checking third-party libraries...")
 
-    # 检查第三方库目录是否存在
+    # Check if third-party directory exists
     if(EXISTS "${CMAKE_SOURCE_DIR}/src/third_party")
         message(STATUS "    Third-party directory exists")
 
@@ -148,7 +148,7 @@ function(tcmt_check_third_party_libs)
             message(STATUS "    LibreHardwareMonitor found")
         endif()
 
-        # 检查其他第三方库
+        # Check other third-party libraries
         if(EXISTS "${CMAKE_SOURCE_DIR}/src/third_party/curl")
             message(STATUS "    curl found")
         endif()
@@ -170,7 +170,7 @@ function(tcmt_check_third_party_libs)
     message(STATUS "  Third-party libraries check completed")
 endfunction()
 
-# 依赖配置总结
+# Dependency configuration summary
 function(tcmt_print_dependencies_summary)
     message(STATUS "========================================")
     message(STATUS "Dependencies Summary")

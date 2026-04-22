@@ -1,7 +1,7 @@
-// Platform_Windows.cpp - Windows平台特定实现
+// Platform_Windows.cpp - Windows platform-specific implementation
 
-// 此文件仅在TCMT_WINDOWS定义时编译
-// 通过Platform.cpp中的条件编译包含
+// This file is only compiled when TCMT_WINDOWS is defined
+// Included via conditional compilation in Platform.cpp
 
 #ifndef TCMT_WINDOWS
 #error "This file should only be compiled for Windows platform (TCMT_WINDOWS defined)"
@@ -12,7 +12,7 @@
 namespace Platform {
 
 // ============================================================================
-// SystemTime实现（Windows特定）
+// SystemTime implementation (Windows-specific)
 // ============================================================================
 
 SystemTime SystemTime::Now() {
@@ -33,7 +33,7 @@ SystemTime SystemTime::Now() {
 }
 
 // ============================================================================
-// CriticalSection实现（Windows特定）
+// CriticalSection implementation (Windows-specific)
 // ============================================================================
 
 CriticalSection::CriticalSection() {
@@ -57,7 +57,7 @@ bool CriticalSection::TryEnter() {
 }
 
 // ============================================================================
-// SharedMemory实现（Windows特定）
+// SharedMemory implementation (Windows-specific)
 // ============================================================================
 
 SharedMemory::SharedMemory()
@@ -69,10 +69,10 @@ SharedMemory::~SharedMemory() {
 }
 
 bool SharedMemory::Create(const std::string& name, size_t size) {
-    // 清理现有资源
+    // Cleanup existing resources
     Unmap();
 
-    // 创建安全描述符允许所有访问
+    // Create security descriptor allowing full access
     SECURITY_ATTRIBUTES sa;
     SECURITY_DESCRIPTOR sd;
 
@@ -90,10 +90,10 @@ bool SharedMemory::Create(const std::string& name, size_t size) {
     sa.lpSecurityDescriptor = &sd;
     sa.bInheritHandle = FALSE;
 
-    // 转换为宽字符串
+    // Convert to wide string
     std::wstring wname(name.begin(), name.end());
 
-    // 尝试全局命名空间
+    // Try global namespace
     hMapFile_ = CreateFileMappingW(
         INVALID_HANDLE_VALUE,
         &sa,
@@ -104,7 +104,7 @@ bool SharedMemory::Create(const std::string& name, size_t size) {
     );
 
     if (!hMapFile_) {
-        // 尝试本地命名空间
+        // Try local namespace
         hMapFile_ = CreateFileMappingW(
             INVALID_HANDLE_VALUE,
             &sa,
@@ -116,7 +116,7 @@ bool SharedMemory::Create(const std::string& name, size_t size) {
     }
 
     if (!hMapFile_) {
-        // 尝试无命名空间前缀
+        // Try no namespace prefix
         hMapFile_ = CreateFileMappingW(
             INVALID_HANDLE_VALUE,
             &sa,
@@ -142,7 +142,7 @@ bool SharedMemory::Open(const std::string& name, size_t size) {
 
     std::wstring wname(name.begin(), name.end());
 
-    // 尝试不同命名空间
+    // Try different namespaces
     hMapFile_ = OpenFileMappingW(
         FILE_MAP_ALL_ACCESS,
         FALSE,
@@ -212,7 +212,7 @@ bool SharedMemory::Unmap() {
 }
 
 // ============================================================================
-// InterprocessMutex实现（Windows特定）
+// InterprocessMutex implementation (Windows-specific)
 // ============================================================================
 
 InterprocessMutex::InterprocessMutex() : mutex_(NULL) {
@@ -232,7 +232,7 @@ bool InterprocessMutex::Create(const std::string& name) {
     std::wstring wname(name.begin(), name.end());
     name_ = name;
 
-    // 创建安全描述符
+    // Create security descriptor
     SECURITY_ATTRIBUTES sa;
     SECURITY_DESCRIPTOR sd;
 
@@ -327,7 +327,7 @@ bool InterprocessMutex::Unlock() {
 }
 
 // ============================================================================
-// FileHandle实现（Windows特定）
+// FileHandle implementation (Windows-specific)
 // ============================================================================
 
 void FileHandle::Close() {
@@ -342,7 +342,7 @@ void* FileHandle::InvalidHandle() {
 }
 
 // ============================================================================
-// StringConverter实现（Windows特定）
+// StringConverter implementation (Windows-specific)
 // ============================================================================
 
 std::wstring StringConverter::Utf8ToWide(const std::string& utf8) {
@@ -390,7 +390,7 @@ std::string StringConverter::AnsiToUtf8(const std::string& ansi) {
         return "";
     }
 
-    // 先转换到宽字符串（使用当前ANSI代码页）
+    // First convert to wide string (using current ANSI codepage)
     int wide_size = MultiByteToWideChar(CP_ACP, 0,
                                         ansi.c_str(), (int)ansi.size(),
                                         nullptr, 0);
@@ -403,7 +403,7 @@ std::string StringConverter::AnsiToUtf8(const std::string& ansi) {
                         ansi.c_str(), (int)ansi.size(),
                         &wide[0], wide_size);
 
-    // 再从宽字符串转换到UTF-8
+    // Then convert from wide string to UTF-8
     return WideToUtf8(wide);
 }
 
@@ -412,10 +412,10 @@ std::string StringConverter::Utf8ToAnsi(const std::string& utf8) {
         return "";
     }
 
-    // 先转换到宽字符串（UTF-8）
+    // First convert to wide string (UTF-8)
     std::wstring wide = Utf8ToWide(utf8);
 
-    // 再从宽字符串转换到ANSI
+    // Then convert from wide string to ANSI
     int ansi_size = WideCharToMultiByte(CP_ACP, 0,
                                         wide.c_str(), (int)wide.size(),
                                         nullptr, 0, nullptr, nullptr);
@@ -432,7 +432,7 @@ std::string StringConverter::Utf8ToAnsi(const std::string& utf8) {
 }
 
 bool StringConverter::IsValidUtf8(const std::string& str) {
-    // Windows实现：尝试转换，如果成功就是有效的UTF-8
+    // Windows implementation: try conversion, if success then valid UTF-8
     int size_needed = MultiByteToWideChar(CP_UTF8, MB_ERR_INVALID_CHARS,
                                           str.c_str(), (int)str.size(),
                                           nullptr, 0);
@@ -440,7 +440,7 @@ bool StringConverter::IsValidUtf8(const std::string& str) {
 }
 
 // ============================================================================
-// SystemUtils实现（Windows特定）
+// SystemUtils implementation (Windows-specific)
 // ============================================================================
 
 std::string SystemUtils::GetLastErrorString() {
@@ -475,23 +475,23 @@ uint64_t SystemUtils::GetCurrentThreadId() {
 }
 
 // ============================================================================
-// 平台初始化/清理（Windows特定）
+// Platform Initialize/Cleanup (Windows-specific)
 // ============================================================================
 
 bool PlatformInitialize() {
-    // 初始化COM（如果需要）
+    // Initialize COM (if needed)
     // HRESULT hr = CoInitializeEx(NULL, COINIT_MULTITHREADED);
     // return SUCCEEDED(hr);
     return true;
 }
 
 void PlatformCleanup() {
-    // 清理COM
+    // Cleanup COM
     // CoUninitialize();
 }
 
 // ============================================================================
-// Windows特定辅助函数
+// Windows-specific helper functions
 // ============================================================================
 
 namespace PlatformWindows {

@@ -22,7 +22,7 @@ void NetworkAdapter::Initialize() {
         QueryAdapterInfo();
         initialized = true;
     } else {
-        Logger::Error("WMI未初始化，无法获取网络信息");
+        Logger::Error("WMI not initialized, cannot get network info");
     }
 }
 
@@ -87,7 +87,7 @@ void NetworkAdapter::QueryWmiAdapterInfo() {
             info.mac = WinUtils::WstringToString(vtMac.bstrVal);
         VariantClear(&vtMac);
 
-        info.adapterType = "未知";
+        info.adapterType = "Unknown";
         if (!info.name.empty() && !info.mac.empty())
             adapters.push_back(info);
 
@@ -121,7 +121,7 @@ void NetworkAdapter::UpdateAdapterAddresses() {
     }
 
     if (result != NO_ERROR) {
-        Logger::Error("获取网络适配器地址失败: " + std::to_string(result));
+        Logger::Error("Failed to get network adapter addresses: " + std::to_string(result));
         return;
     }
 
@@ -138,7 +138,7 @@ void NetworkAdapter::UpdateAdapterAddresses() {
                     ai.speedString = FormatSpeed(adapter->TransmitLinkSpeed);
                 } else {
                     ai.speed = 0;
-                    ai.speedString = "未连接";
+                    ai.speedString = "Disconnected";
                 }
                 ai.adapterType = DetermineAdapterType(
                     WinUtils::Utf8ToWstring(ai.name),
@@ -158,7 +158,7 @@ void NetworkAdapter::UpdateAdapterAddresses() {
                         address = address->Next;
                     }
                 } else {
-                    ai.ip = "未连接";
+                    ai.ip = "Disconnected";
                 }
                 break;
             }
@@ -178,16 +178,16 @@ std::string NetworkAdapter::FormatSpeed(uint64_t bitsPerSecond) const {
 }
 
 std::string NetworkAdapter::DetermineAdapterType(const std::wstring& name, const std::wstring& description, DWORD ifType) const {
-    if (ifType == IF_TYPE_IEEE80211) return "无线网卡";
-    else if (ifType == IF_TYPE_ETHERNET_CSMACD) return "有线网卡";
+    if (ifType == IF_TYPE_IEEE80211) return "Wireless adapter";
+    else if (ifType == IF_TYPE_ETHERNET_CSMACD) return "Ethernet adapter";
     std::wstring combined = name + L" " + description;
     std::wstring lower = combined;
     std::transform(lower.begin(), lower.end(), lower.begin(), ::towlower);
     const std::wstring wireless[] = {L"wi-fi", L"wifi", L"wireless", L"802.11", L"wlan"};
     const std::wstring ethernet[] = {L"ethernet", L"gigabit", L"fast ethernet", L"lan"};
-    for (auto& kw : wireless) if (lower.find(kw) != std::wstring::npos) return "无线网卡";
-    for (auto& kw : ethernet) if (lower.find(kw) != std::wstring::npos) return "有线网卡";
-    return "未知类型";
+    for (auto& kw : wireless) if (lower.find(kw) != std::wstring::npos) return "Wireless adapter";
+    for (auto& kw : ethernet) if (lower.find(kw) != std::wstring::npos) return "Ethernet adapter";
+    return "Unknown type";
 }
 
 void NetworkAdapter::SafeRelease(IUnknown* pInterface) {
@@ -296,17 +296,17 @@ void NetworkAdapter::QueryAdapterInfo() {
         info.isEnabled = true;
         info.isConnected = (ifa->ifa_flags & IFF_UP) && (ifa->ifa_flags & IFF_RUNNING);
         info.speed = 0;
-        info.speedString = "未知";
-        info.adapterType = "有线网卡"; // default; will update below
+        info.speedString = "Unknown";
+        info.adapterType = "Ethernet adapter"; // default; will update below
 
         // Try to determine wireless vs wired
         if (bsdName == "en0" || bsdName.find("wl") != std::string::npos
             || bsdName.find("wifi") != std::string::npos)
-            info.adapterType = "无线网卡";
+            info.adapterType = "Wireless adapter";
         else if (bsdName.find("awdl") != std::string::npos || bsdName.find("llw") != std::string::npos)
-            info.adapterType = "无线网卡";
+            info.adapterType = "Wireless adapter";
         else
-            info.adapterType = "有线网卡";
+            info.adapterType = "Ethernet adapter";
 
         bsdMap[bsdName] = info;
     }

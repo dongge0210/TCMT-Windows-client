@@ -27,7 +27,7 @@ CpuInfo::CpuInfo()
         UpdateCoreSpeeds();
     }
     catch (const std::exception& e) {
-        Logger::Error("CPU信息初始化失败: " + std::string(e.what()));
+        Logger::Error("CPUInfoInitializeFailed: " + std::string(e.what()));
     }
 }
 
@@ -40,7 +40,7 @@ void CpuInfo::InitializeCounter() {
 
     PDH_STATUS status = PdhOpenQuery(NULL, 0, (PDH_HQUERY*)qh);
     if (status != ERROR_SUCCESS) {
-        Logger::Error("无法打开性能计数器查询");
+        Logger::Error("Cannot open performance counter query");
         return;
     }
 
@@ -49,7 +49,7 @@ void CpuInfo::InitializeCounter() {
         (PDH_HCOUNTER*)ch);
 
     if (status != ERROR_SUCCESS) {
-        Logger::Error("无法添加CPU使用率计数器");
+        Logger::Error("Cannot add CPU usage counter");
         PdhCloseQuery(*(PDH_HQUERY*)qh);
         *qh = nullptr;
         return;
@@ -57,7 +57,7 @@ void CpuInfo::InitializeCounter() {
 
     status = PdhCollectQueryData(*(PDH_HQUERY*)qh);
     if (status != ERROR_SUCCESS) {
-        Logger::Error("无法收集性能计数器数据");
+        Logger::Error("Cannot collect performance counter data");
         PdhCloseQuery(*(PDH_HQUERY*)qh);
         *qh = nullptr; *ch = nullptr;
         return;
@@ -206,7 +206,7 @@ CpuInfo::CpuInfo()
         UpdateCoreSpeeds();
     }
     catch (const std::exception& e) {
-        Logger::Error("CPU信息初始化失败: " + std::string(e.what()));
+        Logger::Error("CPUInfoInitializeFailed: " + std::string(e.what()));
     }
 }
 

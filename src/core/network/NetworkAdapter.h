@@ -30,7 +30,7 @@ public:
         std::string mac;
         std::string ip;
         std::string description;
-        std::string adapterType; // 无线/有线
+        std::string adapterType; // Wireless/Ethernet
         bool isEnabled;
         bool isConnected;
         uint64_t speed;

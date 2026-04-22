@@ -1,17 +1,17 @@
 # Platform detection and configuration for TCMT Client
-# 平台检测和配置模块
+# Platform detection and configuration module
 
 function(tcmt_detect_platform)
     message(STATUS "Detecting platform...")
 
-    # 平台检测
+    # Platform detection
     if(WIN32)
         set(TCMT_WINDOWS ON CACHE BOOL "Building for Windows platform")
         set(TCMT_PLATFORM_NAME "Windows" CACHE STRING "Platform name")
         set(TCMT_PLATFORM "windows" CACHE STRING "Platform identifier")
         add_definitions(-DTCMT_WINDOWS)
 
-        # Windows特定定义
+        # Windows-specific definitions
         add_definitions(-DUNICODE -D_UNICODE -DNOMINMAX -DWIN32_LEAN_AND_MEAN)
 
         # Windows SDK版本检测
@@ -27,7 +27,7 @@ function(tcmt_detect_platform)
         set(TCMT_PLATFORM "macos" CACHE STRING "Platform identifier")
         add_definitions(-DTCMT_MACOS)
 
-        # macOS版本检测
+        # macOS version detection
         execute_process(
             COMMAND sw_vers -productVersion
             OUTPUT_VARIABLE MACOS_VERSION
@@ -50,7 +50,7 @@ function(tcmt_detect_platform)
         message(WARNING "Unknown architecture: ${CMAKE_SYSTEM_PROCESSOR}")
     endif()
 
-    # 设置平台变量供父作用域使用
+    # Set platform variables for parent scope
     set(TCMT_WINDOWS ${TCMT_WINDOWS} PARENT_SCOPE)
     set(TCMT_MACOS ${TCMT_MACOS} PARENT_SCOPE)
     set(TCMT_PLATFORM_NAME ${TCMT_PLATFORM_NAME} PARENT_SCOPE)
@@ -80,16 +80,16 @@ function(tcmt_set_platform_libraries target)
             winmm
         )
 
-        # Windows特定编译选项
+        # Windows-specific compile options
         if(MSVC)
             target_compile_options(${target} PRIVATE
-                /W4           # 警告级别4
-                /wd4100       # 禁用未使用参数警告
-                /wd4201       # 禁用无名结构/联合警告
-                /wd4456       # 禁用隐藏局部变量声明警告
-                /wd4458       # 禁用隐藏类成员声明警告
-                /wd4459       # 禁用隐藏全局声明警告
-                /wd4996       # 禁用不安全函数警告
+                /W4           # Warning level 4
+                /wd4100       # Disable unused parameter warning
+                /wd4201       # Disable unnamed struct/union warning
+                /wd4456       # Disable hidden local variable declaration warning
+                /wd4458       # Disable hidden class member declaration warning
+                /wd4459       # Disable hidden global declaration warning
+                /wd4996       # Disable unsafe function warning
             )
 
             # 设置Windows SDK版本
@@ -100,7 +100,7 @@ function(tcmt_set_platform_libraries target)
         endif()
 
     elseif(TCMT_MACOS)
-        # macOS平台库
+        # macOS platform libraries
         find_library(IOKIT_LIB IOKit)
         find_library(COREFOUNDATION_LIB CoreFoundation)
         find_library(APPLICATIONSERVICES_LIB ApplicationServices)
@@ -133,7 +133,7 @@ function(tcmt_set_platform_libraries target)
 
         target_link_libraries(${target} PRIVATE ${MACOS_LIBS})
 
-        # macOS特定编译选项
+        # macOS-specific compile options
         target_compile_options(${target} PRIVATE
             -Wall
             -Wextra
@@ -153,7 +153,7 @@ function(tcmt_set_platform_libraries target)
     message(STATUS "  Platform libraries configured")
 endfunction()
 
-# 平台特定输出目录设置
+# Platform-specific output directory setup
 function(tcmt_set_output_directories target)
     if(TCMT_WINDOWS)
         # Windows输出目录（与Visual Studio项目保持一致）
@@ -163,7 +163,7 @@ function(tcmt_set_output_directories target)
             ARCHIVE_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/lib/${CMAKE_BUILD_TYPE}"
         )
     else()
-        # Unix风格输出目录
+        # Unix-style output directory
         set_target_properties(${target} PROPERTIES
             RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin"
             LIBRARY_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/lib"

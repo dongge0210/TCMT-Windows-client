@@ -1,5 +1,5 @@
-# TCMT Windows Client - CMake构建系统
-# 支持Windows和macOS平台，使用条件编译实现跨平台
+# TCMT Windows Client - CMake build system
+# Supports Windows and macOS platforms with conditional compilation
 
 cmake_minimum_required(VERSION 3.20)
 project(TCMT-M
@@ -8,7 +8,7 @@ project(TCMT-M
     LANGUAGES CXX
 )
 
-# 设置C++20标准
+# Set C++20 standard
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
@@ -18,7 +18,7 @@ message(STATUS "Project: ${PROJECT_NAME} v${PROJECT_VERSION}")
 message(STATUS "Build type: ${CMAKE_BUILD_TYPE}")
 message(STATUS "C++ standard: C++${CMAKE_CXX_STANDARD}")
 
-# 包含CMake模块
+# Include CMake modules
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/cmake")
 include(Platform)
 include(Options)
@@ -27,13 +27,13 @@ include(Dependencies)
 # 平台检测和配置
 tcmt_detect_platform()
 
-# 配置编译选项
+# Configure compile options
 tcmt_set_compile_options()
 
-# 添加子目录
+# Add subdirectories
 add_subdirectory(src)
 
-# 安装配置（如果需要）
+# Install configuration (if needed)
 if(TCMT_INSTALL)
     install(TARGETS TCMT-M
         RUNTIME DESTINATION bin
@@ -42,15 +42,15 @@ if(TCMT_INSTALL)
     )
 
     if(TCMT_WINDOWS)
-        # Windows特定安装配置
+        # Windows-specific install configuration
         install(FILES ${PROJECT_SOURCE_DIR}/LICENSE DESTINATION .)
     elseif(TCMT_MACOS)
-        # macOS特定安装配置
+        # macOS-specific install configuration
         install(FILES ${PROJECT_SOURCE_DIR}/LICENSE DESTINATION .)
     endif()
 endif()
 
-# 总结构建配置
+# Overall build configuration
 message(STATUS "========================================")
 message(STATUS "TCMT Client Build Configuration Summary")
 message(STATUS "========================================")

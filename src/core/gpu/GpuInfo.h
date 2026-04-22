@@ -3,7 +3,7 @@
 #include <string>
 #include <cstdint>
 
-// 平台宏检测
+// Platform macro detection
 #if !defined(TCMT_WINDOWS) && !defined(TCMT_MACOS) && !defined(TCMT_LINUX)
     #if defined(_WIN32) || defined(_WIN64)
         #define TCMT_WINDOWS

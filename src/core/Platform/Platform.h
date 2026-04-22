@@ -1,4 +1,4 @@
-// Platform.h - 平台抽象接口
+// Platform.h - Platform abstraction interface
 #pragma once
 
 #include <string>
@@ -6,11 +6,11 @@
 #include <memory>
 #include <vector>
 
-// 平台宏定义 - 在CMake中设置
-// 注意：这些宏由CMake通过add_definitions()或target_compile_definitions()定义
-// 此处不进行检查，因为检查应该在构建系统中完成
+// Platform macro definitions - set in CMake
+// Note: These macros are defined by CMake via add_definitions() or target_compile_definitions()
+// No checks here, as validation should be done in the build system
 
-// 平台特定头文件包含（通过条件编译）
+// Platform-specific header includes (via conditional compilation) 
 #ifdef TCMT_WINDOWS
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
@@ -34,29 +34,29 @@
 namespace Platform {
 
 // ============================================================================
-// 系统时间类型（跨平台）
+// System time type (cross-platform)
 // ============================================================================
 
 struct SystemTime {
-    uint16_t year;          // 年份
-    uint16_t month;         // 月份 (1-12)
-    uint16_t dayOfWeek;     // 星期几 (0=星期日, 6=星期六)
-    uint16_t day;           // 日 (1-31)
-    uint16_t hour;          // 小时 (0-23)
-    uint16_t minute;        // 分钟 (0-59)
-    uint16_t second;        // 秒 (0-59)
-    uint16_t milliseconds;  // 毫秒 (0-999)
+    uint16_t year;          // Year
+    uint16_t month;         // Month (1-12)
+    uint16_t dayOfWeek;     // Day of week (0=Sunday, 6=Saturday)
+    uint16_t day;           // Day (1-31)
+    uint16_t hour;          // Hour (0-23)
+    uint16_t minute;        // Minute (0-59)
+    uint16_t second;        // Second (0-59)
+    uint16_t milliseconds;  // Millisecond (0-999)
 
     SystemTime() : year(0), month(0), dayOfWeek(0), day(0),
                    hour(0), minute(0), second(0), milliseconds(0) {}
 
-    // 转换为字符串
+    // Convert to string
     std::string ToString() const;
 
-    // 获取当前系统时间
+    // Get current system time
     static SystemTime Now();
 
-    // 比较操作
+    // Comparison operators
     bool operator==(const SystemTime& other) const;
     bool operator!=(const SystemTime& other) const;
     bool operator<(const SystemTime& other) const;
@@ -64,7 +64,7 @@ struct SystemTime {
 };
 
 // ============================================================================
-// 临界区/互斥锁（跨平台）
+// Critical section/Mutex (cross-platform)
 // ============================================================================
 
 class CriticalSection {
@@ -72,21 +72,21 @@ public:
     CriticalSection();
     ~CriticalSection();
 
-    // 禁止拷贝
+    // Disable copy
     CriticalSection(const CriticalSection&) = delete;
     CriticalSection& operator=(const CriticalSection&) = delete;
 
-    // 允许移动（如果需要）
+    // Allow move (if needed)
     CriticalSection(CriticalSection&& other) noexcept;
     CriticalSection& operator=(CriticalSection&& other) noexcept;
 
-    // 加锁
+    // Lock
     void Enter();
 
-    // 解锁
+    // Unlock
     void Leave();
 
-    // 尝试加锁
+    // Try lock
     bool TryEnter();
 
 private:
@@ -97,13 +97,13 @@ private:
 #endif
 };
 
-// RAII包装器
+// RAII wrapper
 class ScopedLock {
 public:
     explicit ScopedLock(CriticalSection& cs) : cs_(cs) { cs_.Enter(); }
     ~ScopedLock() { cs_.Leave(); }
 
-    // 禁止拷贝
+    // Disable copy
     ScopedLock(const ScopedLock&) = delete;
     ScopedLock& operator=(const ScopedLock&) = delete;
 
@@ -112,7 +112,7 @@ private:
 };
 
 // ============================================================================
-// 共享内存（跨平台）
+// Shared memory (cross-platform)
 // ============================================================================
 
 class SharedMemory {
@@ -120,28 +120,28 @@ public:
     SharedMemory();
     ~SharedMemory();
 
-    // 创建或打开共享内存
+    // Create or open shared memory
     bool Create(const std::string& name, size_t size);
 
-    // 打开现有共享内存
+    // Open existing shared memory
     bool Open(const std::string& name, size_t size);
 
-    // 映射到进程地址空间
+    // Map to process address space
     bool Map();
 
-    // 取消映射
+    // Unmap
     bool Unmap();
 
-    // 获取映射地址
+    // Get mapped address
     void* GetAddress() const { return address_; }
 
-    // 获取大小
+    // Get size
     size_t GetSize() const { return size_; }
 
-    // 是否已创建
+    // Is created
     bool IsCreated() const { return created_; }
 
-    // 获取错误信息
+    // Get error info
     std::string GetLastError() const { return last_error_; }
 
 private:
@@ -159,7 +159,7 @@ private:
 };
 
 // ============================================================================
-// 进程间互斥锁（跨平台）
+// Interprocess mutex (cross-platform)
 // ============================================================================
 
 class InterprocessMutex {
@@ -167,19 +167,19 @@ public:
     InterprocessMutex();
     ~InterprocessMutex();
 
-    // 创建或打开互斥锁
+    // Create or open mutex
     bool Create(const std::string& name);
 
-    // 打开现有互斥锁
+    // Open existing mutex
     bool Open(const std::string& name);
 
-    // 加锁
+    // Lock
     bool Lock(uint32_t timeout_ms = 0xFFFFFFFF);
 
-    // 解锁
+    // Unlock
     bool Unlock();
 
-    // 获取错误信息
+    // Get error info
     std::string GetLastError() const { return last_error_; }
 
 private:
@@ -196,7 +196,7 @@ private:
 };
 
 // ============================================================================
-// 文件句柄包装器（跨平台）
+// File handle wrapper (cross-platform)
 // ============================================================================
 
 class FileHandle {
@@ -204,14 +204,14 @@ public:
     FileHandle() : handle_(InvalidHandle()) {}
     ~FileHandle() { Close(); }
 
-    // 从现有句柄创建（转移所有权）
+    // Create from existing handle (transfer ownership)
     explicit FileHandle(void* handle) : handle_(handle) {}
 
-    // 禁止拷贝
+    // Disable copy
     FileHandle(const FileHandle&) = delete;
     FileHandle& operator=(const FileHandle&) = delete;
 
-    // 允许移动
+    // Allow move
     FileHandle(FileHandle&& other) noexcept : handle_(other.handle_) {
         other.handle_ = InvalidHandle();
     }
@@ -225,16 +225,16 @@ public:
         return *this;
     }
 
-    // 检查是否有效
+    // Check if valid
     bool IsValid() const { return handle_ != InvalidHandle(); }
 
-    // 获取原始句柄（不转移所有权）
+    // Get raw handle (no ownership transfer)
     void* Get() const { return handle_; }
 
-    // 关闭句柄
+    // Close handle
     void Close();
 
-    // 无效句柄值
+    // Invalid handle value
     static void* InvalidHandle();
 
 private:
@@ -242,72 +242,72 @@ private:
 };
 
 // ============================================================================
-// 字符串转换（跨平台）
+// String conversion (cross-platform)
 // ============================================================================
 
 class StringConverter {
 public:
-    // UTF-8 到宽字符串（Windows）或UTF-16（其他平台）
+    // UTF-8 to wide string (Windows) or UTF-16 (other platforms)
     static std::wstring Utf8ToWide(const std::string& utf8);
 
-    // 宽字符串到UTF-8
+    // Wide string to UTF-8
     static std::string WideToUtf8(const std::wstring& wide);
 
-    // 当前代码页到UTF-8（主要用于Windows）
+    // Current code page to UTF-8 (mainly for Windows)
     static std::string AnsiToUtf8(const std::string& ansi);
 
-    // UTF-8到当前代码页（主要用于Windows）
+    // UTF-8 to current code page (mainly for Windows)
     static std::string Utf8ToAnsi(const std::string& utf8);
 
-    // 检查字符串是否为有效的UTF-8
+    // Check if string is valid UTF-8
     static bool IsValidUtf8(const std::string& str);
 };
 
 // ============================================================================
-// 系统工具函数（跨平台）
+// System utility functions (cross-platform)
 // ============================================================================
 
 class SystemUtils {
 public:
-    // 获取系统错误信息
+    // Get system error info
     static std::string GetLastErrorString();
 
-    // 睡眠（毫秒）
+    // Sleep (milliseconds)
     static void Sleep(uint32_t milliseconds);
 
-    // 获取当前进程ID
+    // Get current process ID
     static uint64_t GetCurrentProcessId();
 
-    // 获取当前线程ID
+    // Get current thread ID
     static uint64_t GetCurrentThreadId();
 
-    // 获取系统滴答计数（毫秒）
+    // Get system tick count (milliseconds)
     static uint64_t GetTickCount();
 
-    // 获取高精度时间戳（微秒）
+    // Get high resolution timestamp (microseconds)
     static uint64_t GetHighResolutionTime();
 
-    // 获取环境变量
+    // Get environment variable
     static std::string GetEnvironmentVariable(const std::string& name);
 
-    // 设置环境变量
+    // Set environment variable
     static bool SetEnvironmentVariable(const std::string& name, const std::string& value);
 };
 
 // ============================================================================
-// 初始化/清理函数
+// Initialize/Cleanup functions
 // ============================================================================
 
-// 平台初始化（在程序开始时调用）
+// Platform initialize (call at program start)
 bool PlatformInitialize();
 
-// 平台清理（在程序结束时调用）
+// Platform cleanup (call at program end)
 void PlatformCleanup();
 
 } // namespace Platform
 
 // ============================================================================
-// 方便的类型别名
+// Convenient type aliases
 // ============================================================================
 
 using PlatformSystemTime = Platform::SystemTime;
@@ -318,41 +318,41 @@ using PlatformInterprocessMutex = Platform::InterprocessMutex;
 using PlatformFileHandle = Platform::FileHandle;
 
 // ============================================================================
-// 平台特定函数声明（通过条件编译实现）
+// Platform-specific function declarations (implemented via conditional compilation)
 // ============================================================================
 
 #ifdef TCMT_WINDOWS
 
-// Windows特定辅助函数
+// Windows-specific helper functions
 namespace PlatformWindows {
-    // 转换Windows SYSTEMTIME到Platform::SystemTime
+    // Convert Windows SYSTEMTIME to Platform::SystemTime
     Platform::SystemTime ConvertSystemTime(const SYSTEMTIME& st);
 
-    // 转换Platform::SystemTime到Windows SYSTEMTIME
+    // Convert Platform::SystemTime to Windows SYSTEMTIME
     SYSTEMTIME ConvertToSystemTime(const Platform::SystemTime& pt);
 
-    // 启用Windows特权
+    // Enable Windows privilege
     bool EnablePrivilege(const wchar_t* privilegeName);
 
-    // 格式化Windows错误消息
+    // Format Windows error message
     std::string FormatWindowsErrorMessage(uint32_t errorCode);
 }
 
 #elif defined(TCMT_MACOS)
 
-// macOS特定辅助函数
+// macOS-specific helper functions
 namespace PlatformMacOS {
-    // 获取SMC（System Management Controller）访问
+    // Get SMC (System Management Controller) access
     bool OpenSMCConnection();
     void CloseSMCConnection();
 
-    // 读取SMC键值
+    // Read SMC key value
     bool ReadSMCKey(const char* key, uint32_t* outSize, void* outValue);
 
-    // 获取IOKit服务
+    // Get IOKit service
     void* GetIOKitService(const char* serviceName);
 
-    // 释放IOKit对象
+    // Release IOKit object
     void ReleaseIOKitObject(void* object);
 }
 

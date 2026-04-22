@@ -3,7 +3,7 @@
 #include <vector>
 #include <utility>
 
-// 前向声明，避免在头文件中包含GPU头
+// Forward declaration, avoid including GPU header in header file
 class GpuInfo;
 
 class TemperatureWrapper {

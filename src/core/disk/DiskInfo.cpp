@@ -13,7 +13,7 @@ DiskInfo::DiskInfo() { QueryDrives(); }
 void DiskInfo::QueryDrives() {
     drives.clear();
     DWORD driveMask = GetLogicalDrives();
-    if (driveMask == 0) { Logger::Error("GetLogicalDrives 失败"); return; }
+    if (driveMask == 0) { Logger::Error("GetLogicalDrives Failed"); return; }
     for (int i = 0; i < 26; ++i) {
         if ((driveMask & (1 << i)) == 0) continue;
         char driveLetter = static_cast<char>('A' + i);
@@ -38,10 +38,10 @@ void DiskInfo::QueryDrives() {
         DWORD fsFlags = 0;
         if (!GetVolumeInformationW(rootPath.c_str(), volumeName, MAX_PATH, nullptr, nullptr, &fsFlags, fileSystemName, MAX_PATH)) {
             info.label = "";
-            info.fileSystem = "未知";
+            info.fileSystem = "Unknown";
         } else {
             info.label = WinUtils::WstringToString(volumeName);
-            if (info.label.empty()) info.label = "未命名";
+            if (info.label.empty()) info.label = "Unnamed";
             info.fileSystem = WinUtils::WstringToString(fileSystemName);
         }
         drives.push_back(std::move(info));
@@ -89,7 +89,7 @@ static bool ParseDiskPartition(const std::wstring& text, int& diskIndexOut) {
 
 void DiskInfo::CollectPhysicalDisks(WmiManager& wmi, const std::vector<DiskData>& logicalDisks, SystemInfo& sysInfo) {
     IWbemServices* svc = wmi.GetWmiService();
-    if (!svc) { Logger::Warn("WMI 服务无效，跳过物理磁盘枚举"); return; }
+    if (!svc) { Logger::Warn("WMI service invalid, skipping physical disk enumeration"); return; }
     std::map<int, std::vector<char>> physicalIndexToLetters;
     std::map<char, int> letterToDiskIndex;
     IEnumWbemClassObject* pEnum = nullptr;
@@ -162,7 +162,7 @@ void DiskInfo::CollectPhysicalDisks(WmiManager& wmi, const std::vector<DiskData>
                     else
                         wcsncpy_s(data.diskType, L"HDD", _TRUNCATE);
                 } else {
-                    wcsncpy_s(data.diskType, L"未知", _TRUNCATE);
+                    wcsncpy_s(data.diskType, L"Unknown", _TRUNCATE);
                 }
                 data.smartSupported = false;
                 data.smartEnabled = false;
@@ -194,7 +194,7 @@ void DiskInfo::CollectPhysicalDisks(WmiManager& wmi, const std::vector<DiskData>
         sysInfo.physicalDisks.push_back(kv.second);
         if (sysInfo.physicalDisks.size() >= 8) break;
     }
-    Logger::Debug("物理磁盘枚举完成: " + std::to_string(sysInfo.physicalDisks.size()) + " 个");
+    Logger::Debug("Physical disk enumeration complete: " + std::to_string(sysInfo.physicalDisks.size()));
 }
 
 #elif defined(TCMT_MACOS)

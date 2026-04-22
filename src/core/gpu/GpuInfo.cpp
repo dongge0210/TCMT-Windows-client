@@ -10,7 +10,7 @@
 
 GpuInfo::GpuInfo(WmiManager& manager) : wmiManager(manager) {
     if (!wmiManager.IsInitialized()) {
-        Logger::Error("WMI服务未初始化");
+        Logger::Error("WMI service not initialized");
         return;
     }
     pSvc = wmiManager.GetWmiService();
@@ -18,7 +18,7 @@ GpuInfo::GpuInfo(WmiManager& manager) : wmiManager(manager) {
 }
 
 GpuInfo::~GpuInfo() {
-    Logger::Info("GPU信息检测结束");
+    Logger::Info("GPU information detection complete");
 }
 
 bool GpuInfo::IsVirtualGpu(const std::wstring& name) {
@@ -50,7 +50,7 @@ void GpuInfo::DetectGpusViaWmi() {
     IEnumWbemClassObject* pEnumerator = nullptr;
     HRESULT hres = pSvc->ExecQuery(bstr_t("WQL"), bstr_t("SELECT * FROM Win32_VideoController"),
         WBEM_FLAG_FORWARD_ONLY | WBEM_FLAG_RETURN_IMMEDIATELY, nullptr, &pEnumerator);
-    if (FAILED(hres)) { Logger::Error("WMI查询失败"); return; }
+    if (FAILED(hres)) { Logger::Error("WMI query failed"); return; }
 
     ULONG uReturn = 0;
     IWbemClassObject* pclsObj = nullptr;
@@ -103,7 +103,7 @@ void GpuInfo::QueryIntelGpuInfo(int index) {
 void GpuInfo::QueryNvidiaGpuInfo(int index) {
     nvmlReturn_t initResult = nvmlInit();
     if (NVML_SUCCESS != initResult) {
-        Logger::Error("NVML初始化失败: " + std::string(nvmlErrorString(initResult)));
+        Logger::Error("NVML initialization failed: " + std::string(nvmlErrorString(initResult)));
         return;
     }
     nvmlDevice_t device;
@@ -177,7 +177,7 @@ GpuInfo::GpuInfo() {
 }
 
 GpuInfo::~GpuInfo() {
-    Logger::Info("GPU信息检测结束");
+    Logger::Info("GPU information detection complete");
 }
 
 bool GpuInfo::IsVirtualGpu(const std::wstring& name) {
