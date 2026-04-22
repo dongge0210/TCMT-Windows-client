@@ -3,12 +3,13 @@
 
 #ifdef TCMT_WINDOWS
 // ======================== Windows Implementation ========================
+// FIX: Include winsock2.h BEFORE windows.h to avoid redefinition errors
+#include <winsock2.h>
+#include <windows.h>
 #include <comutil.h>
 #include <sstream>
 #include <iomanip>
 #include <algorithm>
-#pragma comment(lib, "iphlpapi.lib")
-#pragma comment(lib, "ws2_32.lib")
 
 NetworkAdapter::NetworkAdapter(WmiManager& manager)
     : wmiManager(manager), initialized(false) {

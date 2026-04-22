@@ -1,4 +1,4 @@
-﻿<?xml version="1.0" encoding="utf-8"?>
+<?xml version="1.0" encoding="utf-8"?>
 <Project DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup Label="ProjectConfigurations">
     <ProjectConfiguration Include="Debug|Win32">
@@ -252,13 +252,13 @@ _WINSOCK_DEPRECATED_NO_WARNINGS;%(PreprocessorDefinitions)</PreprocessorDefiniti
       <HintPath>C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.7.2\System.dll</HintPath>
     </Reference>
     <Reference Include="HidSharp">
-      <HintPath>E:\TCMT-Windows-client\src\third_party\LibreHardwareMonitor\bin\Debug\net472\HidSharp.dll</HintPath>
+      <HintPath>$(ProjectDir)src\third_party\LibreHardwareMonitor\bin\Debug\net472\HidSharp.dll</HintPath>
     </Reference>
     <Reference Include="LibreHardwareMonitorLib">
-      <HintPath>E:\TCMT-Windows-client\src\third_party\LibreHardwareMonitor\bin\Debug\net472\LibreHardwareMonitorLib.dll</HintPath>
+      <HintPath>$(ProjectDir)src\third_party\LibreHardwareMonitor\bin\Debug\net472\LibreHardwareMonitorLib.dll</HintPath>
     </Reference>
     <Reference Include="System.CodeDom">
-      <HintPath>E:\TCMT-Windows-client\src\third_party\LibreHardwareMonitor\bin\Debug\net472\System.CodeDom.dll</HintPath>
+      <HintPath>$(ProjectDir)src\third_party\LibreHardwareMonitor\bin\Debug\net472\System.CodeDom.dll</HintPath>
     </Reference>
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

@@ -386,7 +386,7 @@ void SharedMemoryManager::WriteToSharedMemory(const SystemInfo& systemInfo) {
         pBuffer->gpuTemperature = systemInfo.gpuTemperature;
         pBuffer->cpuUsageSampleIntervalMs = systemInfo.cpuUsageSampleIntervalMs;
 
-        GetSystemTime(&pBuffer->lastUpdate);
+        pBuffer->lastUpdate = Platform::SystemTime::Now();
         Logger::Trace("Successfully wrote system/disk/SMART information to shared memory");
     } catch (const std::exception& e) {
         lastError = std::string("Exception in WriteToSharedMemory: ") + e.what();

@@ -7,8 +7,6 @@
 If you see warning MSB8077: Some files are set to C++/CLI but "Enable CLR Support for Single File" property is not defined.
 Please ignore this warning - the project structure doesn't support this scenario
 */
-// Must include winsock2.h BEFORE windows.h to avoid winsock.h conflict
-#include <winsock2.h>
 #include <windows.h>
 #include <shellapi.h>
 #include <sddl.h>
@@ -799,12 +797,11 @@ int main(int argc, char* argv[]) {
                     sysInfo.gpuIsVirtual = false;
                     sysInfo.networkAdapterSpeed = 0;
                     // Safely initialize SYSTEMTIME structure
-                    ZeroMemory(&sysInfo.lastUpdate, sizeof(sysInfo.lastUpdate));
-                    GetSystemTime(&sysInfo.lastUpdate); // Set current time
+                    sysInfo.lastUpdate = Platform::SystemTime::Now();
                     
                     // Verify system time is reasonable
-                    if (sysInfo.lastUpdate.wYear < 2020 || sysInfo.lastUpdate.wYear > 2050) {
-                        Logger::Warn("Abnormal system time: " + std::to_string(sysInfo.lastUpdate.wYear));
+                    if (sysInfo.lastUpdate.year < 2020 || sysInfo.lastUpdate.year > 2050) {
+                        Logger::Warn("Abnormal system time: " + std::to_string(sysInfo.lastUpdate.year));
                     }
                 }
                 catch (const std::exception& e) {
