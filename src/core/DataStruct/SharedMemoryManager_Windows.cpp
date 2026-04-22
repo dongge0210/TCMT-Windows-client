@@ -5,7 +5,8 @@
 #include <algorithm>
 #include <cctype>
 
-// Make sure Windows.h is included before any other headers that might redefine GetLastError
+// winsock2.h must be before windows.h to avoid symbol redefinition
+#include <winsock2.h>
 #include <Windows.h>
 
 #include "SharedMemoryManager.h"
