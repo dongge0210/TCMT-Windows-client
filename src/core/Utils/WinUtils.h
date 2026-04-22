@@ -6,6 +6,9 @@
 // winsock2.h must be before windows.h
 #include <winsock2.h>
 #include <windows.h>
+#else
+// Define DWORD for non-Windows platforms
+typedef uint32_t DWORD;
 #endif
 
 class WinUtils {
