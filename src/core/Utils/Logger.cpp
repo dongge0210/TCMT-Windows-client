@@ -15,7 +15,9 @@ void* Logger::hConsole = nullptr;
 #endif
 
 // Global TUI log buffer (only used on macOS)
+#ifdef TCMT_MACOS
 static tcmt::LogBuffer g_tuiLogBuffer;
+#endif
 
 #ifdef TCMT_WINDOWS
 // ======================== Windows Implementation ========================
@@ -266,7 +268,9 @@ void Logger::Fatal(const std::string& message)    { WriteLog("FATAL",   message,
 
 #endif
 
-// GetTuiBuffer - returns global log buffer for TUI (macOS only, but defined for all platforms)
+// GetTuiBuffer - returns global log buffer for TUI (macOS only)
+#ifdef TCMT_MACOS
 tcmt::LogBuffer& Logger::GetTuiBuffer() {
     return g_tuiLogBuffer;
 }
+#endif
