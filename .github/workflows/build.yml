@@ -24,10 +24,26 @@ jobs:
         submodules: recursive
         fetch-depth: 0
 
+    - name: Cache CUDA
+      id: cache-cuda
+      uses: actions/cache/restore@v4
+      with:
+        path: C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA
+        key: cuda-13.2.0-${{ hashFiles('.github/workflows/build.yml') }}
+        restore-keys: |
+          cuda-13.2.0-
+
     - name: Setup CUDA 13.2
       uses: Jimver/cuda-toolkit@v0.2.35
       with:
         cuda: '13.2.0'
+
+    - name: Save CUDA cache
+      if: always() && steps.cache-cuda.outputs.cache-hit != 'true'
+      uses: actions/cache/save@v4
+      with:
+        path: C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA
+        key: ${{ steps.cache-cuda.outputs.cache-primary-key }}
 
     - name: Setup MSBuild
       uses: microsoft/setup-msbuild@v3
