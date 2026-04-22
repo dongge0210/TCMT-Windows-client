@@ -15,6 +15,9 @@
 #endif
 
 #ifdef TCMT_WINDOWS
+// winsock2.h must be before windows.h
+#include <winsock2.h>
+#include <windows.h>
 #include <d3d11.h>
 #if defined(SUPPORT_NVIDIA_GPU)
 #include <nvml.h>
