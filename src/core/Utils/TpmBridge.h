@@ -1,5 +1,7 @@
 // TpmBridge.h
 #pragma once
+// winsock2.h must be before windows.h
+#include <winsock2.h>
 #include <windows.h>
 #include <vector>
 #include "../DataStruct/DataStruct.h"

@@ -13,6 +13,8 @@
 // Platform-specific header includes (via conditional compilation) 
 #ifdef TCMT_WINDOWS
 #define WIN32_LEAN_AND_MEAN
+// winsock2.h must be before windows.h
+#include <winsock2.h>
 #include <windows.h>
 #include <synchapi.h>
 #elif defined(TCMT_MACOS)

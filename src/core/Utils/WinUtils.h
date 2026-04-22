@@ -3,9 +3,9 @@
 #include <cstdint>
 
 #ifdef TCMT_WINDOWS
+// winsock2.h must be before windows.h
+#include <winsock2.h>
 #include <windows.h>
-#else
-typedef uint32_t DWORD;
 #endif
 
 class WinUtils {

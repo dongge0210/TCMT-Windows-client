@@ -2,6 +2,8 @@
 #include <string>
 
 #ifdef TCMT_WINDOWS
+// winsock2.h must be before windows.h
+#include <winsock2.h>
 #include <windows.h>
 #elif defined(TCMT_MACOS)
 // macOS headers - no special includes needed for OSInfo

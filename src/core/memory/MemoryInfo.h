@@ -2,6 +2,7 @@
 #include <cstdint>
 
 #ifdef TCMT_WINDOWS
+#include <winsock2.h>
 #include <windows.h>
 #endif
 
