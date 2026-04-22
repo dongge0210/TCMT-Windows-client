@@ -138,32 +138,8 @@ void GpuInfo::QueryNvidiaGpuInfo(int index) {
     nvmlShutdown();
 #else
     // NVIDIA GPU monitoring not available without CUDA
-    gpuList[index].name = "NVIDIA GPU (CUDA not available)";
+    gpuList[index].name = L"NVIDIA GPU (CUDA not available)";
 #endif
-}
-    nvmlDevice_t device;
-    nvmlReturn_t result = nvmlDeviceGetHandleByIndex(0, &device);
-    if (NVML_SUCCESS != result) { nvmlShutdown(); return; }
-
-    nvmlMemory_t memory;
-    result = nvmlDeviceGetMemoryInfo(device, &memory);
-    if (NVML_SUCCESS == result) gpuList[index].dedicatedMemory = memory.total;
-
-    unsigned int clockMHz = 0;
-    result = nvmlDeviceGetClockInfo(device, NVML_CLOCK_GRAPHICS, &clockMHz);
-    if (NVML_SUCCESS == result) gpuList[index].coreClock = static_cast<double>(clockMHz);
-
-    unsigned int temp = 0;
-    result = nvmlDeviceGetTemperature(device, NVML_TEMPERATURE_GPU, &temp);
-    if (NVML_SUCCESS == result) gpuList[index].temperature = temp;
-
-    int major = 0, minor = 0;
-    result = nvmlDeviceGetCudaComputeCapability(device, &major, &minor);
-    if (NVML_SUCCESS == result) {
-        gpuList[index].computeCapabilityMajor = major;
-        gpuList[index].computeCapabilityMinor = minor;
-    }
-    nvmlShutdown();
 }
 
 const std::vector<GpuInfo::GpuData>& GpuInfo::GetGpuData() const { return gpuList; }
