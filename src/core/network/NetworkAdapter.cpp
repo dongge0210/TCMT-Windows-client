@@ -1,11 +1,17 @@
 #include "NetworkAdapter.h"
 #include "../Utils/Logger.h"
+#include "WmiManager.h"
+#include "../Utils/WinUtils.h"
 
 #ifdef TCMT_WINDOWS
 // ======================== Windows Implementation ========================
-// NOTE: winsock2.h is already included in stdafx.h
+// NOTE: winsock2.h must be included BEFORE windows.h
+#include <winsock2.h>
+#include <windows.h>
 #include <iphlpapi.h>
 #include <comutil.h>
+#include <wbemcli.h>
+#include <wbemprov.h>
 #include <sstream>
 #include <iomanip>
 #include <algorithm>
