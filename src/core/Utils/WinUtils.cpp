@@ -1,6 +1,8 @@
 #include "WinUtils.h"
 
 #ifdef TCMT_WINDOWS
+// NOTE: winsock2.h must be included BEFORE windows.h
+#include <winsock2.h>
 #include <windows.h>
 #include <sstream>
 #pragma comment(lib, "advapi32.lib")

@@ -1,4 +1,9 @@
 #pragma once
+
+// NOTE: winsock2.h must be included BEFORE windows.h and wbemidl.h
+#include <winsock2.h>
+#include <windows.h>
+
 #include <wbemidl.h>
 #include <comdef.h>
 #include <servprov.h>

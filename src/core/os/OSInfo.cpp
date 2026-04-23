@@ -1,10 +1,12 @@
 #include "OSInfo.h"
-#include "../utils/Logger.h"
+#include "../Utils/Logger.h"
 
 #ifdef TCMT_WINDOWS
 // ======================== Windows Implementation ========================
-#include "../utils/WinUtils.h"
+// NOTE: winsock2.h must be included BEFORE windows.h
+#include <winsock2.h>
 #include <windows.h>
+#include "../utils/WinUtils.h"
 #include <winternl.h>
 #include <ntstatus.h>
 #ifndef STATUS_SUCCESS

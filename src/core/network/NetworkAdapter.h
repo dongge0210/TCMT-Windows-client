@@ -58,10 +58,11 @@ private:
     std::string FormatMacAddress(const unsigned char* address, size_t length) const;
     std::string FormatSpeed(uint64_t bitsPerSecond) const;
     bool IsVirtualAdapter(const std::string& name) const;
+    bool IsVirtualAdapter(const std::wstring& name) const;
 
 #ifdef TCMT_WINDOWS
-    void QueryWmiAdapterInfo();
     std::string DetermineAdapterType(const std::wstring& name, const std::wstring& description, DWORD ifType) const;
+    void QueryWmiAdapterInfo();
     void SafeRelease(IUnknown* pInterface);
     WmiManager& wmiManager;
 #endif

@@ -1,5 +1,5 @@
 #include "DiskInfo.h"
-#include "../utils/Logger.h"
+#include "../Utils/Logger.h"
 
 #ifdef TCMT_WINDOWS
 // ======================== Windows Implementation ========================
@@ -227,7 +227,13 @@ static bool GetIOKitDiskInfo(const std::string& bsdName,
     if (!matching) matching = IOServiceMatching("IOATABlockStorageDevice");
     if (!matching) return false;
 
-    kern_return_t kr = IOServiceGetMatchingServices(kIOMainPortDefault, matching, &iter);
+    mach_port_t masterPort;
+    if (@available(macOS 12.0, *)) {
+        masterPort = kIOMainPortDefault;
+    } else {
+        masterPort = 0;
+    }
+    kern_return_t kr = IOServiceGetMatchingServices(masterPort, matching, &iter);
     if (kr != KERN_SUCCESS) return false;
 
     while ((parent = IOIteratorNext(iter)) != 0) {

@@ -3,6 +3,8 @@
 #include <sstream>
 
 #ifdef TCMT_WINDOWS
+// NOTE: winsock2.h must be included BEFORE windows.h
+#include <winsock2.h>
 #include <windows.h>
 #elif defined(TCMT_MACOS)
 #include <sys/sysctl.h>

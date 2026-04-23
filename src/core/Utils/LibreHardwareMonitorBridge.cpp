@@ -2,6 +2,8 @@
 #include "Logger.h"
 #include <msclr/marshal_cppstd.h>
 #include <iostream>
+// NOTE: winsock2.h must be included BEFORE windows.h
+#include <winsock2.h>
 #include <windows.h>
 
 // No need to repeat #using, already included in header file

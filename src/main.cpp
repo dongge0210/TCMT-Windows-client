@@ -6,6 +6,8 @@
 If you see warning MSB8077: Some files are set to C++/CLI but "Enable CLR Support for Single File" property is not defined.
 Please ignore this warning - the project structure doesn't support this scenario
 */
+// Defeat winsock.h re-include by defining this before windows.h
+#define _WINSOCK2API_
 #include <windows.h>
 #include <shellapi.h>
 #include <sddl.h>

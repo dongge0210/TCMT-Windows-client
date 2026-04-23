@@ -1,7 +1,7 @@
 #include "Logger.h"
 
 #ifdef TCMT_MACOS
-#include "../tui/LogBuffer.h"
+#include "../../tui/LogBuffer.h"
 #endif
 
 std::ofstream Logger::logFile;
@@ -14,11 +14,15 @@ void* Logger::hConsole = nullptr;
 void* Logger::hConsole = nullptr;
 #endif
 
+#ifdef TCMT_MACOS
 // Global TUI log buffer (only used on macOS)
 static tcmt::LogBuffer g_tuiLogBuffer;
+#endif
 
 #ifdef TCMT_WINDOWS
 // ======================== Windows Implementation ========================
+// NOTE: winsock2.h must be included BEFORE windows.h
+#include <winsock2.h>
 #include <windows.h>
 #include <chrono>
 #include <ctime>
@@ -266,7 +270,9 @@ void Logger::Fatal(const std::string& message)    { WriteLog("FATAL",   message,
 
 #endif
 
-// GetTuiBuffer - returns global log buffer for TUI (macOS only, but defined for all platforms)
+#ifdef TCMT_MACOS
+// GetTuiBuffer - returns global log buffer for TUI (macOS only)
 tcmt::LogBuffer& Logger::GetTuiBuffer() {
     return g_tuiLogBuffer;
 }
+#endif

@@ -1,8 +1,10 @@
 #include "MemoryInfo.h"
-#include "../utils/Logger.h"
+#include "../Utils/Logger.h"
 
 #ifdef TCMT_WINDOWS
 // ======================== Windows Implementation ========================
+// NOTE: winsock2.h must be included BEFORE windows.h
+#include <winsock2.h>
 #include <windows.h>
 
 MemoryInfo::MemoryInfo() {

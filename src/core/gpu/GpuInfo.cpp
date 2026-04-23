@@ -219,11 +219,11 @@ void GpuInfo::DetectGpusViaMetal() {
 
     // Use IOKit IOAccelerator to enumerate GPUs
     mach_port_t masterPort;
-#if __MAC_OS_X_VERSION_MAX_ALLOWED >= 120000
-    masterPort = kIOMainPortDefault;
-#else
-    masterPort = kIOMasterPortDefault;
-#endif
+    if (@available(macOS 12.0, *)) {
+        masterPort = kIOMainPortDefault;
+    } else {
+        masterPort = 0; // Will fallback to kIOMasterPortDefault on older systems
+    }
 
     io_iterator_t iter = 0;
     kern_return_t kr = IOServiceGetMatchingServices(
@@ -335,11 +335,11 @@ void GpuInfo::DetectGpusViaMetal() {
 
 void GpuInfo::RefreshUsage() {
     mach_port_t masterPort;
-#if __MAC_OS_X_VERSION_MAX_ALLOWED >= 120000
-    masterPort = kIOMainPortDefault;
-#else
-    masterPort = kIOMasterPortDefault;
-#endif
+    if (@available(macOS 12.0, *)) {
+        masterPort = kIOMainPortDefault;
+    } else {
+        masterPort = 0;
+    }
 
     io_iterator_t iter = 0;
     kern_return_t kr = IOServiceGetMatchingServices(
