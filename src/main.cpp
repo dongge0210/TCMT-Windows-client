@@ -965,17 +965,27 @@ int main(int argc, char* argv[]) {
                     if (!adapters.empty()) {
                         for (const auto& adapter : adapters) {
                             NetworkAdapterData data;
-                            wcsncpy_s(data.name, adapter.name.c_str(), _TRUNCATE);
-                            wcsncpy_s(data.mac, adapter.mac.c_str(), _TRUNCATE);
-                            wcsncpy_s(data.ipAddress, adapter.ip.c_str(), _TRUNCATE);
-                            wcsncpy_s(data.adapterType, adapter.adapterType.c_str(), _TRUNCATE);
+                            // Zero initialize to avoid garbage data
+                            memset(&data, 0, sizeof(NetworkAdapterData));
+                            
+                            // Convert std::string to std::wstring before copying to wchar_t arrays
+                            std::wstring nameW = WinUtils::StringToWstring(adapter.name);
+                            std::wstring macW = WinUtils::StringToWstring(adapter.mac);
+                            std::wstring ipW = WinUtils::StringToWstring(adapter.ip);
+                            std::wstring typeW = WinUtils::StringToWstring(adapter.adapterType);
+                            
+                            // Use 4-argument version: dest, source, size, count
+                            wcsncpy_s(data.name, nameW.c_str(), 128);
+                            wcsncpy_s(data.mac, macW.c_str(), 32);
+                            wcsncpy_s(data.ipAddress, ipW.c_str(), 64);
+                            wcsncpy_s(data.adapterType, typeW.c_str(), 32);
                             data.speed = adapter.speed;
                             sysInfo.adapters.push_back(data);
                         }
-                        sysInfo.networkAdapterName = WinUtils::WstringToString(adapters[0].name);
-                        sysInfo.networkAdapterMac = WinUtils::WstringToString(adapters[0].mac);
-                        sysInfo.networkAdapterIp = WinUtils::WstringToString(adapters[0].ip);
-                        sysInfo.networkAdapterType = WinUtils::WstringToString(adapters[0].adapterType);
+                        sysInfo.networkAdapterName = adapters[0].name;
+                        sysInfo.networkAdapterMac = adapters[0].mac;
+                        sysInfo.networkAdapterIp = adapters[0].ip;
+                        sysInfo.networkAdapterType = adapters[0].adapterType;
                         sysInfo.networkAdapterSpeed = adapters[0].speed;
                     } else {
                         sysInfo.networkAdapterName = "No network adapter detected";
