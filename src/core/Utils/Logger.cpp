@@ -82,13 +82,21 @@ void Logger::WriteLog(const std::string& level, const std::string& message,
     logFile.write(logEntry.c_str(), logEntry.size());
     logFile.flush();
 
+#ifdef TCMT_MACOS
     // Also push to TUI log buffer (for macOS TUI mode)
     g_tuiLogBuffer.Push(logEntry);
+#endif
 
     if (consoleOutputEnabled && hConsole != INVALID_HANDLE_VALUE) {
         HANDLE hCon = (HANDLE)hConsole;
         DWORD written = 0;
+#ifdef TCMT_MACOS
         std::string timeStr = "[" + std::put_time(&timeinfo, "%Y-%m-%d %H:%M:%S") + "]";
+#else
+        char timeBuf[32];
+        strftime(timeBuf, sizeof(timeBuf), "[%Y-%m-%d %H:%M:%S]", &timeinfo);
+        std::string timeStr = std::string("[") + timeBuf + "]";
+#endif
         WriteFile(hCon, timeStr.c_str(), (DWORD)timeStr.size(), &written, nullptr);
         SetConsoleColor(color);
         std::string levelTag = "[" + level + "] ";
