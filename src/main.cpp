@@ -8,6 +8,7 @@ Please ignore this warning - the project structure doesn't support this scenario
 */
 // Do NOT include winsock2.h here - it breaks other headers that include windows.h first
 // Network headers are included in the platform-specific source files instead
+#include <winsock2.h>
 #include <windows.h>
 #include <shellapi.h>
 #include <sddl.h>
