@@ -197,6 +197,10 @@ void DiskInfo::CollectPhysicalDisks(WmiManager& wmi, const std::vector<DiskData>
     Logger::Debug("Physical disk enumeration complete: " + std::to_string(sysInfo.physicalDisks.size()));
 }
 
+void DiskInfo::CollectSmartData(SystemInfo& sysInfo) {
+    Logger::Debug("DiskInfo::CollectSmartData - using LibreHardwareMonitor");
+}
+
 #elif defined(TCMT_MACOS)
 // ======================== macOS Implementation ========================
 #include <sys/mount.h>
