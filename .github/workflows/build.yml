@@ -122,9 +122,12 @@ jobs:
       with:
         name: TCMT-Windows-x64-Release
         path: |
-          /x64/${{ env.BUILD_CONFIGURATION }}/*.exe
-          Project1/x64/${{ env.BUILD_CONFIGURATION }}/*.dll
-          Project1/x64/${{ env.BUILD_CONFIGURATION }}/*.pdb
+          x64/${{ env.BUILD_CONFIGURATION }}/TCMT.exe
+          x64/${{ env.BUILD_CONFIGURATION }}/TCMT.pdb
+          AvaloniaUI/bin/${{ env.BUILD_CONFIGURATION }}/net10.0/AvaloniaUI.exe
+          AvaloniaUI/bin/${{ env.BUILD_CONFIGURATION }}/net10.0/*.dll
+          AvaloniaUI/bin/${{ env.BUILD_CONFIGURATION }}/net10.0/*.pdb
+          src/third_party/LibreHardwareMonitor/bin/${{ env.BUILD_CONFIGURATION }}/net472/*.dll
 
   build-macos:
     name: macOS (CMake + Clang)
