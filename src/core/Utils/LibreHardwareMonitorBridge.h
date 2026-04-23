@@ -6,7 +6,8 @@
 #include <vcclr.h>
 #include "../DataStruct/DataStruct.h"
 
-#using "E:\TCMT-Windows-client\src\third_party\LibreHardwareMonitor\bin\Debug\net472\LibreHardwareMonitorLib.dll"
+// Use MSBuild property for relative path - works for both Debug and Release builds
+#using "$(ProjectDir)src\\third_party\\LibreHardwareMonitor\\bin\\Release\\net472\\LibreHardwareMonitorLib.dll"
 
 // Add forward declaration for .NET types
 namespace LibreHardwareMonitor {
