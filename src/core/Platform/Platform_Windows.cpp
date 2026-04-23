@@ -178,7 +178,7 @@ bool SharedMemory::Open(const std::string& name, size_t size) {
 bool SharedMemory::Map() {
     if (!hMapFile_) {
         last_error_ = "No file mapping handle";
-        return nullptr;
+        return false;
     }
 
     address_ = MapViewOfFile(
