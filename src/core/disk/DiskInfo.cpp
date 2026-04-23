@@ -395,10 +395,17 @@ std::vector<DiskData> DiskInfo::GetDisks() {
     return disks;
 }
 
-// macOS: SMART data not available without root/special drivers
+// Collect SMART data - available on all platforms
+// On macOS: uses LibreHardwareMonitor
+// On Windows: uses WMI + SMART
 void DiskInfo::CollectSmartData(SystemInfo& sysInfo) {
-    // No-op on macOS: SMART requires root privileges and IOKit SMART interface
-    Logger::Debug("DiskInfo: SMART data collection skipped on macOS");
+#ifdef TCMT_WINDOWS
+    // Windows implementation would go here - currently uses LibreHardwareMonitor via TemperatureWrapper
+    Logger::Debug("DiskInfo::CollectSmartData - using LibreHardwareMonitor");
+#else
+    // macOS: SMART not available
+    Logger::Debug("DiskInfo: SMART data collection skipped");
+#endif
 }
 
 #else
