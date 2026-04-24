@@ -124,8 +124,10 @@ void GpuInfo::QueryNvidiaGpuInfo(int index) {
     result = nvmlDeviceGetClockInfo(device, NVML_CLOCK_GRAPHICS, &clockMHz);
     if (NVML_SUCCESS == result) gpuList[index].coreClock = static_cast<double>(clockMHz);
 
+    #pragma warning(disable: 4996)
     unsigned int temp = 0;
     result = nvmlDeviceGetTemperature(device, NVML_TEMPERATURE_GPU, &temp);
+#pragma warning(default: 4996)
     if (NVML_SUCCESS == result) gpuList[index].temperature = temp;
 
     int major = 0, minor = 0;
