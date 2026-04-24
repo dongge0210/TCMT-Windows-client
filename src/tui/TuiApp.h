@@ -1,0 +1,126 @@
+#pragma once
+
+#include "LogBuffer.h"
+#include <string>
+#include <vector>
+#include <mutex>
+#include <atomic>
+#include <thread>
+#include <chrono>
+
+// Forward declarations for ncurses
+struct _win_st;
+typedef struct _win_st WINDOW;
+
+namespace tcmt {
+
+// Data snapshot for TUI rendering (filled by main thread)
+struct TuiData {
+    // CPU
+    std::string cpuName;
+    double cpuUsage = 0.0;
+    int physicalCores = 0;
+    int performanceCores = 0;
+    int efficiencyCores = 0;
+    double pCoreFreq = 0.0;
+    double eCoreFreq = 0.0;
+    double cpuTemp = 0.0;
+
+    // Memory
+    uint64_t totalMemory = 0;
+    uint64_t usedMemory = 0;
+    uint64_t availableMemory = 0;
+    uint64_t compressedMemory = 0;
+
+    // GPU
+    std::string gpuName;
+    uint64_t gpuMemory = 0;
+    double gpuUsage = 0.0;
+    double gpuTemp = 0.0;
+
+    // Disk
+    struct DiskInfo {
+        std::string label;
+        uint64_t totalSize = 0;
+        uint64_t usedSpace = 0;
+        std::string fileSystem;
+    };
+    std::vector<DiskInfo> disks;
+
+    // Network
+    struct NetInfo {
+        std::string name;
+        std::string ip;
+        std::string mac;
+        std::string type;
+        uint64_t speed = 0;
+    };
+    std::vector<NetInfo> adapters;
+
+    // OS
+    std::string osVersion;
+
+    // Temperatures
+    std::vector<std::pair<std::string, double>> temperatures;
+
+    // Timestamp
+    std::string timestamp;
+};
+
+class TuiApp {
+public:
+    TuiApp();
+    ~TuiApp();
+
+    // Start/stop the TUI (runs in its own thread)
+    void Start();
+    void Stop();
+    bool IsRunning() const;
+
+    // Update data from main thread (thread-safe)
+    void UpdateData(const TuiData& data);
+
+    // Get the log buffer for Logger to write into
+    LogBuffer& GetLogBuffer();
+
+    // Inject external log buffer (e.g. from Logger)
+    void SetLogBuffer(LogBuffer* buf);
+
+private:
+    void Run();
+    void SafeEndwin();
+    void InitColors();
+    void DrawHeader(WINDOW* win, const TuiData& data);
+    void DrawCpuPanel(WINDOW* win, const TuiData& data, int y, int x0, int maxW);
+    void DrawMemoryPanel(WINDOW* win, const TuiData& data, int y, int x0, int maxW);
+    void DrawGpuPanel(WINDOW* win, const TuiData& data, int y, int x0, int maxW);
+    void DrawDiskPanel(WINDOW* win, const TuiData& data, int y, int x0, int maxW);
+    void DrawNetworkPanel(WINDOW* win, const TuiData& data, int y, int x0, int maxW);
+    void DrawTempPanel(WINDOW* win, const TuiData& data, int y, int x0, int maxW);
+
+    // Utility
+    static std::string FormatSize(uint64_t bytes);
+    static std::string FormatSpeed(uint64_t bps);
+    static std::string FormatBar(double pct, int width);
+    static std::string TrimRight(const std::string& s, size_t maxLen);
+
+    std::thread thread_;
+    std::atomic<bool> running_{false};
+
+    TuiData data_;
+    mutable std::mutex dataMutex_;
+
+    // Internal buffer (fallback), or use external via SetLogBuffer()
+    LogBuffer defaultBuffer_;
+    // Points to either &defaultBuffer_ or an external buffer
+    LogBuffer* logBuf_ = nullptr;
+
+    // Window dimensions
+    int termRows_ = 0;
+    int termCols_ = 0;
+
+    // Ensure endwin() is called exactly once
+    std::atomic<bool> cursesActive_{false};
+};
+
+} // namespace tcmt
