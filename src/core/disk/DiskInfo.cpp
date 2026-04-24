@@ -147,7 +147,6 @@ void DiskInfo::CollectPhysicalDisks(WmiManager& wmi, const std::vector<DiskData>
                                         if (logicalDeviceID.length() >= 2 && logicalDeviceID[1] == L':') {
                                             char letter = static_cast<char>(::toupper(logicalDeviceID[0]));
                                             physicalIndexToLetters[diskIndex].push_back(letter);
-                                            Logger::Debug("Mapped: Disk%d -> %c:", diskIndex, letter);
                                         }
                                     }
                                     VariantClear(&vtLogicalDeviceID);
@@ -196,8 +195,6 @@ void DiskInfo::CollectPhysicalDisks(WmiManager& wmi, const std::vector<DiskData>
         }
         pEnum->Release();
     }
-    for (auto& kv : letterToDiskIndex)
-        physicalIndexToLetters[kv.second].push_back(kv.first);
 
     std::map<int, PhysicalDiskSmartData> tempDisks;
     pEnum = nullptr;

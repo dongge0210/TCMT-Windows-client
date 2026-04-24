@@ -13,6 +13,7 @@
 #include <wbemcli.h>
 #include <wbemprov.h>
 #include <sstream>
+#include <unknwn.h>  // IUnknown
 #include <iomanip>
 #include <algorithm>
 #pragma comment(lib, "iphlpapi.lib")
