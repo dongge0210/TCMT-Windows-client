@@ -87,17 +87,87 @@ static bool ParseDiskPartition(const std::wstring& text, int& diskIndexOut) {
     return true;
 }
 
+// 使用 WMI 关联查询获取物理磁盘到逻辑驱动器的映射
 void DiskInfo::CollectPhysicalDisks(WmiManager& wmi, const std::vector<DiskData>& logicalDisks, SystemInfo& sysInfo) {
     IWbemServices* svc = wmi.GetWmiService();
     if (!svc) { Logger::Warn("WMI service invalid, skipping physical disk enumeration"); return; }
     std::map<int, std::vector<char>> physicalIndexToLetters;
-    std::map<char, int> letterToDiskIndex;
     IEnumWbemClassObject* pEnum = nullptr;
 
-    pEnum = nullptr;
+    // 方法：对每个物理磁盘，使用 ASSOCIATORS OF 查询关联的分区，再查询关联的逻辑驱动器
     HRESULT hr = svc->ExecQuery(bstr_t(L"WQL"),
-        bstr_t(L"SELECT * FROM Win32_LogicalDiskToPartition"),
+        bstr_t(L"SELECT DeviceID, Index FROM Win32_DiskDrive"),
         WBEM_FLAG_FORWARD_ONLY | WBEM_FLAG_RETURN_IMMEDIATELY, nullptr, &pEnum);
+    if (SUCCEEDED(hr) && pEnum) {
+        IWbemClassObject* obj = nullptr;
+        ULONG ret = 0;
+        while (pEnum->Next(WBEM_INFINITE, 1, &obj, &ret) == S_OK) {
+            VARIANT vtDeviceID, vtIndex;
+            VariantInit(&vtDeviceID); VariantInit(&vtIndex);
+            int diskIndex = -1;
+            if (SUCCEEDED(obj->Get(L"Index", 0, &vtIndex, 0, 0)) 
+                && (vtIndex.vt == VT_I4 || vtIndex.vt == VT_UI4)) {
+                diskIndex = (vtIndex.vt == VT_I4) ? vtIndex.intVal : static_cast<int>(vtIndex.uintVal);
+            }
+            if (SUCCEEDED(obj->Get(L"DeviceID", 0, &vtDeviceID, 0, 0)) 
+                && vtDeviceID.vt == VT_BSTR && diskIndex >= 0) {
+                std::wstring diskDeviceID = vtDeviceID.bstrVal;
+                // ASSOCIATORS OF {Win32_DiskDrive.DeviceID='...'} WHERE AssocClass = Win32_DiskDriveToDiskPartition
+                std::wstring query = L"ASSOCIATORS OF {Win32_DiskDrive.DeviceID='";
+                query += diskDeviceID;
+                query += L"'} WHERE AssocClass = Win32_DiskDriveToDiskPartition";
+                IEnumWbemClassObject* pEnumPart = nullptr;
+                HRESULT hrPart = svc->ExecQuery(bstr_t(L"WQL"), bstr_t(query.c_str()), 
+                    WBEM_FLAG_FORWARD_ONLY | WBEM_FLAG_RETURN_IMMEDIATELY, nullptr, &pEnumPart);
+                if (SUCCEEDED(hrPart) && pEnumPart) {
+                    IWbemClassObject* objPart = nullptr;
+                    ULONG retPart = 0;
+                    while (pEnumPart->Next(WBEM_INFINITE, 1, &objPart, &retPart) == S_OK) {
+                        VARIANT vtPartDeviceID;
+                        VariantInit(&vtPartDeviceID);
+                        if (SUCCEEDED(objPart->Get(L"DeviceID", 0, &vtPartDeviceID, 0, 0)) 
+                            && vtPartDeviceID.vt == VT_BSTR) {
+                            std::wstring partDeviceID = vtPartDeviceID.bstrVal;
+                            // 再查询关联的逻辑驱动器
+                            std::wstring queryLogical = L"ASSOCIATORS OF {Win32_DiskPartition.DeviceID='";
+                            queryLogical += partDeviceID;
+                            queryLogical += L"'} WHERE AssocClass = Win32_LogicalDiskToPartition";
+                            IEnumWbemClassObject* pEnumLogical = nullptr;
+                            HRESULT hrLogical = svc->ExecQuery(bstr_t(L"WQL"), bstr_t(queryLogical.c_str()),
+                                WBEM_FLAG_FORWARD_ONLY | WBEM_FLAG_RETURN_IMMEDIATELY, nullptr, &pEnumLogical);
+                            if (SUCCEEDED(hrLogical) && pEnumLogical) {
+                                IWbemClassObject* objLogical = nullptr;
+                                ULONG retLogical = 0;
+                                while (pEnumLogical->Next(WBEM_INFINITE, 1, &objLogical, &retLogical) == S_OK) {
+                                    VARIANT vtLogicalDeviceID;
+                                    VariantInit(&vtLogicalDeviceID);
+                                    if (SUCCEEDED(objLogical->Get(L"DeviceID", 0, &vtLogicalDeviceID, 0, 0)) 
+                                        && vtLogicalDeviceID.vt == VT_BSTR) {
+                                        std::wstring logicalDeviceID = vtLogicalDeviceID.bstrVal;
+                                        if (logicalDeviceID.length() >= 2 && logicalDeviceID[1] == L':') {
+                                            char letter = static_cast<char>(::toupper(logicalDeviceID[0]));
+                                            physicalIndexToLetters[diskIndex].push_back(letter);
+                                            Logger::Debug("Mapped: Disk%d -> %c:", diskIndex, letter);
+                                        }
+                                    }
+                                    VariantClear(&vtLogicalDeviceID);
+                                    objLogical->Release();
+                                }
+                                pEnumLogical->Release();
+                            }
+                        }
+                        VariantClear(&vtPartDeviceID);
+                        objPart->Release();
+                    }
+                    pEnumPart->Release();
+                }
+            }
+            VariantClear(&vtDeviceID); VariantClear(&vtIndex);
+            obj->Release();
+        }
+        pEnum->Release();
+    }
+    // ... rest of function
     if (SUCCEEDED(hr) && pEnum) {
         IWbemClassObject* obj = nullptr;
         ULONG ret = 0;
