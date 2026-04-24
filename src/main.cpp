@@ -753,7 +753,7 @@ int main(int argc, char* argv[]) {
                 
                 if (loopCounter == 5) {
                     g_monitoringStarted = true;
-                    Logger::Info("Program is running stably");
+                    Logger::Info("Program is running stable");
                 }
                 
                 SystemInfo sysInfo;
