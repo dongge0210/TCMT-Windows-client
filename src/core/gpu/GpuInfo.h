@@ -19,9 +19,9 @@
 #include <winsock2.h>
 #include <windows.h>
 #include <d3d11.h>
-#if defined(SUPPORT_NVIDIA_GPU)
+// Auto-detect NVIDIA GPU support via NVML
 #include <nvml.h>
-#endif
+#define SUPPORT_NVIDIA_GPU 1
 #if defined(SUPPORT_DIRECTX)
 #include <dxgi.h>
 #endif
