@@ -166,35 +166,6 @@ void DiskInfo::CollectPhysicalDisks(WmiManager& wmi, const std::vector<DiskData>
         }
         pEnum->Release();
     }
-    // ... rest of function
-    if (SUCCEEDED(hr) && pEnum) {
-        IWbemClassObject* obj = nullptr;
-        ULONG ret = 0;
-        while (pEnum->Next(WBEM_INFINITE, 1, &obj, &ret) == S_OK) {
-            VARIANT ant, dep;
-            VariantInit(&ant); VariantInit(&dep);
-            if (SUCCEEDED(obj->Get(L"Antecedent", 0, &ant, 0, 0)) && ant.vt == VT_BSTR &&
-                SUCCEEDED(obj->Get(L"Dependent", 0, &dep, 0, 0)) && dep.vt == VT_BSTR) {
-                int diskIdx = -1;
-                if (ParseDiskPartition(dep.bstrVal, diskIdx)) {
-                    std::wstring depStr = dep.bstrVal;
-                    size_t pos = depStr.find(L"DeviceID=\"");
-                    if (pos != std::wstring::npos) {
-                        pos += 10;
-                        if (pos < depStr.size()) {
-                            wchar_t letterW = depStr[pos];
-                            if (letterW && letterW != L'"') {
-                                letterToDiskIndex[static_cast<char>(::toupper(letterW))] = diskIdx;
-                            }
-                        }
-                    }
-                }
-            }
-            VariantClear(&ant); VariantClear(&dep);
-            obj->Release();
-        }
-        pEnum->Release();
-    }
 
     std::map<int, PhysicalDiskSmartData> tempDisks;
     pEnum = nullptr;
