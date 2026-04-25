@@ -277,6 +277,7 @@ void SharedMemoryManager::WriteToSharedMemory(const SystemInfo& systemInfo) {
             pBuffer->gpus[0].memory = systemInfo.gpuMemory;
             pBuffer->gpus[0].coreClock = systemInfo.gpuCoreFreq;
             pBuffer->gpus[0].isVirtual = systemInfo.gpuIsVirtual;
+            pBuffer->gpus[0].usage = systemInfo.gpuUsage;
             pBuffer->gpuCount = 1;
         }
         // If later want to support vector<GPUData>, can extend here
