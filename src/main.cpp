@@ -46,6 +46,7 @@ Please ignore this warning - the project structure doesn't support this scenario
 #include "core/DataStruct/DataStruct.h"
 #include "core/DataStruct/SharedMemoryManager.h"
 #include "core/temperature/TemperatureWrapper.h"
+#include "tui/TuiApp.h"
 
 #pragma comment(lib, "kernel32.lib")
 #pragma comment(lib, "user32.lib")
@@ -703,6 +704,12 @@ int main(int argc, char* argv[]) {
 
         Logger::Info("Program startup complete");
         
+        // Start TUI (Windows version)
+        tcmt::TuiApp tuiApp;
+        tuiApp.SetLogBuffer(&Logger::GetTuiBuffer());
+        tuiApp.Start();
+        Logger::Info("TUI started");
+        
         int loopCounter = 1;
         bool isFirstRun = true;
         
@@ -1200,6 +1207,69 @@ int main(int argc, char* argv[]) {
                 catch (...) {
                     Logger::Error("Unknown exception while processing system info");
                 }
+                
+                // Update TUI with current data
+                try {
+                    tcmt::TuiData tuiData;
+                    tuiData.cpuName = sysInfo.cpuName;
+                    tuiData.cpuUsage = sysInfo.cpuUsage;
+                    tuiData.physicalCores = sysInfo.physicalCores;
+                    tuiData.performanceCores = sysInfo.performanceCores;
+                    tuiData.efficiencyCores = sysInfo.efficiencyCores;
+                    tuiData.pCoreFreq = sysInfo.performanceCoreFreq;
+                    tuiData.eCoreFreq = sysInfo.efficiencyCoreFreq;
+                    tuiData.cpuTemp = sysInfo.cpuTemperature;
+                    tuiData.totalMemory = sysInfo.totalMemory;
+                    tuiData.usedMemory = sysInfo.usedMemory;
+                    tuiData.availableMemory = sysInfo.availableMemory;
+                    
+                    if (!sysInfo.gpus.empty()) {
+                        tuiData.gpuName = sysInfo.gpuName;
+                        tuiData.gpuMemory = sysInfo.gpuMemory;
+                        tuiData.gpuUsage = sysInfo.gpuUsage;
+                    }
+                    tuiData.gpuTemp = sysInfo.gpuTemperature;
+                    
+                    // Disks
+                    for (const auto& disk : sysInfo.disks) {
+                        tcmt::TuiData::DiskInfo di;
+                        di.label = disk.label;
+                        di.totalSize = disk.totalSize;
+                        di.usedSpace = disk.usedSpace;
+                        di.fileSystem = disk.fileSystem;
+                        tuiData.disks.push_back(di);
+                    }
+                    
+                    // Network adapters
+                    for (const auto& adapter : sysInfo.adapters) {
+                        tcmt::TuiData::NetInfo ni;
+                        // Convert wchar_t[] arrays to std::string
+                        ni.name = WinUtils::WstringToString(adapter.name);
+                        ni.ip = WinUtils::WstringToString(adapter.ipAddress);
+                        ni.mac = WinUtils::WstringToString(adapter.mac);
+                        ni.type = WinUtils::WstringToString(adapter.adapterType);
+                        ni.speed = adapter.speed;
+                        tuiData.adapters.push_back(ni);
+                    }
+                    
+                    tuiData.osVersion = sysInfo.osVersion;
+                    tuiData.temperatures = sysInfo.temperatures;
+                    if (!sysInfo.tpms.empty() && sysInfo.tpms[0].isPresent) {
+                        auto& tpm = sysInfo.tpms[0];
+                        tuiData.tpmInfo = WinUtils::WstringToString(tpm.manufacturer)
+                                        + " v" + WinUtils::WstringToString(tpm.firmwareVersion);
+                        if (!tpm.isEnabled) tuiData.tpmInfo += " (Disabled)";
+                        else if (!tpm.isActive) tuiData.tpmInfo += " (Inactive)";
+                    } else {
+                        tuiData.tpmInfo = "No TPM";
+                    }
+                    tuiData.timestamp = FormatDateTime(std::chrono::system_clock::now());
+                    
+                    tuiApp.UpdateData(tuiData);
+                }
+                catch (const std::exception& e) {
+                    Logger::Warn("TUI data update failed: " + std::string(e.what()));
+                }
 
                 // Calculate loop execution time and adaptive sleep - optimize refresh speed, enhanced exception handling
                 try {
@@ -1313,6 +1383,16 @@ int main(int argc, char* argv[]) {
         }
         
         Logger::Info("Program received exit signal, starting cleanup");
+        
+        // Stop TUI before cleanup
+        try {
+            tuiApp.Stop();
+            Logger::Debug("TUI stopped");
+        }
+        catch (const std::exception& e) {
+            Logger::Error("Error stopping TUI: " + std::string(e.what()));
+        }
+        
         SafeExit(0);
     }
     catch (const std::exception& e) {

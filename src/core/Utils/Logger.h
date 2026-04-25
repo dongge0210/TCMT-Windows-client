@@ -24,8 +24,8 @@
 #include <windows.h>
 #endif
 
-// Include LogBuffer for TUI support (macOS)
-#ifdef TCMT_MACOS
+// Include LogBuffer for TUI support (macOS and Windows)
+#if defined(TCMT_MACOS) || defined(TCMT_WINDOWS)
 #include "../tui/LogBuffer.h"
 #endif
 
@@ -78,8 +78,8 @@ public:
     static void Critical(const std::string& message);
     static void Fatal(const std::string& message);
 
-#ifdef TCMT_MACOS
-    // Get the TUI log buffer (for macOS TUI mode)
+#if defined(TCMT_MACOS) || defined(_WIN32)
+    // Get the TUI log buffer (for TUI mode)
     static tcmt::LogBuffer& GetTuiBuffer();
 #endif
 };
