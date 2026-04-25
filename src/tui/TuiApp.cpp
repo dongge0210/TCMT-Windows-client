@@ -115,9 +115,9 @@ std::string TuiApp::TrimRight(const std::string& s, size_t maxLen) {
 void TuiApp::DrawHeader(WINDOW* win, const TuiData& data) {
     int rows, cols;
     getmaxyx(win, rows, cols);
-    (void)rows;
     wattron(win, COLOR_PAIR(1) | A_BOLD);
-    std::string title = "TCMT Monitor  " + data.timestamp;
+    std::string res = "[" + std::to_string(cols) + "x" + std::to_string(rows) + "]";
+    std::string title = "TCMT Monitor  " + data.timestamp + "  " + res;
     int x = (cols - static_cast<int>(title.size())) / 2;
     mvwprintw(win, 0, std::max(0, x), "%s", title.c_str());
     wattroff(win, COLOR_PAIR(1) | A_BOLD);
@@ -495,8 +495,8 @@ void TuiApp::Run() {
         refresh();
 
         // Check resize more frequently during sleep
-        for (int i = 0; i < 5 && running_.load(); ++i) {
-            std::this_thread::sleep_for(std::chrono::milliseconds(20));
+        for (int i = 0; i < 3 && running_.load(); ++i) {
+            std::this_thread::sleep_for(std::chrono::milliseconds(10));
         }
     }
 
