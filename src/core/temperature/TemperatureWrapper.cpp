@@ -7,7 +7,6 @@
 #pragma unmanaged
 
 bool TemperatureWrapper::initialized = false;
-static GpuInfo* gpuInfo = nullptr;
 
 void TemperatureWrapper::Initialize() {
     try {
@@ -25,7 +24,6 @@ void TemperatureWrapper::Cleanup() {
         LibreHardwareMonitorBridge::Cleanup();
         initialized = false;
     }
-    if (gpuInfo) { delete gpuInfo; gpuInfo = nullptr; }
 }
 
 std::vector<std::pair<std::string, double>> TemperatureWrapper::GetTemperatures() {

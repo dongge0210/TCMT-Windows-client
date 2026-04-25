@@ -3,9 +3,6 @@
 #include <vector>
 #include <utility>
 
-// Forward declaration, avoid including GPU header in header file
-class GpuInfo;
-
 class TemperatureWrapper {
 public:
     static void Initialize();
