@@ -524,7 +524,7 @@ public class SharedMemoryService : IDisposable
                 {
                     Manufacturer = SafeWideCharArrayToString(sharedData.tpm.manufacturer) ?? "未知",
                     FirmwareVersion = $"{sharedData.tpm.firmwareVersionMajor}.{sharedData.tpm.firmwareVersionMinor}.{sharedData.tpm.firmwareVersionBuild}",
-                    Status = sharedData.tpm.status == 0 ? "就绪" : (sharedData.tpm.status == 1 ? "错误" : "已禁用"),
+                    Status = sharedData.tpm.status == 1 ? "就绪" : (sharedData.tpm.status == 2 ? "错误" : (sharedData.tpm.status == 3 ? "已禁用" : "未知")),
                     SelfTestStatus = sharedData.tpm.selfTestStatus == 0 ? "成功" : "失败",
                     IsEnabled = sharedData.tpm.isEnabled,
                     IsActive = sharedData.tpm.isActive
