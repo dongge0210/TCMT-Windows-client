@@ -1,5 +1,5 @@
+#include <curses.h>
 #include "TuiApp.h"
-#include <ncurses.h>
 #include <locale>
 #include <ctime>
 #include <cstring>
@@ -33,7 +33,6 @@ void TuiApp::Stop() {
     if (thread_.joinable()) {
         thread_.join();
     }
-    // Safety: ensure terminal is restored even if Run() didn't reach endwin()
     SafeEndwin();
     std::fflush(stdout);
 }
@@ -89,7 +88,7 @@ std::string TuiApp::FormatSpeed(uint64_t bps) {
     const double KB = 1000.0;
 
     std::ostringstream ss;
-    ss << std::fixed << std::setprecision(0);
+    ss << std::fixed << std::setprecision(1);
     if (bps >= (uint64_t)GB) ss << (bps / GB) << " Gbps";
     else if (bps >= (uint64_t)MB) ss << (bps / MB) << " Mbps";
     else if (bps >= (uint64_t)KB) ss << (bps / KB) << " Kbps";
@@ -118,147 +117,239 @@ void TuiApp::DrawHeader(WINDOW* win, const TuiData& data) {
     getmaxyx(win, rows, cols);
     (void)rows;
     wattron(win, COLOR_PAIR(1) | A_BOLD);
-    std::string title = "TCMT Monitor - macOS  " + data.timestamp;
+    std::string title = "TCMT Monitor  " + data.timestamp;
     int x = (cols - static_cast<int>(title.size())) / 2;
     mvwprintw(win, 0, std::max(0, x), "%s", title.c_str());
     wattroff(win, COLOR_PAIR(1) | A_BOLD);
 }
 
-void TuiApp::DrawCpuPanel(WINDOW* win, const TuiData& data, int y, int x0, int maxW) {
-    int bw = std::min(maxW - 14, 20);
+int TuiApp::DrawCpuPanel(WINDOW* win, const TuiData& data, int y, int x0, int maxW) {
+    if (maxW < 10) return 0;
+    int bw = std::min(maxW - 14, 30);
+    bw = std::max(bw, 4);
+    int lines = 0;
+
     wattron(win, COLOR_PAIR(5) | A_BOLD);
-    mvwprintw(win, y++, x0, "CPU");
+    mvwprintw(win, y + lines, x0, "%.*s", maxW, "CPU");
     wattroff(win, COLOR_PAIR(5) | A_BOLD);
+    lines++;
 
-    std::string name = TrimRight(data.cpuName, maxW - 4);
-    mvwprintw(win, y++, x0 + 2, "%s", name.c_str());
+    auto name = TrimRight(data.cpuName, maxW - 4);
+    mvwprintw(win, y + lines, x0 + 2, "%.*s", maxW - 2, name.c_str());
+    lines++;
 
-    mvwprintw(win, y, x0 + 2, "Use:");
+    mvwprintw(win, y + lines, x0 + 2, "Use:");
     wattron(win, COLOR_PAIR(6));
-    mvwprintw(win, y++, x0 + 8, "%s", FormatBar(data.cpuUsage, bw).c_str());
+    mvwprintw(win, y + lines, x0 + 8, "%.*s", maxW - 8, FormatBar(data.cpuUsage, bw).c_str());
     wattroff(win, COLOR_PAIR(6));
-    mvwprintw(win, y - 1, x0 + 9 + bw, "%.1f%%", data.cpuUsage);
+    mvwprintw(win, y + lines, x0 + 9 + bw, "%.1f%%", data.cpuUsage);
+    lines++;
 
     if (data.performanceCores > 0 || data.efficiencyCores > 0) {
         if (data.pCoreFreq > 0 || data.eCoreFreq > 0) {
-            mvwprintw(win, y++, x0 + 2, "P:%d(%.0fM) E:%d(%.0fM)",
-                      data.performanceCores, data.pCoreFreq,
-                      data.efficiencyCores, data.eCoreFreq);
+            std::ostringstream ss;
+            ss << "P:" << data.performanceCores << "(" << data.pCoreFreq << "M)"
+               << " E:" << data.efficiencyCores << "(" << data.eCoreFreq << "M)";
+            mvwprintw(win, y + lines, x0 + 2, "%.*s", maxW - 2, ss.str().c_str());
         } else {
-            mvwprintw(win, y++, x0 + 2, "P:%d E:%d",
-                      data.performanceCores, data.efficiencyCores);
+            mvwprintw(win, y + lines, x0 + 2, "P:%d E:%d", data.performanceCores, data.efficiencyCores);
         }
     } else {
-        mvwprintw(win, y++, x0 + 2, "Cores: %d", data.physicalCores);
+        mvwprintw(win, y + lines, x0 + 2, "Cores: %d", data.physicalCores);
     }
+    lines++;
 
     if (data.cpuTemp > 0) {
-        int tc = (data.cpuTemp > 80) ? 4 : (data.cpuTemp > 60) ? 3 : 2;
-        wattron(win, COLOR_PAIR(tc));
-        mvwprintw(win, y++, x0 + 2, "Temp: %.0f C", data.cpuTemp);
-        wattroff(win, COLOR_PAIR(tc));
+        mvwprintw(win, y + lines, x0 + 2, "Temp: %.0f C", data.cpuTemp);
+        lines++;
     }
+
+    return lines;
 }
 
-void TuiApp::DrawMemoryPanel(WINDOW* win, const TuiData& data, int y, int x0, int maxW) {
-    int bw = std::min(maxW - 16, 20);
+int TuiApp::DrawMemoryPanel(WINDOW* win, const TuiData& data, int y, int x0, int maxW) {
+    if (maxW < 10) return 0;
+    int bw = std::min(maxW - 16, 30);
+    bw = std::max(bw, 4);
+    int lines = 0;
+
     wattron(win, COLOR_PAIR(5) | A_BOLD);
-    mvwprintw(win, y++, x0, "RAM");
+    mvwprintw(win, y + lines, x0, "%.*s", maxW, "RAM");
     wattroff(win, COLOR_PAIR(5) | A_BOLD);
+    lines++;
 
     double upct = (data.totalMemory > 0) ? 100.0 * data.usedMemory / data.totalMemory : 0;
-    mvwprintw(win, y, x0 + 2, "Used:");
+    mvwprintw(win, y + lines, x0 + 2, "Used:");
     wattron(win, COLOR_PAIR(6));
-    mvwprintw(win, y++, x0 + 8, "%s", FormatBar(upct, bw).c_str());
+    mvwprintw(win, y + lines, x0 + 8, "%.*s", maxW - 8, FormatBar(upct, bw).c_str());
     wattroff(win, COLOR_PAIR(6));
-    mvwprintw(win, y - 1, x0 + 9 + bw, "%s / %s",
-              FormatSize(data.usedMemory).c_str(),
-              FormatSize(data.totalMemory).c_str());
-    mvwprintw(win, y++, x0 + 2, "Avail: %s", FormatSize(data.availableMemory).c_str());
+    auto usedStr = FormatSize(data.usedMemory);
+    auto totalStr = FormatSize(data.totalMemory);
+    mvwprintw(win, y + lines, x0 + 9 + bw, "%.*s / %.*s",
+              maxW - 9 - bw, usedStr.c_str(),
+              maxW - 10 - bw - static_cast<int>(usedStr.size()), totalStr.c_str());
+    lines++;
+
+    auto availStr = FormatSize(data.availableMemory);
+    mvwprintw(win, y + lines, x0 + 2, "Avail: %.*s", maxW - 8, availStr.c_str());
+    lines++;
+
     if (data.compressedMemory > 0) {
-        mvwprintw(win, y++, x0 + 2, "Compressed: %s", FormatSize(data.compressedMemory).c_str());
+        auto compStr = FormatSize(data.compressedMemory);
+        mvwprintw(win, y + lines, x0 + 2, "Compressed: %.*s", maxW - 12, compStr.c_str());
+        lines++;
     }
+
+    return lines;
 }
 
-void TuiApp::DrawGpuPanel(WINDOW* win, const TuiData& data, int y, int x0, int maxW) {
-    int bw = std::min(maxW - 16, 20);
+int TuiApp::DrawGpuPanel(WINDOW* win, const TuiData& data, int y, int x0, int maxW) {
+    if (maxW < 10) return 0;
+    int bw = std::min(maxW - 16, 30);
+    bw = std::max(bw, 4);
+    int lines = 0;
+
     wattron(win, COLOR_PAIR(5) | A_BOLD);
-    mvwprintw(win, y++, x0, "GPU");
+    mvwprintw(win, y + lines, x0, "%.*s", maxW, "GPU");
     wattroff(win, COLOR_PAIR(5) | A_BOLD);
+    lines++;
 
-    std::string name = TrimRight(data.gpuName, maxW - 4);
-    mvwprintw(win, y++, x0 + 2, "%s", name.c_str());
+    auto name = TrimRight(data.gpuName, maxW - 4);
+    mvwprintw(win, y + lines, x0 + 2, "%.*s", maxW - 2, name.c_str());
+    lines++;
 
-    mvwprintw(win, y, x0 + 2, "Use:");
+    mvwprintw(win, y + lines, x0 + 2, "Use:");
     wattron(win, COLOR_PAIR(6));
-    mvwprintw(win, y++, x0 + 8, "%s", FormatBar(data.gpuUsage, bw).c_str());
+    mvwprintw(win, y + lines, x0 + 8, "%.*s", maxW - 8, FormatBar(data.gpuUsage, bw).c_str());
     wattroff(win, COLOR_PAIR(6));
-    mvwprintw(win, y - 1, x0 + 9 + bw, "%.1f%%", data.gpuUsage);
+    mvwprintw(win, y + lines, x0 + 9 + bw, "%.1f%%", data.gpuUsage);
+    lines++;
 
     if (data.gpuTemp > 0) {
-        int tc = (data.gpuTemp > 80) ? 4 : (data.gpuTemp > 60) ? 3 : 2;
-        wattron(win, COLOR_PAIR(tc));
-        mvwprintw(win, y++, x0 + 2, "Temp: %.0f C", data.gpuTemp);
-        wattroff(win, COLOR_PAIR(tc));
+        mvwprintw(win, y + lines, x0 + 2, "Temp: %.0f C", data.gpuTemp);
+        lines++;
     }
+
+    return lines;
 }
 
-void TuiApp::DrawDiskPanel(WINDOW* win, const TuiData& data, int y, int x0, int maxW) {
-    int bw = std::min(maxW - 22, 14);
+int TuiApp::DrawDiskPanel(WINDOW* win, const TuiData& data, int y, int x0, int maxW) {
+    if (maxW < 10) return 0;
+    int bw = std::min(maxW - 22, 20);
+    bw = std::max(bw, 4);
+
     wattron(win, COLOR_PAIR(5) | A_BOLD);
-    mvwprintw(win, y++, x0, "Disks");
+    mvwprintw(win, y, x0, "%.*s", maxW, "Disks");
     wattroff(win, COLOR_PAIR(5) | A_BOLD);
+    int lines = 1;
 
     for (const auto& d : data.disks) {
+        auto label = TrimRight(d.label.empty() ? "Untitled" : d.label, 14);
         double upct = (d.totalSize > 0) ? 100.0 * d.usedSpace / d.totalSize : 0;
-        std::string label = TrimRight(d.label.empty() ? "Untitled" : d.label, 14);
-        mvwprintw(win, y, x0 + 2, "%-14s", label.c_str());
-        wattron(win, COLOR_PAIR(6));
-        wprintw(win, "%s", FormatBar(upct, bw).c_str());
-        wattroff(win, COLOR_PAIR(6));
-        wprintw(win, "%.0f%% %s", upct, FormatSize(d.usedSpace).c_str());
-        y++;
+        auto usedStr = FormatSize(d.usedSpace);
+        mvwprintw(win, y + lines, x0 + 2, "%.*s", maxW - 2, label.c_str());
+        int barCol = x0 + 2 + static_cast<int>(label.size()) + 1;
+        if (barCol + bw + 2 < x0 + maxW) {
+            wattron(win, COLOR_PAIR(6));
+            mvwprintw(win, y + lines, barCol, "%.*s", bw, FormatBar(upct, bw).c_str());
+            wattroff(win, COLOR_PAIR(6));
+            mvwprintw(win, y + lines, barCol + bw + 1, "%d%% %.*s",
+                      static_cast<int>(upct), maxW - (barCol + bw + 1 - x0), usedStr.c_str());
+        }
+        lines++;
     }
+    return lines;
 }
 
-void TuiApp::DrawNetworkPanel(WINDOW* win, const TuiData& data, int y, int x0, int maxW) {
+int TuiApp::DrawNetworkPanel(WINDOW* win, const TuiData& data, int y, int x0, int maxW) {
+    if (maxW < 10) return 0;
     wattron(win, COLOR_PAIR(5) | A_BOLD);
-    mvwprintw(win, y++, x0, "Network");
+    mvwprintw(win, y, x0, "%.*s", maxW, "Network");
     wattroff(win, COLOR_PAIR(5) | A_BOLD);
+    int lines = 1;
 
     for (const auto& n : data.adapters) {
         if (n.ip.empty()) continue;
-        std::string name = TrimRight(n.name, 10);
-        std::string ip = TrimRight(n.ip, maxW - 14);
-        mvwprintw(win, y++, x0 + 2, "%-10s %s", name.c_str(), ip.c_str());
+        auto name = TrimRight(n.name, 10);
+        auto ip = TrimRight(n.ip, maxW - 14);
+        mvwprintw(win, y + lines, x0 + 2, "%-10s %.*s", name.c_str(), maxW - 14, ip.c_str());
+        lines++;
         if (!n.mac.empty() && n.mac != "00:00:00:00:00:00") {
-            mvwprintw(win, y++, x0 + 4, "%s", n.mac.c_str());
+            mvwprintw(win, y + lines, x0 + 4, "%.*s", maxW - 4, n.mac.c_str());
+            lines++;
         }
         if (n.speed > 0) {
-            mvwprintw(win, y++, x0 + 4, "%s", FormatSpeed(n.speed).c_str());
+            auto speedStr = FormatSpeed(n.speed);
+            mvwprintw(win, y + lines, x0 + 4, "%.*s", maxW - 4, speedStr.c_str());
+            lines++;
         }
     }
+    return lines;
 }
 
-void TuiApp::DrawTempPanel(WINDOW* win, const TuiData& data, int y, int x0, int maxW) {
+int TuiApp::DrawTpmPanel(WINDOW* win, const TuiData& data, int y, int x0, int maxW) {
+    if (maxW < 10) return 0;
     wattron(win, COLOR_PAIR(5) | A_BOLD);
-    mvwprintw(win, y++, x0, "Temps");
+    mvwprintw(win, y, x0, "%.*s", maxW, "TPM");
     wattroff(win, COLOR_PAIR(5) | A_BOLD);
-
-    for (const auto& [name, temp] : data.temperatures) {
-        int tc = (temp > 80) ? 4 : (temp > 60) ? 3 : 2;
-        std::string sensor = TrimRight(name, maxW - 12);
-        wattron(win, COLOR_PAIR(tc));
-        mvwprintw(win, y++, x0 + 2, "%-14s %.1f C", sensor.c_str(), temp);
-        wattroff(win, COLOR_PAIR(tc));
+    if (!data.tpmInfo.empty()) {
+        mvwprintw(win, y + 1, x0 + 2, "%.*s", maxW - 2, data.tpmInfo.c_str());
     }
+    return data.tpmInfo.empty() ? 1 : 2;
+}
+
+int TuiApp::DrawTempPanel(WINDOW* win, const TuiData& data, int y, int x0, int maxW) {
+    if (maxW < 10) return 0;
+    wattron(win, COLOR_PAIR(5) | A_BOLD);
+    mvwprintw(win, y, x0, "%.*s", maxW, "Temps");
+    wattroff(win, COLOR_PAIR(5) | A_BOLD);
+    int lines = 1;
+
+    int maxPairs = 4; // 8 sensors max, 2 per line
+    int halfW = maxW / 2;
+
+    // Collect sensors to display: skip per-core CPU sensors, keep aggregate ones
+    std::vector<std::pair<std::string, double>> displayTemps;
+    for (const auto& [name, temp] : data.temperatures) {
+        // Keep if it's an aggregate sensor or non-CPU sensor
+        bool isCoreSensor = (name.find("CPU") != std::string::npos &&
+                            name.find("Core Max") == std::string::npos &&
+                            name.find("Core Average") == std::string::npos &&
+                            name.find("Package") == std::string::npos &&
+                            name.find("Tdie") == std::string::npos &&
+                            name.find("Tctl") == std::string::npos);
+        if (!isCoreSensor) {
+            displayTemps.push_back({name, temp});
+        }
+    }
+
+    for (int p = 0; p < maxPairs && static_cast<size_t>(p * 2) < displayTemps.size(); p++) {
+        int leftIdx = p * 2;
+        int rightIdx = p * 2 + 1;
+
+        auto [nameL, tempL] = displayTemps[leftIdx];
+        auto labelL = TrimRight(nameL, halfW - 9);
+        int tcL = (tempL > 80) ? 4 : (tempL > 60) ? 3 : 2;
+        wattron(win, COLOR_PAIR(tcL));
+        mvwprintw(win, y + lines, x0 + 2, "%.*s %.1f C", halfW - 9, labelL.c_str(), tempL);
+        wattroff(win, COLOR_PAIR(tcL));
+
+        if (rightIdx < static_cast<int>(displayTemps.size())) {
+            auto [nameR, tempR] = displayTemps[rightIdx];
+            auto labelR = TrimRight(nameR, halfW - 9);
+            int tcR = (tempR > 80) ? 4 : (tempR > 60) ? 3 : 2;
+            wattron(win, COLOR_PAIR(tcR));
+            mvwprintw(win, y + lines, x0 + 2 + halfW, "%.*s %.1f C", halfW - 9, labelR.c_str(), tempR);
+            wattroff(win, COLOR_PAIR(tcR));
+        }
+        lines++;
+    }
+    return lines;
 }
 
 void TuiApp::Run() {
-    // Set locale for UTF-8 support
     setlocale(LC_ALL, "");
 
-    // Initialize ncurses
     initscr();
     cursesActive_ = true;
     cbreak();
@@ -269,26 +360,28 @@ void TuiApp::Run() {
 
     InitColors();
 
-    // Get terminal size
     getmaxyx(stdscr, termRows_, termCols_);
 
-    // Main loop
     while (running_.load()) {
-        // Get current terminal size
-        int rows, cols;
-        getmaxyx(stdscr, rows, cols);
+        int rows = termRows_, cols = termCols_;
 
-        // Handle input (non-blocking)
+        // Detect terminal resize via PDCurses
+#ifdef __PDCURSES__
+        if (is_termresized()) {
+            resize_term(0, 0);
+            getmaxyx(stdscr, rows, cols);
+            termRows_ = rows;
+            termCols_ = cols;
+            clear();
+        }
+#else
+        getmaxyx(stdscr, rows, cols);
+#endif
+
         int ch = getch();
         if (ch == 'q' || ch == 'Q' || ch == 27) {
             running_ = false;
             break;
-        }
-
-        // Handle resize
-        if (rows != termRows_ || cols != termCols_) {
-            termRows_ = rows;
-            termCols_ = cols;
         }
 
         if (rows < 10 || cols < 40) {
@@ -298,121 +391,115 @@ void TuiApp::Run() {
             continue;
         }
 
-        // Get current data
         TuiData data;
         {
             std::lock_guard<std::mutex> lock(dataMutex_);
             data = data_;
         }
 
-        // Clear screen
         erase();
 
-        // === Layout calculation ===
-        int y = 0;
-        int leftW = cols / 2;
-        int rightW = cols - leftW;
+        int lx = 1;
+        int rx = cols / 2 + 1;
+        int divCol = cols / 2;
+        int leftW = rx - lx - 1;
+        int rightW = cols - rx - 1;
 
-        // --- Header (2 lines) ---
+        // === Draw structural lines FIRST ===
+        // Top border
+        std::string topBot(cols, '-');
+        mvwprintw(stdscr, 0, 0, "%s", topBot.c_str());
+        mvwprintw(stdscr, rows - 1, 0, "%s", topBot.c_str());
+
+        // Side borders
+        for (int r = 1; r < rows - 1; r++) {
+            mvwprintw(stdscr, r, 0, "|");
+            mvwprintw(stdscr, r, cols - 1, "|");
+        }
+        mvwprintw(stdscr, 0, 0, "+");
+        mvwprintw(stdscr, 0, cols - 1, "+");
+        mvwprintw(stdscr, rows - 1, 0, "+");
+        mvwprintw(stdscr, rows - 1, cols - 1, "+");
+
+        // Header separator
+        std::string headerSep(cols - 2, '-');
+        mvwprintw(stdscr, 1, 1, "%s", headerSep.c_str());
+
+        // Vertical divider (only in content area, not log area)
+        int maxContentRow = rows - 5;
+        for (int r = 2; r <= maxContentRow; r++) {
+            mvwprintw(stdscr, r, divCol, "|");
+        }
+
+        // === Header ===
         DrawHeader(stdscr, data);
-        y += 2;
-        mvwhline(stdscr, y, 0, '-', cols);
-        y++;
 
-        // --- Main panels: CPU+Memory (left), GPU+Disk+Net+Temp (right) ---
-        int mainTop = y;
-        y++;
+        // === Left panels (stop before log area) ===
+        int maxY = rows - 5;
+        int ly = 2;
+        if (ly < maxY) {
+            int cpuLines = DrawCpuPanel(stdscr, data, ly, lx, leftW);
+            ly += cpuLines + 1; // +1 blank line after CPU
+            if (ly < maxY) {
+                ly += DrawMemoryPanel(stdscr, data, ly, lx, leftW);
+            }
+        }
+        if (ly > maxY) ly = maxY;
 
-        // Left: CPU (fixed 6 lines)
-        DrawCpuPanel(stdscr, data, mainTop, 1, leftW - 1);
-        y = mainTop + 7;
-        mvwhline(stdscr, y, 0, '-', leftW);
-        y++;
+        // === Right panels (stop before log area) ===
+        int ry = 2;
+        if (ry < maxY) {
+            int gpuLines = DrawGpuPanel(stdscr, data, ry, rx, rightW);
+            ry += gpuLines + 1; // +1 blank line after GPU
+            if (ry < maxY) {
+                ry += DrawDiskPanel(stdscr, data, ry, rx, rightW);
+            }
+            if (ry < maxY) {
+                ry += DrawNetworkPanel(stdscr, data, ry, rx, rightW);
+            }
+            if (ry < maxY) {
+                ry += DrawTpmPanel(stdscr, data, ry, rx, rightW);
+            }
+            if (ry < maxY) {
+                ry += DrawTempPanel(stdscr, data, ry, rx, rightW);
+            }
+        }
+        if (ry > maxY) ry = maxY;
 
-        // Left: Memory (fixed 4 lines)
-        DrawMemoryPanel(stdscr, data, y, 1, leftW - 1);
-        y += 4;
-        mvwhline(stdscr, y, 0, '-', leftW);
-        y++;
+        // === Log panel ===
+        int contentEnd = ly > ry ? ly : ry;
+        int logTop = contentEnd + 1;
 
-        // Right: GPU (fixed 5 lines)
-        DrawGpuPanel(stdscr, data, mainTop, leftW + 1, rightW - 1);
-        int rightY = mainTop + 6;
-        mvwhline(stdscr, rightY, leftW, '-', rightW);
-        rightY++;
+        // Log separator
+        std::string logSep(cols - 2, '-');
+        mvwprintw(stdscr, logTop - 1, 1, "%s", logSep.c_str());
 
-        // Right: Disk (remaining space / 3)
-        DrawDiskPanel(stdscr, data, rightY, leftW + 1, rightW - 1);
-        int diskLines = std::min(static_cast<int>(data.disks.size() + 1), rows / 6);
-        rightY += diskLines;
-        mvwhline(stdscr, rightY, leftW, '-', rightW);
-        rightY++;
-
-        // Right: Network
-        DrawNetworkPanel(stdscr, data, rightY, leftW + 1, rightW - 1);
-        int netLines = std::min(static_cast<int>(data.adapters.size() + 1), rows / 8);
-        rightY += netLines;
-        mvwhline(stdscr, rightY, leftW, '-', rightW);
-        rightY++;
-
-        // Right: Temperature
-        DrawTempPanel(stdscr, data, rightY, leftW + 1, rightW - 1);
-
-        // --- Log panel (bottom) ---
-        int logTop = rows - rows / 4 - 1;
-        if (logTop < y + 1) logTop = y + 1;
-        mvwhline(stdscr, logTop, 0, '-', cols);
-        logTop++;
-
-        // Draw log panel directly using stdscr
-        wattron(stdscr, COLOR_PAIR(5) | A_BOLD);
         mvwprintw(stdscr, logTop, 1, "Log");
-        wattroff(stdscr, COLOR_PAIR(5) | A_BOLD);
 
-        auto logLines = logBuf_->GetRecent(rows - logTop - 2);
-        for (size_t i = 0; i < logLines.size() && static_cast<int>(i + logTop + 1) < rows - 1; ++i) {
-            const std::string& line = logLines[i];
-            int color = 2;
-            if (line.find("[ERROR]") != std::string::npos) color = 4;
-            else if (line.find("[WARN]") != std::string::npos) color = 3;
-            else if (line.find("[DEBUG]") != std::string::npos) color = 6;
-
-            wattron(stdscr, COLOR_PAIR(color));
-            std::string trimmed = TrimRight(line, cols - 2);
-            mvwprintw(stdscr, logTop + 1 + i, 1, "%s", trimmed.c_str());
-            wattroff(stdscr, COLOR_PAIR(color));
+        int logLinesAvail = rows - logTop - 2;
+        if (logLinesAvail > 0) {
+            auto logEntries = logBuf_->GetRecent(logLinesAvail);
+            for (size_t i = 0; i < logEntries.size() && static_cast<int>(i) < logLinesAvail; ++i) {
+                const auto& entry = logEntries[i];
+                int color = 2;
+                if (entry.find("[ERROR]") != std::string::npos) color = 4;
+                else if (entry.find("[WARN]") != std::string::npos) color = 3;
+                else if (entry.find("[DEBUG]") != std::string::npos) color = 6;
+                wattron(stdscr, COLOR_PAIR(color));
+                mvwprintw(stdscr, logTop + 1 + static_cast<int>(i), 2, "%.*s",
+                          cols - 4, entry.c_str());
+                wattroff(stdscr, COLOR_PAIR(color));
+            }
         }
 
-        // Border around entire screen
-        // ASCII border
-        for (int c = 0; c < cols; c++) {
-            mvaddch(0, c, '-');
-            mvaddch(rows-1, c, '-');
-        }
-        for (int r = 0; r < rows; r++) {
-            mvaddch(r, 0, '|');
-            mvaddch(r, cols-1, '|');
-        }
-        mvaddch(0, 0, '+');
-        mvaddch(0, cols-1, '+');
-        mvaddch(rows-1, 0, '+');
-        mvaddch(rows-1, cols-1, '+');
-
-        // Left/right separator line
-        for (int r = 2; r < logTop; r++) {
-            mvwvline(stdscr, r, leftW, '|', 1);
-        }
-
-        // Refresh
         refresh();
 
-        // Short sleep with periodic check for responsive exit
-        for (int i = 0; i < 10 && running_.load(); ++i) {
+        // Check resize more frequently during sleep
+        for (int i = 0; i < 5 && running_.load(); ++i) {
             std::this_thread::sleep_for(std::chrono::milliseconds(20));
         }
     }
 
-    // Cleanup
     SafeEndwin();
 }
 
