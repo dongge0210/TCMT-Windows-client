@@ -399,7 +399,7 @@ public class SharedMemoryService : IDisposable
         }
     }
 
-    private SystemInfo ReadCompleteSystemInfo()
+    private SystemInfo? ReadCompleteSystemInfo()
     {
         if (OperatingSystem.IsWindows())
             return ReadWindows();
@@ -408,7 +408,7 @@ public class SharedMemoryService : IDisposable
         throw new PlatformNotSupportedException();
     }
 
-    private SystemInfo ReadWindows()
+    private SystemInfo? ReadWindows()
     {
         if (_accessor == null)
             throw new InvalidOperationException("Windows shared memory not initialized");
@@ -421,7 +421,7 @@ public class SharedMemoryService : IDisposable
         return MarshalToSystemInfo(raw);
     }
 
-    private SystemInfo ReadPosix()
+    private SystemInfo? ReadPosix()
     {
         if (_posixShmPtr == IntPtr.Zero || _posixShmPtr == MAP_FAILED)
             throw new InvalidOperationException("POSIX shared memory not initialized");
@@ -433,7 +433,7 @@ public class SharedMemoryService : IDisposable
         return MarshalToSystemInfo(raw);
     }
 
-    private SystemInfo MarshalToSystemInfo(byte[] raw)
+    private SystemInfo? MarshalToSystemInfo(byte[] raw)
     {
         var handle = GCHandle.Alloc(raw, GCHandleType.Pinned);
         try
@@ -447,19 +447,19 @@ public class SharedMemoryService : IDisposable
         }
     }
 
-    private SystemInfo ConvertToSystemInfo(SharedMemoryBlock sharedData)
+    private SystemInfo? ConvertToSystemInfo(SharedMemoryBlock sharedData)
     {
-        // Validate data - check if cpuName is empty (data not yet written by C++ core)
-        string? cpuName = SafeWideCharArrayToString(sharedData.cpuName);
-        if (string.IsNullOrEmpty(cpuName) || sharedData.physicalCores == 0)
+        // Validate data - check if C++ core has written to shared memory
+        // (lastUpdate.wYear is zero when memory is uninitialized)
+        if (sharedData.lastUpdate.wYear == 0)
         {
-            // Data not yet initialized by C++ core
-            return new SystemInfo { CpuName = "等待数据..." };
+            return null;
         }
 
         var systemInfo = new SystemInfo();
         try
         {
+            string? cpuName = SafeWideCharArrayToString(sharedData.cpuName);
             systemInfo.CpuName = cpuName ?? "Unknown CPU";
             systemInfo.PhysicalCores = sharedData.physicalCores;
             systemInfo.LogicalCores = sharedData.logicalCores;
@@ -698,7 +698,7 @@ public class SharedMemoryService : IDisposable
                 };
             }
 
-            systemInfo.LastUpdate = DateTime.Now;
+            systemInfo.LastUpdate = ToDateTime(sharedData.lastUpdate);
             Log.Debug("Read from shared memory: CPU={CPU}, GPU={GPU}, Net={Net}, Disk={Disk}, Phys={Phys}",
                 systemInfo.CpuName, systemInfo.Gpus.Count, systemInfo.Adapters.Count, systemInfo.Disks.Count, systemInfo.PhysicalDisks.Count);
             return systemInfo;
@@ -706,7 +706,19 @@ public class SharedMemoryService : IDisposable
         catch (Exception ex)
         {
             Log.Error(ex, "Failed to convert shared memory data");
-            return new SystemInfo { CpuName = "Conversion failed" };
+            return null;
+        }
+    }
+
+    private static DateTime ToDateTime(SYSTEMTIME st)
+    {
+        try
+        {
+            return new DateTime(st.wYear, st.wMonth, st.wDay, st.wHour, st.wMinute, st.wSecond, st.wMilliseconds, DateTimeKind.Local);
+        }
+        catch
+        {
+            return DateTime.MinValue;
         }
     }
 
