@@ -124,9 +124,19 @@ void GpuInfo::QueryNvidiaGpuInfo(int index) {
     result = nvmlDeviceGetClockInfo(device, NVML_CLOCK_GRAPHICS, &clockMHz);
     if (NVML_SUCCESS == result) gpuList[index].coreClock = static_cast<double>(clockMHz);
 
+    #pragma warning(disable: 4996)
     unsigned int temp = 0;
     result = nvmlDeviceGetTemperature(device, NVML_TEMPERATURE_GPU, &temp);
+#pragma warning(default: 4996)
     if (NVML_SUCCESS == result) gpuList[index].temperature = temp;
+
+    // 获取 GPU 使用率
+    nvmlUtilization_t util;
+    result = nvmlDeviceGetUtilizationRates(device, &util);
+    if (NVML_SUCCESS == result) {
+        gpuList[index].usage = static_cast<double>(util.gpu);
+        Logger::Debug("GPU usage from NVML: " + std::to_string(util.gpu) + "%");
+    }
 
     int major = 0, minor = 0;
     result = nvmlDeviceGetCudaComputeCapability(device, &major, &minor);

@@ -19,12 +19,10 @@ namespace AvaloniaUI.Models
             return order == 0 ? $"{len:0} {sizes[order]}" : $"{len:0.##} {sizes[order]}";
         }
 
-        // 网络速度格式化 (使用 1000 而不是 1024)
-        public static string FormatNetworkSpeed(ulong bytes)
+        // 网络速度格式化 (值已经是 bps，直接格式化)
+        public static string FormatNetworkSpeed(ulong bitsPerSec)
         {
-            if (bytes == 0) return "N/A";
-            // 转换为 bits (x8) 并使用 1000 作为 base
-            ulong bitsPerSec = bytes * 8;
+            if (bitsPerSec == 0) return "N/A";
             string[] sizes = { "bps", "Kbps", "Mbps", "Gbps", "Tbps" };
             double len = bitsPerSec;
             int order = 0;

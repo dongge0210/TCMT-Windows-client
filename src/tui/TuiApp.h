@@ -8,9 +8,11 @@
 #include <thread>
 #include <chrono>
 
-// Forward declarations for ncurses
+// Forward declarations for ncurses (skip if PDCurses already included)
+#ifndef __PDCURSES__
 struct _win_st;
 typedef struct _win_st WINDOW;
+#endif
 
 namespace tcmt {
 
@@ -60,6 +62,9 @@ struct TuiData {
     // OS
     std::string osVersion;
 
+    // TPM
+    std::string tpmInfo;
+
     // Temperatures
     std::vector<std::pair<std::string, double>> temperatures;
 
@@ -91,12 +96,13 @@ private:
     void SafeEndwin();
     void InitColors();
     void DrawHeader(WINDOW* win, const TuiData& data);
-    void DrawCpuPanel(WINDOW* win, const TuiData& data, int y, int x0, int maxW);
-    void DrawMemoryPanel(WINDOW* win, const TuiData& data, int y, int x0, int maxW);
-    void DrawGpuPanel(WINDOW* win, const TuiData& data, int y, int x0, int maxW);
-    void DrawDiskPanel(WINDOW* win, const TuiData& data, int y, int x0, int maxW);
-    void DrawNetworkPanel(WINDOW* win, const TuiData& data, int y, int x0, int maxW);
-    void DrawTempPanel(WINDOW* win, const TuiData& data, int y, int x0, int maxW);
+    int DrawCpuPanel(WINDOW* win, const TuiData& data, int y, int x0, int maxW);
+    int DrawMemoryPanel(WINDOW* win, const TuiData& data, int y, int x0, int maxW);
+    int DrawGpuPanel(WINDOW* win, const TuiData& data, int y, int x0, int maxW);
+    int DrawDiskPanel(WINDOW* win, const TuiData& data, int y, int x0, int maxW);
+    int DrawNetworkPanel(WINDOW* win, const TuiData& data, int y, int x0, int maxW);
+    int DrawTpmPanel(WINDOW* win, const TuiData& data, int y, int x0, int maxW);
+    int DrawTempPanel(WINDOW* win, const TuiData& data, int y, int x0, int maxW);
 
     // Utility
     static std::string FormatSize(uint64_t bytes);

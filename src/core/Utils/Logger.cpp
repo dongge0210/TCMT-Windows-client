@@ -1,6 +1,6 @@
 #include "Logger.h"
 
-#ifdef TCMT_MACOS
+#if defined(TCMT_MACOS) || defined(_WIN32)
 #include "../../tui/LogBuffer.h"
 #endif
 
@@ -14,8 +14,8 @@ void* Logger::hConsole = nullptr;
 void* Logger::hConsole = nullptr;
 #endif
 
-#ifdef TCMT_MACOS
-// Global TUI log buffer (only used on macOS)
+#if defined(TCMT_MACOS) || defined(_WIN32)
+// Global TUI log buffer (for TUI mode)
 static tcmt::LogBuffer g_tuiLogBuffer;
 #endif
 
@@ -82,8 +82,7 @@ void Logger::WriteLog(const std::string& level, const std::string& message,
     logFile.write(logEntry.c_str(), logEntry.size());
     logFile.flush();
 
-#ifdef TCMT_MACOS
-    // Also push to TUI log buffer (for macOS TUI mode)
+#if defined(TCMT_MACOS) || defined(_WIN32)
     g_tuiLogBuffer.Push(logEntry);
 #endif
 
@@ -278,8 +277,8 @@ void Logger::Fatal(const std::string& message)    { WriteLog("FATAL",   message,
 
 #endif
 
-#ifdef TCMT_MACOS
-// GetTuiBuffer - returns global log buffer for TUI (macOS only)
+#if defined(TCMT_MACOS) || defined(_WIN32)
+// GetTuiBuffer - returns global log buffer for TUI
 tcmt::LogBuffer& Logger::GetTuiBuffer() {
     return g_tuiLogBuffer;
 }

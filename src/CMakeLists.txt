@@ -59,12 +59,22 @@ if(TCMT_MACOS)
     )
 endif()
 
-# TUI module (macOS only)
+# TUI module (Windows and macOS)
 set(TUI_SOURCES "")
-if(TCMT_MACOS)
+if(TCMT_WINDOWS OR TCMT_MACOS)
     list(APPEND TUI_SOURCES
         ${CMAKE_CURRENT_SOURCE_DIR}/tui/TuiApp.cpp
     )
+endif()
+
+# Curses library - platform specific
+if(TCMT_WINDOWS)
+    # Windows: use PDCurses from third_party
+    set(CURSES_INCLUDE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/third_party/PDCurses" CACHE PATH "PDCurses include")
+    set(CURSES_LIBRARY "pdcurses" CACHE PATH "PDCurses library")
+    # Note: PDCurses needs to be built first or use prebuilt library
+    
+elseif(TCMT_MACOS)
     set(CURSES_NEED_WIDE TRUE)
     # Prefer Homebrew ncurses (has wide chars) over system SDK (no ncursesw)
     if(APPLE)
@@ -131,8 +141,14 @@ tcmt_target_set_options(TCMTCore)
 tcmt_set_platform_libraries(TCMTCore)
 tcmt_set_output_directories(TCMTCore)
 
-# Link ncurses on macOS
-if(TCMT_MACOS)
+# Link curses on Windows and macOS
+if(TCMT_WINDOWS)
+    # Windows: PDCurses - link with prebuilt or skip for now
+    # target_link_libraries(TCMTCore PRIVATE ${CURSES_LIBRARY})
+    # target_include_directories(TCMTCore PRIVATE ${CURSES_INCLUDE_PATH})
+    # For now, skip - will be added after PDCurses is built
+    
+elseif(TCMT_MACOS)
     target_link_libraries(TCMTCore PRIVATE ${CURSES_LIBRARIES})
     target_include_directories(TCMTCore PRIVATE ${CURSES_INCLUDE_DIR})
 endif()
@@ -141,7 +157,7 @@ endif()
 # Build executable
 # ============================================================
 if(TCMT_WINDOWS)
-    # Windows: use main.cpp
+    # Windows: use main.cpp (with TUI support via #ifdef)
     add_executable(TCMT-M
         ${CMAKE_CURRENT_SOURCE_DIR}/main.cpp
         # Windows-specific GPU bridge (C++/CLI)

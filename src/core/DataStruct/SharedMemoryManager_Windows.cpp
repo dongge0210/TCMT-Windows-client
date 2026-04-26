@@ -277,6 +277,7 @@ void SharedMemoryManager::WriteToSharedMemory(const SystemInfo& systemInfo) {
             pBuffer->gpus[0].memory = systemInfo.gpuMemory;
             pBuffer->gpus[0].coreClock = systemInfo.gpuCoreFreq;
             pBuffer->gpus[0].isVirtual = systemInfo.gpuIsVirtual;
+            pBuffer->gpus[0].usage = systemInfo.gpuUsage;
             pBuffer->gpuCount = 1;
         }
         // If later want to support vector<GPUData>, can extend here
@@ -386,6 +387,23 @@ void SharedMemoryManager::WriteToSharedMemory(const SystemInfo& systemInfo) {
         pBuffer->cpuTemperature = systemInfo.cpuTemperature;
         pBuffer->gpuTemperature = systemInfo.gpuTemperature;
         pBuffer->cpuUsageSampleIntervalMs = systemInfo.cpuUsageSampleIntervalMs;
+
+        // TPM info
+        memset(&pBuffer->tpm, 0, sizeof(pBuffer->tpm));
+        pBuffer->tpmCount = 0;
+        if (!systemInfo.tpms.empty()) {
+            const auto& src = systemInfo.tpms[0];
+            SafeCopyFromWideArray(pBuffer->tpm.manufacturer, 32, src.manufacturer, 32);
+            SafeCopyFromWideArray(pBuffer->tpm.firmwareVersion, 32, src.firmwareVersion, 32);
+            pBuffer->tpm.firmwareVersionMajor = src.firmwareVersionMajor;
+            pBuffer->tpm.firmwareVersionMinor = src.firmwareVersionMinor;
+            pBuffer->tpm.firmwareVersionBuild = src.firmwareVersionBuild;
+            pBuffer->tpm.isPresent = src.isPresent;
+            pBuffer->tpm.isEnabled = src.isEnabled;
+            pBuffer->tpm.isActive = src.isActive;
+            pBuffer->tpm.status = src.isPresent ? 1 : 3; // 1=OK, 3=Disabled
+            pBuffer->tpmCount = 1;
+        }
 
         pBuffer->lastUpdate = Platform::SystemTime::Now();
         Logger::Trace("Successfully wrote system/disk/SMART information to shared memory");
