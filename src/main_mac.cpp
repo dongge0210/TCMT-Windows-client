@@ -289,6 +289,7 @@ int main(int argc, char* argv[]) {
                 sysInfo.totalMemory = data.totalMemory;
                 sysInfo.usedMemory = data.usedMemory;
                 sysInfo.availableMemory = data.availableMemory;
+                sysInfo.compressedMemory = data.compressedMemory;
                 sysInfo.physicalCores = data.physicalCores;
                 sysInfo.performanceCores = data.performanceCores;
                 sysInfo.efficiencyCores = data.efficiencyCores;

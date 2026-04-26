@@ -26,7 +26,7 @@ public class SharedMemoryService : IDisposable
     private const string LOCAL_SHARED_MEMORY_NAME = "Local\\SystemMonitorSharedMemory";
 
     // C++ sizeof(SharedMemoryBlock) on macOS (WCHAR=char16_t, pack=1)
-    private const int MAC_SHM_SIZE = 129123;
+    private const int MAC_SHM_SIZE = 129131;
 
     // Set to true to enable verbose layout diagnostics in InitializeMacOS
     private const bool DEBUG_DIAG = false;
@@ -70,6 +70,7 @@ public class SharedMemoryService : IDisposable
         public ulong totalMemory;
         public ulong usedMemory;
         public ulong availableMemory;
+        public ulong compressedMemory;
         public double cpuTemperature;
         public double gpuTemperature;
         public double cpuUsageSampleIntervalMs;
@@ -91,7 +92,7 @@ public class SharedMemoryService : IDisposable
         public TpmInfoStruct tpm;
         public byte tpmCount;
         public SYSTEMTIME lastUpdate;
-        [MarshalAs(UnmanagedType.ByValArray, SizeConst = 40)]
+        [MarshalAs(UnmanagedType.ByValArray, SizeConst = 64)]
         public byte[] lockData;
     }
 
@@ -472,6 +473,7 @@ public class SharedMemoryService : IDisposable
             systemInfo.TotalMemory = sharedData.totalMemory;
             systemInfo.UsedMemory = sharedData.usedMemory;
             systemInfo.AvailableMemory = sharedData.availableMemory;
+            systemInfo.CompressedMemory = sharedData.compressedMemory;
             systemInfo.CpuTemperature = sharedData.cpuTemperature;
             systemInfo.GpuTemperature = sharedData.gpuTemperature;
             systemInfo.CpuUsageSampleIntervalMs = sharedData.cpuUsageSampleIntervalMs;
@@ -681,9 +683,9 @@ public class SharedMemoryService : IDisposable
                 }
             }
 
-            // TPM
+            // TPM (not supported on macOS)
             systemInfo.Tpm = null;
-            if (sharedData.tpmCount > 0 && sharedData.tpm.isPresent)
+            if (!OperatingSystem.IsMacOS() && sharedData.tpmCount > 0 && sharedData.tpm.isPresent)
             {
                 systemInfo.Tpm = new TpmData
                 {

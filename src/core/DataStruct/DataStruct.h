@@ -138,6 +138,7 @@ struct SystemInfo {
     uint64_t totalMemory;
     uint64_t usedMemory;
     uint64_t availableMemory;
+    uint64_t compressedMemory;
     std::vector<GPUData> gpus;
     std::vector<NetworkAdapterData> adapters;
     std::vector<DiskData> disks;
@@ -177,6 +178,7 @@ struct SharedMemoryBlock {
     uint64_t totalMemory;     // Total memory (bytes)
     uint64_t usedMemory;      // Used memory (bytes)
     uint64_t availableMemory; // Available memory (bytes)
+    uint64_t compressedMemory; // Compressed memory (bytes)
     double cpuTemperature; // CPU temperature
     double gpuTemperature; // GPU temperature
     double cpuUsageSampleIntervalMs; // CPU usage sample interval (ms)

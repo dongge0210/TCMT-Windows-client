@@ -69,6 +69,14 @@ OSInfo::OSInfo() {
 #error "Unsupported platform"
 #endif
 
+bool OSInfo::HasTpm() {
+#if defined(TCMT_WINDOWS)
+    return true; // Actual detection via TpmBridge
+#else
+    return false; // No TPM support on macOS/Linux
+#endif
+}
+
 std::string OSInfo::GetVersion() const {
     return osVersion;
 }

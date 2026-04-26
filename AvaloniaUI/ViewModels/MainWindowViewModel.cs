@@ -69,6 +69,7 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
         CpuName = "未连接";
         TotalMemory = "未检测到";
         UsedMemory = "未检测到";
+        CompressedMemory = "";
         GpuList.Clear();
         NetworkList.Clear();
         DiskList.Clear();
@@ -186,6 +187,7 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
         TotalMemory = info.TotalMemory > 0 ? FormatBytes(info.TotalMemory) : "未检测到";
         UsedMemory = info.UsedMemory > 0 ? FormatBytes(info.UsedMemory) : "未检测到";
         AvailableMemory = info.AvailableMemory > 0 ? FormatBytes(info.AvailableMemory) : "未检测到";
+        CompressedMemory = info.CompressedMemory > 0 ? FormatBytes(info.CompressedMemory) : "";
         MemoryPercent = info.TotalMemory > 0 ? (double)info.UsedMemory / info.TotalMemory * 100 : 0;
         AddMemoryHistoryPoint(MemoryPercent);
 
@@ -468,6 +470,9 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
 
     [ObservableProperty]
     private string _availableMemory = "检测中...";
+
+    [ObservableProperty]
+    private string _compressedMemory = "";
 
     [ObservableProperty]
     private double _memoryUsed;

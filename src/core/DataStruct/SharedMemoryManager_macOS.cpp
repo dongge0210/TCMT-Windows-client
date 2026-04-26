@@ -178,6 +178,7 @@ void SharedMemoryManager::WriteToSharedMemory(const SystemInfo& systemInfo) {
         pBuffer->totalMemory = systemInfo.totalMemory;
         pBuffer->usedMemory = systemInfo.usedMemory;
         pBuffer->availableMemory = systemInfo.availableMemory;
+        pBuffer->compressedMemory = systemInfo.compressedMemory;
 
         // GPU information (compatible with old fields)
         pBuffer->gpuCount = 0;

@@ -65,6 +65,7 @@ namespace AvaloniaUI.Models
         public ulong TotalMemory { get; set; }
         public ulong UsedMemory { get; set; }
         public ulong AvailableMemory { get; set; }
+        public ulong CompressedMemory { get; set; }
         
         public List<GpuData> Gpus { get; set; } = new();
         public string GpuName { get; set; } = string.Empty;
