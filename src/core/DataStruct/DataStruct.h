@@ -6,6 +6,15 @@
 // Platform abstraction
 #include "../Platform/Platform.h"
 
+// Cross-platform fixed-width wide character (always 2 bytes, UTF-16)
+// On Windows: wchar_t is already 2 bytes (UTF-16)
+// On macOS/Linux: wchar_t is 4 bytes (UTF-32), force 2-byte with char16_t
+#if defined(TCMT_MACOS) || defined(TCMT_LINUX)
+using WCHAR = char16_t;
+#else
+using WCHAR = wchar_t;
+#endif
+
 #pragma pack(push, 1) // Ensure memory alignment
 
 // SMART attribute info
@@ -16,20 +25,20 @@ struct SmartAttributeData {
     uint8_t worst;                 // Worst value
     uint8_t threshold;             // Threshold
     uint64_t rawValue;             // Raw value
-    wchar_t name[64];              // Attribute name
-    wchar_t description[128];      // Attribute description
+    WCHAR name[64];                // Attribute name
+    WCHAR description[128];        // Attribute description
     bool isCritical;               // Critical attribute flag
     double physicalValue;          // Physical value (converted)
-    wchar_t units[16];             // Units
+    WCHAR units[16];               // Units
 };
 
 // Physical disk SMART info
 struct PhysicalDiskSmartData {
-    wchar_t model[128];            // Disk model
-    wchar_t serialNumber[64];      // Serial number
-    wchar_t firmwareVersion[32];   // Firmware version
-    wchar_t interfaceType[32];     // Interface type (SATA/NVMe/etc)
-    wchar_t diskType[16];          // Disk type (SSD/HDD)
+    WCHAR model[128];              // Disk model
+    WCHAR serialNumber[64];        // Serial number
+    WCHAR firmwareVersion[32];     // Firmware version
+    WCHAR interfaceType[32];       // Interface type (SATA/NVMe/etc)
+    WCHAR diskType[16];            // Disk type (SSD/HDD)
     uint64_t capacity;             // Total capacity (bytes)
     double temperature;            // Temperature
     uint8_t healthPercentage;      // Health percentage
@@ -56,16 +65,16 @@ struct PhysicalDiskSmartData {
     int logicalDriveCount;         // Associated drive count
 
     // Partition volume labels
-    wchar_t partitionLabels[8][32]; // Volume label for each partition
+    WCHAR partitionLabels[8][32]; // Volume label for each partition
 
     PlatformSystemTime lastScanTime;       // Last scan time
 };
 
 // TPM Info
 struct TpmInfo {
-    wchar_t manufacturer[32];           // TPM manufacturer name
+    WCHAR manufacturer[32];           // TPM manufacturer name
     uint16_t vendorId;                  // Vendor ID
-    wchar_t firmwareVersion[32];        // Firmware version
+    WCHAR firmwareVersion[32];        // Firmware version
     uint8_t firmwareVersionMajor;
     uint8_t firmwareVersionMinor;
     uint8_t firmwareVersionBuild;
@@ -81,8 +90,8 @@ struct TpmInfo {
 
 // GPU information
 struct GPUData {
-    wchar_t name[128];    // GPU name
-    wchar_t brand[64];    // Brand
+    WCHAR name[128];    // GPU name
+    WCHAR brand[64];    // Brand
     uint64_t memory;      // VRAM (bytes)
     double coreClock;     // Core clock (MHz)
     bool isVirtual;       // Is virtual GPU
@@ -91,10 +100,10 @@ struct GPUData {
 
 // Network adapter info
 struct NetworkAdapterData {
-    wchar_t name[128];    // Adapter name
-    wchar_t mac[32];      // MAC address
-    wchar_t ipAddress[64]; // IP address
-    wchar_t adapterType[32]; // Adapter type (wireless/wired)
+    WCHAR name[128];    // Adapter name
+    WCHAR mac[32];      // MAC address
+    WCHAR ipAddress[64]; // IP address
+    WCHAR adapterType[32]; // Adapter type (wireless/wired)
     uint64_t speed;       // Speed (bps)
 };
 
@@ -110,7 +119,7 @@ struct DiskData {
 
 // Temperature sensor info
 struct TemperatureData {
-    wchar_t sensorName[64]; // Sensor name
+    WCHAR sensorName[64]; // Sensor name
     double temperature;     // Temperature (celsius)
 };
 
@@ -155,7 +164,7 @@ struct SystemInfo {
 
 // Shared memory main struct
 struct SharedMemoryBlock {
-    wchar_t cpuName[128];       // CPU name - wchar_t array
+    WCHAR cpuName[128];       // CPU name - WCHAR array
     int physicalCores;        // Physical cores
     int logicalCores;         // Logical cores
     double cpuUsage;          // Changed to double type, improved precision
@@ -181,8 +190,8 @@ struct SharedMemoryBlock {
     // Logical disk information (up to 8 disks supported)
     struct SharedDiskData {
         char letter;             // Drive letter (e.g. 'C')
-        wchar_t label[128];      // Volume label - Using wchar_t array for shared memory
-        wchar_t fileSystem[32];  // File system - Using wchar_t array for shared memory
+        WCHAR label[128];      // Volume label - Using WCHAR array for shared memory
+        WCHAR fileSystem[32];  // File system - Using WCHAR array for shared memory
         uint64_t totalSize;      // Total capacity (bytes)
         uint64_t usedSpace;      // Used space (bytes)
         uint64_t freeSpace;      // Free space (bytes)

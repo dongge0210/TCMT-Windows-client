@@ -367,6 +367,97 @@ std::string StringConverter::WideToUtf8(const std::wstring& wide) {
     return result;
 }
 
+// UTF-8 to char16_t (UTF-16) conversion
+std::u16string StringConverter::Utf8ToChar16(const std::string& utf8) {
+    std::u16string result;
+    result.reserve(utf8.size());
+
+    const char* ptr = utf8.c_str();
+    size_t len = utf8.size();
+    size_t i = 0;
+
+    while (i < len) {
+        unsigned char c = static_cast<unsigned char>(ptr[i]);
+        char32_t cp;
+
+        if ((c & 0x80) == 0) {
+            cp = c;
+            i += 1;
+        } else if ((c & 0xE0) == 0xC0) {
+            if (i + 1 >= len) { cp = 0xFFFD; i += 1; }
+            else { cp = ((c & 0x1F) << 6) | (static_cast<unsigned char>(ptr[i + 1]) & 0x3F); i += 2; }
+        } else if ((c & 0xF0) == 0xE0) {
+            if (i + 2 >= len) { cp = 0xFFFD; i += 1; }
+            else { cp = ((c & 0x0F) << 12) | ((static_cast<unsigned char>(ptr[i + 1]) & 0x3F) << 6) | (static_cast<unsigned char>(ptr[i + 2]) & 0x3F); i += 3; }
+        } else if ((c & 0xF8) == 0xF0) {
+            if (i + 3 >= len) { cp = 0xFFFD; i += 1; }
+            else {
+                cp = ((c & 0x07) << 18) | ((static_cast<unsigned char>(ptr[i + 1]) & 0x3F) << 12)
+                    | ((static_cast<unsigned char>(ptr[i + 2]) & 0x3F) << 6)
+                    | (static_cast<unsigned char>(ptr[i + 3]) & 0x3F);
+                i += 4;
+            }
+        } else {
+            cp = 0xFFFD;
+            i += 1;
+        }
+
+        // Encode as UTF-16
+        if (cp <= 0xFFFF) {
+            result.push_back(static_cast<char16_t>(cp));
+        } else if (cp <= 0x10FFFF) {
+            cp -= 0x10000;
+            result.push_back(static_cast<char16_t>(0xD800 | (cp >> 10)));
+            result.push_back(static_cast<char16_t>(0xDC00 | (cp & 0x3FF)));
+        } else {
+            result.push_back(static_cast<char16_t>(0xFFFD));
+        }
+    }
+
+    return result;
+}
+
+std::string StringConverter::Char16ToUtf8(const std::u16string& utf16) {
+    std::string result;
+    result.reserve(utf16.size() * 3);
+
+    for (size_t i = 0; i < utf16.size(); ++i) {
+        char32_t cp = utf16[i];
+
+        // Handle surrogate pairs
+        if (cp >= 0xD800 && cp <= 0xDBFF && i + 1 < utf16.size()) {
+            char16_t low = utf16[i + 1];
+            if (low >= 0xDC00 && low <= 0xDFFF) {
+                cp = 0x10000 + ((cp - 0xD800) << 10) + (low - 0xDC00);
+                ++i;
+            }
+        }
+
+        // Encode as UTF-8
+        if (cp <= 0x7F) {
+            result.push_back(static_cast<char>(cp));
+        } else if (cp <= 0x7FF) {
+            result.push_back(static_cast<char>(0xC0 | (cp >> 6)));
+            result.push_back(static_cast<char>(0x80 | (cp & 0x3F)));
+        } else if (cp <= 0xFFFF) {
+            result.push_back(static_cast<char>(0xE0 | (cp >> 12)));
+            result.push_back(static_cast<char>(0x80 | ((cp >> 6) & 0x3F)));
+            result.push_back(static_cast<char>(0x80 | (cp & 0x3F)));
+        } else if (cp <= 0x10FFFF) {
+            result.push_back(static_cast<char>(0xF0 | (cp >> 18)));
+            result.push_back(static_cast<char>(0x80 | ((cp >> 12) & 0x3F)));
+            result.push_back(static_cast<char>(0x80 | ((cp >> 6) & 0x3F)));
+            result.push_back(static_cast<char>(0x80 | (cp & 0x3F)));
+        } else {
+            result.push_back(static_cast<char>(0xEF)); // U+FFFD replacement
+            result.push_back(static_cast<char>(0xBF));
+            result.push_back(static_cast<char>(0xBD));
+        }
+    }
+
+    return result;
+}
+
 std::string StringConverter::AnsiToUtf8(const std::string& ansi) {
     // macOS has no ANSI concept, assume input is already UTF-8
     return ansi;
