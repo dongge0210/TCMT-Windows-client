@@ -222,8 +222,14 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
             var restored = NetworkList.FirstOrDefault(a => $"{a.Name}|{a.Mac}" == _previousNetworkKey);
             if (restored != null) SelectedNetwork = restored;
         }
+        // Auto-select an active adapter (has IP and speed) when nothing is selected
         if (SelectedNetwork == null && NetworkList.Count > 0)
-            SelectedNetwork = NetworkList[0];
+        {
+            SelectedNetwork = NetworkList.FirstOrDefault(a =>
+                !string.IsNullOrEmpty(a.IpAddress) && a.IpAddress != "127.0.0.1" && a.IpAddress != "::1" && a.Speed > 0)
+                ?? NetworkList.FirstOrDefault(a => !string.IsNullOrEmpty(a.IpAddress))
+                ?? NetworkList[0];
+        }
         // Ensure selected is never null - create dummy if needed
         if (SelectedNetwork == null && NetworkList.Count == 0)
         {
