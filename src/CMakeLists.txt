@@ -34,6 +34,12 @@ set(DATASTRUCT_SOURCES
     ${CMAKE_CURRENT_SOURCE_DIR}/core/DataStruct/SharedMemoryManager.cpp
 )
 
+# Application config (CPP-parsers + nlohmann/json wrapper)
+set(CONFIG_SOURCES
+    ${CMAKE_CURRENT_SOURCE_DIR}/core/Config/ConfigManager.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/core/Config/ConfigManager.cpp
+)
+
 # Temperature modules (Windows only for now)
 set(TEMP_SOURCES "")
 set(TEMP_SOURCES_WINDOWS "")
@@ -84,6 +90,7 @@ add_library(TCMTCore STATIC
     ${UTILS_SOURCES}
     ${CORE_MODULES_SOURCES}
     ${DATASTRUCT_SOURCES}
+    ${CONFIG_SOURCES}
     ${TEMP_SOURCES}
     ${TUI_SOURCES}
 )
@@ -97,6 +104,13 @@ set_target_properties(TCMTCore PROPERTIES
 target_include_directories(TCMTCore PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}
     ${CMAKE_CURRENT_SOURCE_DIR}/core
+
+    # CPP-parsers unified config interface
+    ${CMAKE_CURRENT_SOURCE_DIR}/CPP-parsers/include
+    ${CMAKE_CURRENT_SOURCE_DIR}/CPP-parsers/src
+
+    # nlohmann/json (header-only) — single include
+    ${CMAKE_CURRENT_SOURCE_DIR}/CPP-parsers/extern/json/single_include
 )
 
 # Platform-specific defines
