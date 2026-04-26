@@ -83,7 +83,7 @@ bool SharedMemoryManager::InitSharedMemory() {
 
         // If newly created shared memory, zero it
         if (shm->IsCreated()) {
-            memset(pBuffer, 0, sizeof(SharedMemoryBlock));
+            memset(static_cast<void*>(pBuffer), 0, sizeof(SharedMemoryBlock));
             Logger::Info("Created new shared memory mapping.");
         } else {
             Logger::Info("Opened existing shared memory mapping.");

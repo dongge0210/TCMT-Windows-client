@@ -198,7 +198,7 @@ static uint64_t GetTickCountMs() {
 }
 
 CpuInfo::CpuInfo()
-    : totalCores(0), largeCores(0), smallCores(0), cpuUsage(0.0),
+    : totalCores(0), smallCores(0), largeCores(0), cpuUsage(0.0),
       largeCoreSpeed(0.0), smallCoreSpeed(0.0), lastSampleIntervalMs(0.0),
       prevTotalTicks(0), prevIdleTicks(0), prevSampleTimeMs(0) {
     try {
