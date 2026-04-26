@@ -370,7 +370,6 @@ public class SharedMemoryService : IDisposable
         lock (_lock)
         {
             bool isWindows = OperatingSystem.IsWindows();
-            bool isMacOS = OperatingSystem.IsMacOS();
 
             if (!IsInitialized)
             {
@@ -386,7 +385,18 @@ public class SharedMemoryService : IDisposable
 
             try
             {
-                return ReadCompleteSystemInfo();
+                var result = ReadCompleteSystemInfo();
+                if (result == null && IsInitialized)
+                {
+                    // Stale data — C++ may have restarted with new shared memory.
+                    // Reinitialize to open the new segment before returning null.
+                    Log.Warning("Stale shared memory detected, reinitializing");
+                    Dispose();
+                    IsInitialized = false;
+                    if (Initialize())
+                        return ReadCompleteSystemInfo();
+                }
+                return result;
             }
             catch (Exception ex)
             {
