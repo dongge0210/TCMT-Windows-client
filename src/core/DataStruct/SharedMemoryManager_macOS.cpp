@@ -20,28 +20,28 @@ SharedMemoryBlock* SharedMemoryManager::pBuffer = nullptr;
 std::string SharedMemoryManager::lastError = "";
 void* SharedMemoryManager::interprocessMutex = nullptr;
 
-// Helper function: safely copy wide string
-static void SafeCopyWideString(wchar_t* dest, size_t destSize, const std::wstring& src) {
+// Helper function: safely copy wide string (WCHAR = char16_t on macOS)
+static void SafeCopyWideString(WCHAR* dest, size_t destSize, const std::u16string& src) {
     try {
         if (dest == nullptr || destSize == 0) return;
-        memset(dest, 0, destSize * sizeof(wchar_t));
-        if (src.empty()) { dest[0] = L'\0'; return; }
+        memset(dest, 0, destSize * sizeof(WCHAR));
+        if (src.empty()) { dest[0] = u'\0'; return; }
         size_t copyLen = std::min(src.length(), destSize - 1);
         for (size_t i = 0; i < copyLen; ++i) dest[i] = src[i];
-        dest[copyLen] = L'\0';
-    } catch (...) { if (dest && destSize > 0) dest[0] = L'\0'; }
+        dest[copyLen] = u'\0';
+    } catch (...) { if (dest && destSize > 0) dest[0] = u'\0'; }
 }
 
 // Helper function: safely copy from wide character array
-static void SafeCopyFromWideArray(wchar_t* dest, size_t destSize, const wchar_t* src, size_t srcCapacity) {
+static void SafeCopyFromWideArray(WCHAR* dest, size_t destSize, const WCHAR* src, size_t srcCapacity) {
     if (!dest || destSize == 0) return;
-    memset(dest, 0, destSize * sizeof(wchar_t));
+    memset(dest, 0, destSize * sizeof(WCHAR));
     if (!src) return;
     size_t len = 0;
-    while (len < srcCapacity && src[len] != L'\0') ++len;
+    while (len < srcCapacity && src[len] != u'\0') ++len;
     if (len >= destSize) len = destSize - 1;
     for (size_t i = 0; i < len; ++i) dest[i] = src[i];
-    dest[len] = L'\0';
+    dest[len] = u'\0';
 }
 
 bool SharedMemoryManager::InitSharedMemory() {
@@ -163,7 +163,7 @@ void SharedMemoryManager::WriteToSharedMemory(const SystemInfo& systemInfo) {
 
         // CPU information
         SafeCopyWideString(pBuffer->cpuName, 128,
-                          Platform::StringConverter::Utf8ToWide(systemInfo.cpuName));
+                          Platform::StringConverter::Utf8ToChar16(systemInfo.cpuName));
         pBuffer->physicalCores = systemInfo.physicalCores;
         pBuffer->logicalCores = systemInfo.logicalCores;
         pBuffer->cpuUsage = systemInfo.cpuUsage;
@@ -183,9 +183,9 @@ void SharedMemoryManager::WriteToSharedMemory(const SystemInfo& systemInfo) {
         pBuffer->gpuCount = 0;
         if (!systemInfo.gpuName.empty()) {
             SafeCopyWideString(pBuffer->gpus[0].name, 128,
-                              Platform::StringConverter::Utf8ToWide(systemInfo.gpuName));
+                              Platform::StringConverter::Utf8ToChar16(systemInfo.gpuName));
             SafeCopyWideString(pBuffer->gpus[0].brand, 64,
-                              Platform::StringConverter::Utf8ToWide(systemInfo.gpuBrand));
+                              Platform::StringConverter::Utf8ToChar16(systemInfo.gpuBrand));
             pBuffer->gpus[0].memory = systemInfo.gpuMemory;
             pBuffer->gpus[0].coreClock = systemInfo.gpuCoreFreq;
             pBuffer->gpus[0].isVirtual = systemInfo.gpuIsVirtual;
@@ -210,13 +210,13 @@ void SharedMemoryManager::WriteToSharedMemory(const SystemInfo& systemInfo) {
         // Compatible with old network adapter fields
         if (adapterWriteCount == 0 && !systemInfo.networkAdapterName.empty()) {
             SafeCopyWideString(pBuffer->adapters[0].name, 128,
-                              Platform::StringConverter::Utf8ToWide(systemInfo.networkAdapterName));
+                              Platform::StringConverter::Utf8ToChar16(systemInfo.networkAdapterName));
             SafeCopyWideString(pBuffer->adapters[0].mac, 32,
-                              Platform::StringConverter::Utf8ToWide(systemInfo.networkAdapterMac));
+                              Platform::StringConverter::Utf8ToChar16(systemInfo.networkAdapterMac));
             SafeCopyWideString(pBuffer->adapters[0].ipAddress, 64,
-                              Platform::StringConverter::Utf8ToWide(systemInfo.networkAdapterIp));
+                              Platform::StringConverter::Utf8ToChar16(systemInfo.networkAdapterIp));
             SafeCopyWideString(pBuffer->adapters[0].adapterType, 32,
-                              Platform::StringConverter::Utf8ToWide(systemInfo.networkAdapterType));
+                              Platform::StringConverter::Utf8ToChar16(systemInfo.networkAdapterType));
             pBuffer->adapters[0].speed = systemInfo.networkAdapterSpeed;
             pBuffer->adapterCount = 1;
         }
@@ -237,9 +237,9 @@ void SharedMemoryManager::WriteToSharedMemory(const SystemInfo& systemInfo) {
             }
 
             SafeCopyWideString(pBuffer->disks[i].label, 128,
-                              Platform::StringConverter::Utf8ToWide(safeLabel));
+                              Platform::StringConverter::Utf8ToChar16(safeLabel));
             SafeCopyWideString(pBuffer->disks[i].fileSystem, 32,
-                              Platform::StringConverter::Utf8ToWide(disk.fileSystem));
+                              Platform::StringConverter::Utf8ToChar16(disk.fileSystem));
             pBuffer->disks[i].totalSize = disk.totalSize;
             pBuffer->disks[i].usedSpace = disk.usedSpace;
             pBuffer->disks[i].freeSpace = disk.freeSpace;
@@ -307,7 +307,7 @@ void SharedMemoryManager::WriteToSharedMemory(const SystemInfo& systemInfo) {
         for (int i = 0; i < pBuffer->tempCount; ++i) {
             const auto& temp = systemInfo.temperatures[i];
             SafeCopyWideString(pBuffer->temperatures[i].sensorName, 64,
-                              Platform::StringConverter::Utf8ToWide(temp.first));
+                              Platform::StringConverter::Utf8ToChar16(temp.first));
             pBuffer->temperatures[i].temperature = temp.second;
         }
 
