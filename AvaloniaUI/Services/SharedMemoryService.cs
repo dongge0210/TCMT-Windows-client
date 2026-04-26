@@ -253,7 +253,9 @@ public class SharedMemoryService : IDisposable
             {
                 try
                 {
+#pragma warning disable CA1416 // validated by caller (InitializeWindows called only on Windows)
                     _mmf = MemoryMappedFile.OpenExisting(name, MemoryMappedFileRights.Read);
+#pragma warning restore CA1416
                     _accessor = _mmf.CreateViewAccessor(0, structSize, MemoryMappedFileAccess.Read);
                     IsInitialized = true;
                     Log.Information("Connected to shared memory: {Name}, Size={Size} bytes", name, structSize);
@@ -324,6 +326,7 @@ public class SharedMemoryService : IDisposable
             return false;
         }
 
+#pragma warning disable CS0162 // Unreachable code (DEBUG_DIAG is false in release)
         // Verbose layout diagnostics (debug-only)
         if (DEBUG_DIAG)
         {
@@ -332,8 +335,6 @@ public class SharedMemoryService : IDisposable
             var hex = BitConverter.ToString(raw, 0, 64);
             Console.Error.WriteLine($"[DIAG] Raw shm bytes 0-63: {hex}");
 
-            // Compute expected offsets to verify struct layout
-            // cpuName=0(256), physicalCores=256(4), logicalCores=260(4), cpuUsage=264(8)
             int physCoresRaw = raw[256] | (raw[257] << 8) | (raw[258] << 16) | (raw[259] << 24);
             long cpuUsageRaw = BitConverter.DoubleToInt64Bits(BitConverter.ToDouble(raw, 264));
             Console.Error.WriteLine($"[DIAG] Raw offset 256(physCores)={physCoresRaw} offset 264(cpuUsage bits)={cpuUsageRaw:X}");
@@ -356,6 +357,7 @@ public class SharedMemoryService : IDisposable
             }
             finally { h.Free(); }
         }
+#pragma warning restore CS0162
 
         IsInitialized = true;
         Log.Information("Connected to POSIX shared memory: {Name}, Size={Size} bytes", shmName, _posixShmSize);
