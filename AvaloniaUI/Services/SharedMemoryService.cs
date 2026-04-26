@@ -28,6 +28,9 @@ public class SharedMemoryService : IDisposable
     // C++ sizeof(SharedMemoryBlock) on macOS (WCHAR=char16_t, pack=1)
     private const int MAC_SHM_SIZE = 129123;
 
+    // Set to true to enable verbose layout diagnostics in InitializeMacOS
+    private const bool DEBUG_DIAG = false;
+
     // POSIX constants
     private const int O_RDONLY = 0;
     private const int PROT_READ = 1;
@@ -308,39 +311,51 @@ public class SharedMemoryService : IDisposable
             return false;
         }
 
-        // Diagnostic: dump raw cpuName field
+        // Validate MAC_SHM_SIZE against managed layout at startup
         int structSize = Marshal.SizeOf<SharedMemoryBlock>();
-        var raw = new byte[structSize];
-        Marshal.Copy(_posixShmPtr, raw, 0, structSize);
-        var hex = BitConverter.ToString(raw, 0, 64);
-        Console.Error.WriteLine($"[DIAG] Raw shm bytes 0-63: {hex}");
-
-        // Compute expected offsets to verify struct layout
-        // cpuName=0(256), physicalCores=256(4), logicalCores=260(4), cpuUsage=264(8)
-        int offset = 0;
-        int physCoresRaw = raw[256] | (raw[257] << 8) | (raw[258] << 16) | (raw[259] << 24);
-        long cpuUsageRaw = BitConverter.DoubleToInt64Bits(BitConverter.ToDouble(raw, 264));
-        Console.Error.WriteLine($"[DIAG] Raw offset 256(physCores)={physCoresRaw} offset 264(cpuUsage bits)={cpuUsageRaw:X}");
-
-        // Try direct read
-        var h = GCHandle.Alloc(raw, GCHandleType.Pinned);
-        try
+        if (MAC_SHM_SIZE != structSize)
         {
-            var test = Marshal.PtrToStructure<SharedMemoryBlock>(h.AddrOfPinnedObject());
-            var cpuName = SafeWideCharArrayToString(test.cpuName);
-            Console.Error.WriteLine($"[DIAG] cpuName='{cpuName}' physicalCores={test.physicalCores} logicalCores={test.logicalCores}");
-            Console.Error.WriteLine($"[DIAG] Marshal.SizeOf={structSize} MAC_SHM_SIZE={MAC_SHM_SIZE}");
-
-            // Dump cpuName raw ushort values
-            if (test.cpuName != null)
-            {
-                var sb = new System.Text.StringBuilder();
-                for (int i = 0; i < 8 && i < test.cpuName.Length; i++)
-                    sb.Append($" [{i}]={test.cpuName[i]:X4}");
-                Console.Error.WriteLine($"[DIAG] cpuName ushorts:{sb}");
-            }
+            LastError = $"Size mismatch: C++ sizeof={MAC_SHM_SIZE} vs C# Marshal.SizeOf={structSize}";
+            Log.Error(LastError);
+            munmap(_posixShmPtr, (IntPtr)_posixShmSize);
+            _posixShmPtr = IntPtr.Zero;
+            close(_posixShmFd);
+            _posixShmFd = -1;
+            return false;
         }
-        finally { h.Free(); }
+
+        // Verbose layout diagnostics (debug-only)
+        if (DEBUG_DIAG)
+        {
+            var raw = new byte[structSize];
+            Marshal.Copy(_posixShmPtr, raw, 0, structSize);
+            var hex = BitConverter.ToString(raw, 0, 64);
+            Console.Error.WriteLine($"[DIAG] Raw shm bytes 0-63: {hex}");
+
+            // Compute expected offsets to verify struct layout
+            // cpuName=0(256), physicalCores=256(4), logicalCores=260(4), cpuUsage=264(8)
+            int physCoresRaw = raw[256] | (raw[257] << 8) | (raw[258] << 16) | (raw[259] << 24);
+            long cpuUsageRaw = BitConverter.DoubleToInt64Bits(BitConverter.ToDouble(raw, 264));
+            Console.Error.WriteLine($"[DIAG] Raw offset 256(physCores)={physCoresRaw} offset 264(cpuUsage bits)={cpuUsageRaw:X}");
+
+            var h = GCHandle.Alloc(raw, GCHandleType.Pinned);
+            try
+            {
+                var test = Marshal.PtrToStructure<SharedMemoryBlock>(h.AddrOfPinnedObject());
+                var cpuName = SafeWideCharArrayToString(test.cpuName);
+                Console.Error.WriteLine($"[DIAG] cpuName='{cpuName}' physicalCores={test.physicalCores} logicalCores={test.logicalCores}");
+                Console.Error.WriteLine($"[DIAG] Marshal.SizeOf={structSize} MAC_SHM_SIZE={MAC_SHM_SIZE}");
+
+                if (test.cpuName != null)
+                {
+                    var sb = new System.Text.StringBuilder();
+                    for (int i = 0; i < 8 && i < test.cpuName.Length; i++)
+                        sb.Append($" [{i}]={test.cpuName[i]:X4}");
+                    Console.Error.WriteLine($"[DIAG] cpuName ushorts:{sb}");
+                }
+            }
+            finally { h.Free(); }
+        }
 
         IsInitialized = true;
         Log.Information("Connected to POSIX shared memory: {Name}, Size={Size} bytes", shmName, _posixShmSize);

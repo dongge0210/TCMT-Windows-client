@@ -122,9 +122,9 @@ jobs:
       with:
         name: TCMT-Windows-x64-Release
         path: |
-          /x64/${{ env.BUILD_CONFIGURATION }}/*.exe
-          /x64/${{ env.BUILD_CONFIGURATION }}/*.dll
-          /x64/${{ env.BUILD_CONFIGURATION }}/*.pdb
+          x64/${{ env.BUILD_CONFIGURATION }}/*.exe
+          x64/${{ env.BUILD_CONFIGURATION }}/*.dll
+          x64/${{ env.BUILD_CONFIGURATION }}/*.pdb
 
   build-macos:
     name: macOS (CMake + Clang)
