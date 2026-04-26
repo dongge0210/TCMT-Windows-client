@@ -9,14 +9,46 @@ namespace AvaloniaUI.Services;
 
 public class SharedMemoryService : IDisposable
 {
+    // === Windows: MemoryMappedFile ===
     private MemoryMappedFile? _mmf;
     private MemoryMappedViewAccessor? _accessor;
+
+    // === macOS: POSIX shared memory ===
+    private IntPtr _posixShmPtr = IntPtr.Zero;
+    private int _posixShmFd = -1;
+    private int _posixShmSize;
+
     private readonly object _lock = new();
     private bool _disposed = false;
 
     private const string SHARED_MEMORY_NAME = "SystemMonitorSharedMemory";
     private const string GLOBAL_SHARED_MEMORY_NAME = "Global\\SystemMonitorSharedMemory";
     private const string LOCAL_SHARED_MEMORY_NAME = "Local\\SystemMonitorSharedMemory";
+
+    // C++ sizeof(SharedMemoryBlock) on macOS (WCHAR=char16_t, pack=1)
+    private const int MAC_SHM_SIZE = 129131;
+
+    // Set to true to enable verbose layout diagnostics in InitializeMacOS
+    private const bool DEBUG_DIAG = false;
+
+    // POSIX constants
+    private const int O_RDONLY = 0;
+    private const int PROT_READ = 1;
+    private const int MAP_SHARED = 1;
+    private static readonly IntPtr MAP_FAILED = new IntPtr(-1);
+
+    // POSIX P/Invoke
+    [DllImport("libc", EntryPoint = "shm_open", SetLastError = true)]
+    private static extern int shm_open(string name, int oflag, int mode);
+
+    [DllImport("libc", EntryPoint = "mmap", SetLastError = true)]
+    private static extern IntPtr mmap(IntPtr addr, IntPtr length, int prot, int flags, int fd, IntPtr offset);
+
+    [DllImport("libc", EntryPoint = "munmap", SetLastError = true)]
+    private static extern int munmap(IntPtr addr, IntPtr length);
+
+    [DllImport("libc", EntryPoint = "close", SetLastError = true)]
+    private static extern int close(int fd);
 
     public bool IsInitialized { get; private set; }
     public string LastError { get; private set; } = string.Empty;
@@ -38,6 +70,7 @@ public class SharedMemoryService : IDisposable
         public ulong totalMemory;
         public ulong usedMemory;
         public ulong availableMemory;
+        public ulong compressedMemory;
         public double cpuTemperature;
         public double gpuTemperature;
         public double cpuUsageSampleIntervalMs;
@@ -59,7 +92,7 @@ public class SharedMemoryService : IDisposable
         public TpmInfoStruct tpm;
         public byte tpmCount;
         public SYSTEMTIME lastUpdate;
-        [MarshalAs(UnmanagedType.ByValArray, SizeConst = 40)]
+        [MarshalAs(UnmanagedType.ByValArray, SizeConst = 64)]
         public byte[] lockData;
     }
 
@@ -180,6 +213,19 @@ public class SharedMemoryService : IDisposable
         public ushort wMilliseconds;
     }
 
+    /// <summary>
+    /// Transform shared memory name to match C++ Platform::SharedMemory::Create/Open
+    /// Strip '/', truncate to 20 chars, prepend '/'
+    /// (C++ Platform_macOS.cpp lines 95-99)
+    /// </summary>
+    private static string GetPosixShmName(string original)
+    {
+        var safe = original.Replace("/", "");
+        if (safe.Length > 20)
+            safe = safe.Substring(0, 20);
+        return "/" + safe;
+    }
+
     public bool Initialize()
     {
         lock (_lock)
@@ -187,58 +233,151 @@ public class SharedMemoryService : IDisposable
             if (IsInitialized)
                 return true;
 
-            // MemoryMappedFile is Windows-only; skip on other platforms
-            if (!OperatingSystem.IsWindows())
+            if (OperatingSystem.IsWindows())
+                return InitializeWindows();
+            if (OperatingSystem.IsMacOS())
+                return InitializeMacOS();
+
+            Log.Debug("SharedMemoryService: not supported on this platform");
+            return false;
+        }
+    }
+
+    private bool InitializeWindows()
+    {
+        try
+        {
+            string[] names = { GLOBAL_SHARED_MEMORY_NAME, LOCAL_SHARED_MEMORY_NAME, SHARED_MEMORY_NAME };
+            int structSize = Marshal.SizeOf<SharedMemoryBlock>();
+
+            foreach (string name in names)
             {
-                Log.Debug("SharedMemoryService: not supported on this platform (non-Windows)");
-                return false;
+                try
+                {
+#pragma warning disable CA1416 // validated by caller (InitializeWindows called only on Windows)
+                    _mmf = MemoryMappedFile.OpenExisting(name, MemoryMappedFileRights.Read);
+#pragma warning restore CA1416
+                    _accessor = _mmf.CreateViewAccessor(0, structSize, MemoryMappedFileAccess.Read);
+                    IsInitialized = true;
+                    Log.Information("Connected to shared memory: {Name}, Size={Size} bytes", name, structSize);
+                    return true;
+                }
+                catch (FileNotFoundException)
+                {
+                    Log.Debug("Shared memory not found: {Name}", name);
+                    continue;
+                }
+                catch (Exception ex)
+                {
+                    Log.Warning("Failed to open shared memory {Name}: {Message}", name, ex.Message);
+                    continue;
+                }
             }
 
+            LastError = "Cannot find shared memory, make sure C++ core is running";
+            Log.Error(LastError);
+            return false;
+        }
+        catch (Exception ex)
+        {
+            LastError = $"Failed to initialize shared memory: {ex.Message}";
+            Log.Error(ex, LastError);
+            return false;
+        }
+    }
+
+    private bool InitializeMacOS()
+    {
+        string shmName = GetPosixShmName(SHARED_MEMORY_NAME);
+        Log.Debug("Opening POSIX shared memory: {Name}", shmName);
+
+        _posixShmFd = shm_open(shmName, O_RDONLY, 0);
+        if (_posixShmFd == -1)
+        {
+            int err = Marshal.GetLastPInvokeError();
+            LastError = $"shm_open({shmName}) failed: errno={err}";
+            Log.Error(LastError);
+            return false;
+        }
+
+        _posixShmSize = MAC_SHM_SIZE;
+        _posixShmPtr = mmap(IntPtr.Zero, (IntPtr)_posixShmSize, PROT_READ, MAP_SHARED, _posixShmFd, IntPtr.Zero);
+
+        if (_posixShmPtr == MAP_FAILED)
+        {
+            int err = Marshal.GetLastPInvokeError();
+            _posixShmPtr = IntPtr.Zero;
+            LastError = $"mmap({shmName}) failed: errno={err}";
+            Log.Error(LastError);
+            close(_posixShmFd);
+            _posixShmFd = -1;
+            return false;
+        }
+
+        // Validate MAC_SHM_SIZE against managed layout at startup
+        int structSize = Marshal.SizeOf<SharedMemoryBlock>();
+        if (MAC_SHM_SIZE != structSize)
+        {
+            LastError = $"Size mismatch: C++ sizeof={MAC_SHM_SIZE} vs C# Marshal.SizeOf={structSize}";
+            Log.Error(LastError);
+            munmap(_posixShmPtr, (IntPtr)_posixShmSize);
+            _posixShmPtr = IntPtr.Zero;
+            close(_posixShmFd);
+            _posixShmFd = -1;
+            return false;
+        }
+
+#pragma warning disable CS0162 // Unreachable code (DEBUG_DIAG is false in release)
+        // Verbose layout diagnostics (debug-only)
+        if (DEBUG_DIAG)
+        {
+            var raw = new byte[structSize];
+            Marshal.Copy(_posixShmPtr, raw, 0, structSize);
+            var hex = BitConverter.ToString(raw, 0, 64);
+            Console.Error.WriteLine($"[DIAG] Raw shm bytes 0-63: {hex}");
+
+            int physCoresRaw = raw[256] | (raw[257] << 8) | (raw[258] << 16) | (raw[259] << 24);
+            long cpuUsageRaw = BitConverter.DoubleToInt64Bits(BitConverter.ToDouble(raw, 264));
+            Console.Error.WriteLine($"[DIAG] Raw offset 256(physCores)={physCoresRaw} offset 264(cpuUsage bits)={cpuUsageRaw:X}");
+
+            var h = GCHandle.Alloc(raw, GCHandleType.Pinned);
             try
             {
-                string[] names = { GLOBAL_SHARED_MEMORY_NAME, LOCAL_SHARED_MEMORY_NAME, SHARED_MEMORY_NAME };
-                int structSize = Marshal.SizeOf<SharedMemoryBlock>();
+                var test = Marshal.PtrToStructure<SharedMemoryBlock>(h.AddrOfPinnedObject());
+                var cpuName = SafeWideCharArrayToString(test.cpuName);
+                Console.Error.WriteLine($"[DIAG] cpuName='{cpuName}' physicalCores={test.physicalCores} logicalCores={test.logicalCores}");
+                Console.Error.WriteLine($"[DIAG] Marshal.SizeOf={structSize} MAC_SHM_SIZE={MAC_SHM_SIZE}");
 
-                foreach (string name in names)
+                if (test.cpuName != null)
                 {
-                    try
-                    {
-                        _mmf = MemoryMappedFile.OpenExisting(name, MemoryMappedFileRights.Read);
-                        _accessor = _mmf.CreateViewAccessor(0, structSize, MemoryMappedFileAccess.Read);
-                        IsInitialized = true;
-                        Log.Information("Connected to shared memory: {Name}, Size={Size} bytes", name, structSize);
-                        return true;
-                    }
-                    catch (FileNotFoundException)
-                    {
-                        Log.Debug("Shared memory not found: {Name}", name);
-                        continue;
-                    }
-                    catch (Exception ex)
-                    {
-                        Log.Warning("Failed to open shared memory {Name}: {Message}", name, ex.Message);
-                        continue;
-                    }
+                    var sb = new System.Text.StringBuilder();
+                    for (int i = 0; i < 8 && i < test.cpuName.Length; i++)
+                        sb.Append($" [{i}]={test.cpuName[i]:X4}");
+                    Console.Error.WriteLine($"[DIAG] cpuName ushorts:{sb}");
                 }
-
-                LastError = "Cannot find shared memory, make sure C++ core is running";
-                Log.Error(LastError);
-                return false;
             }
-            catch (Exception ex)
-            {
-                LastError = $"Failed to initialize shared memory: {ex.Message}";
-                Log.Error(ex, LastError);
-                return false;
-            }
+            finally { h.Free(); }
         }
+#pragma warning restore CS0162
+
+        IsInitialized = true;
+        Log.Information("Connected to POSIX shared memory: {Name}, Size={Size} bytes", shmName, _posixShmSize);
+        return true;
     }
 
     public SystemInfo? ReadSystemInfo()
     {
         lock (_lock)
         {
-            if (!IsInitialized || _accessor == null)
+            bool isWindows = OperatingSystem.IsWindows();
+
+            if (!IsInitialized)
+            {
+                if (!Initialize())
+                    return null;
+            }
+
+            if (isWindows && _accessor == null)
             {
                 if (!Initialize())
                     return null;
@@ -246,7 +385,18 @@ public class SharedMemoryService : IDisposable
 
             try
             {
-                return ReadCompleteSystemInfo();
+                var result = ReadCompleteSystemInfo();
+                if (result == null && IsInitialized)
+                {
+                    // Stale data — C++ may have restarted with new shared memory.
+                    // Reinitialize to open the new segment before returning null.
+                    Log.Warning("Stale shared memory detected, reinitializing");
+                    Dispose();
+                    IsInitialized = false;
+                    if (Initialize())
+                        return ReadCompleteSystemInfo();
+                }
+                return result;
             }
             catch (Exception ex)
             {
@@ -259,16 +409,42 @@ public class SharedMemoryService : IDisposable
         }
     }
 
-    private SystemInfo ReadCompleteSystemInfo()
+    private SystemInfo? ReadCompleteSystemInfo()
+    {
+        if (OperatingSystem.IsWindows())
+            return ReadWindows();
+        if (OperatingSystem.IsMacOS())
+            return ReadPosix();
+        throw new PlatformNotSupportedException();
+    }
+
+    private SystemInfo? ReadWindows()
     {
         if (_accessor == null)
-            throw new InvalidOperationException("Shared memory not initialized");
+            throw new InvalidOperationException("Windows shared memory not initialized");
 
         int structSize = Marshal.SizeOf<SharedMemoryBlock>();
         var raw = new byte[structSize];
         int bytesToRead = (int)Math.Min((long)structSize, _accessor.Capacity);
         _accessor.ReadArray(0, raw, 0, bytesToRead);
 
+        return MarshalToSystemInfo(raw);
+    }
+
+    private SystemInfo? ReadPosix()
+    {
+        if (_posixShmPtr == IntPtr.Zero || _posixShmPtr == MAP_FAILED)
+            throw new InvalidOperationException("POSIX shared memory not initialized");
+
+        int structSize = Marshal.SizeOf<SharedMemoryBlock>();
+        var raw = new byte[structSize];
+        Marshal.Copy(_posixShmPtr, raw, 0, structSize);
+
+        return MarshalToSystemInfo(raw);
+    }
+
+    private SystemInfo? MarshalToSystemInfo(byte[] raw)
+    {
         var handle = GCHandle.Alloc(raw, GCHandleType.Pinned);
         try
         {
@@ -281,19 +457,19 @@ public class SharedMemoryService : IDisposable
         }
     }
 
-    private SystemInfo ConvertToSystemInfo(SharedMemoryBlock sharedData)
+    private SystemInfo? ConvertToSystemInfo(SharedMemoryBlock sharedData)
     {
-        // Validate data - check if cpuName is empty (data not yet written by C++ core)
-        string? cpuName = SafeWideCharArrayToString(sharedData.cpuName);
-        if (string.IsNullOrEmpty(cpuName) || sharedData.physicalCores == 0)
+        // Validate data - check if C++ core has written to shared memory
+        // (lastUpdate.wYear is zero when memory is uninitialized)
+        if (sharedData.lastUpdate.wYear == 0)
         {
-            // Data not yet initialized by C++ core
-            return new SystemInfo { CpuName = "等待数据..." };
+            return null;
         }
 
         var systemInfo = new SystemInfo();
         try
         {
+            string? cpuName = SafeWideCharArrayToString(sharedData.cpuName);
             systemInfo.CpuName = cpuName ?? "Unknown CPU";
             systemInfo.PhysicalCores = sharedData.physicalCores;
             systemInfo.LogicalCores = sharedData.logicalCores;
@@ -307,6 +483,7 @@ public class SharedMemoryService : IDisposable
             systemInfo.TotalMemory = sharedData.totalMemory;
             systemInfo.UsedMemory = sharedData.usedMemory;
             systemInfo.AvailableMemory = sharedData.availableMemory;
+            systemInfo.CompressedMemory = sharedData.compressedMemory;
             systemInfo.CpuTemperature = sharedData.cpuTemperature;
             systemInfo.GpuTemperature = sharedData.gpuTemperature;
             systemInfo.CpuUsageSampleIntervalMs = sharedData.cpuUsageSampleIntervalMs;
@@ -516,9 +693,9 @@ public class SharedMemoryService : IDisposable
                 }
             }
 
-            // TPM
+            // TPM (not supported on macOS)
             systemInfo.Tpm = null;
-            if (sharedData.tpmCount > 0 && sharedData.tpm.isPresent)
+            if (!OperatingSystem.IsMacOS() && sharedData.tpmCount > 0 && sharedData.tpm.isPresent)
             {
                 systemInfo.Tpm = new TpmData
                 {
@@ -531,7 +708,7 @@ public class SharedMemoryService : IDisposable
                 };
             }
 
-            systemInfo.LastUpdate = DateTime.Now;
+            systemInfo.LastUpdate = ToDateTime(sharedData.lastUpdate);
             Log.Debug("Read from shared memory: CPU={CPU}, GPU={GPU}, Net={Net}, Disk={Disk}, Phys={Phys}",
                 systemInfo.CpuName, systemInfo.Gpus.Count, systemInfo.Adapters.Count, systemInfo.Disks.Count, systemInfo.PhysicalDisks.Count);
             return systemInfo;
@@ -539,7 +716,19 @@ public class SharedMemoryService : IDisposable
         catch (Exception ex)
         {
             Log.Error(ex, "Failed to convert shared memory data");
-            return new SystemInfo { CpuName = "Conversion failed" };
+            return null;
+        }
+    }
+
+    private static DateTime ToDateTime(SYSTEMTIME st)
+    {
+        try
+        {
+            return new DateTime(st.wYear, st.wMonth, st.wDay, st.wHour, st.wMinute, st.wSecond, st.wMilliseconds, DateTimeKind.Local);
+        }
+        catch
+        {
+            return DateTime.MinValue;
         }
     }
 
@@ -564,10 +753,25 @@ public class SharedMemoryService : IDisposable
         if (_disposed) return;
         lock (_lock)
         {
+            // Windows cleanup
             _accessor?.Dispose();
             _mmf?.Dispose();
             _accessor = null;
             _mmf = null;
+
+            // macOS POSIX cleanup
+            if (_posixShmPtr != IntPtr.Zero && _posixShmPtr != MAP_FAILED)
+            {
+                munmap(_posixShmPtr, (IntPtr)_posixShmSize);
+                _posixShmPtr = IntPtr.Zero;
+            }
+            if (_posixShmFd != -1)
+            {
+                close(_posixShmFd);
+                _posixShmFd = -1;
+            }
+            _posixShmSize = 0;
+
             IsInitialized = false;
             _disposed = true;
         }

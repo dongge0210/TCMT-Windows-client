@@ -257,6 +257,12 @@ public:
     // Wide string to UTF-8
     static std::string WideToUtf8(const std::wstring& wide);
 
+    // UTF-8 to UTF-16 (char16_t) - cross-platform, always 2-byte chars
+    static std::u16string Utf8ToChar16(const std::string& utf8);
+
+    // UTF-16 (char16_t) to UTF-8
+    static std::string Char16ToUtf8(const std::u16string& utf16);
+
     // Current code page to UTF-8 (mainly for Windows)
     static std::string AnsiToUtf8(const std::string& ansi);
 

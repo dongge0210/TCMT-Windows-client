@@ -69,6 +69,7 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
         CpuName = "未连接";
         TotalMemory = "未检测到";
         UsedMemory = "未检测到";
+        CompressedMemory = "";
         GpuList.Clear();
         NetworkList.Clear();
         DiskList.Clear();
@@ -186,6 +187,7 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
         TotalMemory = info.TotalMemory > 0 ? FormatBytes(info.TotalMemory) : "未检测到";
         UsedMemory = info.UsedMemory > 0 ? FormatBytes(info.UsedMemory) : "未检测到";
         AvailableMemory = info.AvailableMemory > 0 ? FormatBytes(info.AvailableMemory) : "未检测到";
+        CompressedMemory = info.CompressedMemory > 0 ? FormatBytes(info.CompressedMemory) : "";
         MemoryPercent = info.TotalMemory > 0 ? (double)info.UsedMemory / info.TotalMemory * 100 : 0;
         AddMemoryHistoryPoint(MemoryPercent);
 
@@ -220,8 +222,14 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
             var restored = NetworkList.FirstOrDefault(a => $"{a.Name}|{a.Mac}" == _previousNetworkKey);
             if (restored != null) SelectedNetwork = restored;
         }
+        // Auto-select an active adapter (has IP and speed) when nothing is selected
         if (SelectedNetwork == null && NetworkList.Count > 0)
-            SelectedNetwork = NetworkList[0];
+        {
+            SelectedNetwork = NetworkList.FirstOrDefault(a =>
+                !string.IsNullOrEmpty(a.IpAddress) && a.IpAddress != "127.0.0.1" && a.IpAddress != "::1" && a.Speed > 0)
+                ?? NetworkList.FirstOrDefault(a => !string.IsNullOrEmpty(a.IpAddress))
+                ?? NetworkList[0];
+        }
         // Ensure selected is never null - create dummy if needed
         if (SelectedNetwork == null && NetworkList.Count == 0)
         {
@@ -468,6 +476,9 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
 
     [ObservableProperty]
     private string _availableMemory = "检测中...";
+
+    [ObservableProperty]
+    private string _compressedMemory = "";
 
     [ObservableProperty]
     private double _memoryUsed;

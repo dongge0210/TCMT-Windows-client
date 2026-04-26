@@ -2,7 +2,7 @@ name: Build TCMT-M
 
 on:
   #push:
-  #  branches: [ main, dev ]
+    #branches: [ main, dev ]
   pull_request:
     branches: [ main, dev ]
   workflow_dispatch:
@@ -122,12 +122,9 @@ jobs:
       with:
         name: TCMT-Windows-x64-Release
         path: |
-          x64/${{ env.BUILD_CONFIGURATION }}/TCMT.exe
-          x64/${{ env.BUILD_CONFIGURATION }}/TCMT.pdb
-          AvaloniaUI/bin/${{ env.BUILD_CONFIGURATION }}/net10.0/AvaloniaUI.exe
-          AvaloniaUI/bin/${{ env.BUILD_CONFIGURATION }}/net10.0/*.dll
-          AvaloniaUI/bin/${{ env.BUILD_CONFIGURATION }}/net10.0/*.pdb
-          src/third_party/LibreHardwareMonitor/bin/${{ env.BUILD_CONFIGURATION }}/net472/*.dll
+          x64/${{ env.BUILD_CONFIGURATION }}/*.exe
+          x64/${{ env.BUILD_CONFIGURATION }}/*.dll
+          x64/${{ env.BUILD_CONFIGURATION }}/*.pdb
 
   build-macos:
     name: macOS (CMake + Clang)

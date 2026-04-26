@@ -14,6 +14,7 @@ public:
     OSInfo();
     std::string GetVersion() const;
     void Initialize();
+    static bool HasTpm();
 private:
     std::string osVersion;
 #ifdef TCMT_WINDOWS

@@ -31,6 +31,9 @@
 #include "core/Utils/Logger.h"
 #include "tui/TuiApp.h"
 
+// CPP-parsers + nlohmann/json — config management
+#include "core/Config/ConfigManager.h"
+
 // ======================== Signal Handling ========================
 static std::atomic<bool> g_shouldExit{false};
 
@@ -73,6 +76,26 @@ int main(int argc, char* argv[]) {
     } catch (const std::exception& e) {
         std::cerr << "Logger init failed: " << e.what() << std::endl;
         return 1;
+    }
+
+    // Load application config (config.json)
+    {
+        ConfigManager cfg("system_monitor.json");
+        if (cfg.Load()) {
+            Logger::Info("Config loaded: " + cfg.GetPath());
+            // Apply config-driven settings
+            std::string logLevel = cfg.GetString("logging.level", "info");
+            if (logLevel == "debug")
+                Logger::SetLogLevel(LOG_DEBUG);
+            else if (logLevel == "warning")
+                Logger::SetLogLevel(LOG_WARNING);
+
+            int refreshRate = cfg.GetInt("display.refreshRate", 500);
+            // (used later for sleep interval)
+            (void)refreshRate;
+        } else {
+            Logger::Warn("No config file found, using defaults");
+        }
     }
 
     // Initialize temperature wrapper (macOS: limited support)
@@ -266,6 +289,7 @@ int main(int argc, char* argv[]) {
                 sysInfo.totalMemory = data.totalMemory;
                 sysInfo.usedMemory = data.usedMemory;
                 sysInfo.availableMemory = data.availableMemory;
+                sysInfo.compressedMemory = data.compressedMemory;
                 sysInfo.physicalCores = data.physicalCores;
                 sysInfo.performanceCores = data.performanceCores;
                 sysInfo.efficiencyCores = data.efficiencyCores;
@@ -273,6 +297,44 @@ int main(int argc, char* argv[]) {
                 sysInfo.gpuTemperature = data.gpuTemp;
                 sysInfo.gpuName = data.gpuName;
                 sysInfo.gpuMemory = data.gpuMemory;
+
+                // Network adapters
+                for (const auto& adapter : data.adapters) {
+                    NetworkAdapterData nad{};
+                    auto u16name = Platform::StringConverter::Utf8ToChar16(adapter.name);
+                    auto u16ip = Platform::StringConverter::Utf8ToChar16(adapter.ip);
+                    auto u16mac = Platform::StringConverter::Utf8ToChar16(adapter.mac);
+                    auto u16type = Platform::StringConverter::Utf8ToChar16(adapter.type);
+                    size_t copyLen = std::min(u16name.length(), size_t(127));
+                    for (size_t i = 0; i < copyLen; ++i) nad.name[i] = u16name[i];
+                    nad.name[copyLen] = u'\0';
+                    copyLen = std::min(u16ip.length(), size_t(63));
+                    for (size_t i = 0; i < copyLen; ++i) nad.ipAddress[i] = u16ip[i];
+                    nad.ipAddress[copyLen] = u'\0';
+                    copyLen = std::min(u16mac.length(), size_t(31));
+                    for (size_t i = 0; i < copyLen; ++i) nad.mac[i] = u16mac[i];
+                    nad.mac[copyLen] = u'\0';
+                    copyLen = std::min(u16type.length(), size_t(31));
+                    for (size_t i = 0; i < copyLen; ++i) nad.adapterType[i] = u16type[i];
+                    nad.adapterType[copyLen] = u'\0';
+                    nad.speed = adapter.speed;
+                    sysInfo.adapters.push_back(nad);
+                }
+
+                // Disks
+                for (const auto& disk : data.disks) {
+                    DiskData dd{};
+                    dd.label = disk.label;
+                    dd.fileSystem = disk.fileSystem;
+                    dd.totalSize = disk.totalSize;
+                    dd.usedSpace = disk.usedSpace;
+                    dd.freeSpace = disk.totalSize - disk.usedSpace;
+                    sysInfo.disks.push_back(dd);
+                }
+
+                // Temperatures
+                sysInfo.temperatures = data.temperatures;
+
                 SharedMemoryManager::WriteToSharedMemory(sysInfo);
             }
 
