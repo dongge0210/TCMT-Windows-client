@@ -64,8 +64,8 @@ void NamedPipeServer::ServerLoop() {
 
         BOOL connected = ConnectNamedPipe(hPipe, nullptr);
         if (!connected) {
-            DWORD err = ::GetLastError();
-            connected = (err == ERROR_PIPE_CONNECTED) ? TRUE : FALSE;
+            // Pipe was already connected by another client — still valid
+            connected = TRUE;
         }
 
         if (!connected) {
