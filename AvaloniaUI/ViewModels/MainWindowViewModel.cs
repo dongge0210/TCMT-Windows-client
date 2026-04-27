@@ -10,14 +10,17 @@ using CommunityToolkit.Mvvm.Input;
 using Serilog;
 using AvaloniaUI.Models;
 using AvaloniaUI.Services;
+using AvaloniaUI.Services.IPC;
 
 namespace AvaloniaUI.ViewModels;
 
 public partial class MainWindowViewModel : ObservableObject, IDisposable
 {
     private readonly SharedMemoryService _sharedMemory;
+    private readonly IPCService _ipcService = new();
     private readonly DispatcherTimer _timer;
     private bool _disposed = false;
+    private bool _useIPC = false;
     private const int MaxChartPoints = 60;
     private int _consecutiveErrors = 0;
     private const int MaxConsecutiveErrors = 5;
@@ -34,21 +37,49 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
             Interval = TimeSpan.FromMilliseconds(500)
         };
         _timer.Tick += UpdateTimer_Tick;
+
+        // IPC 事件
+        _ipcService.ConnectionStateChanged += (connected, msg) =>
+        {
+            ConnectionStatus = connected ? "已连接 (IPC)" : $"IPC: {msg}";
+            if (!connected) IsConnected = false;
+        };
+        _ipcService.VersionMismatch += msg =>
+        {
+            // UI 层可以绑定此事件弹窗提示
+            Log.Warning("IPC Version Mismatch: {Msg}", msg);
+        };
+        _ipcService.DataReady += () =>
+        {
+            _useIPC = true;
+            IsConnected = true;
+            ConnectionStatus = "已连接 (IPC)";
+            WindowTitle = "系统硬件监视器";
+            if (!_timer.IsEnabled) _timer.Start();
+            Log.Information("IPC: Data ready, switching to IPC mode");
+        };
     }
 
     public void Start()
     {
         try
         {
+            // 优先尝试 IPC 模式（Schema + SharedMemory）
+            _ipcService.Start();
+
+            // 同时尝试旧模式作为 fallback
             if (_sharedMemory.Initialize())
             {
-                IsConnected = true;
-                ConnectionStatus = "已连接";
-                WindowTitle = "系统硬件监视器";
-                _timer.Start();
-                Log.Information("Started monitoring");
+                if (!_useIPC)
+                {
+                    IsConnected = true;
+                    ConnectionStatus = "已连接 (Legacy)";
+                    WindowTitle = "系统硬件监视器";
+                    _timer.Start();
+                    Log.Information("Started monitoring (Legacy mode)");
+                }
             }
-            else
+            else if (!_useIPC)
             {
                 IsConnected = false;
                 ConnectionStatus = $"连接失败: {_sharedMemory.LastError}";
@@ -131,7 +162,15 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
     {
         try
         {
-            var info = _sharedMemory.ReadSystemInfo();
+            SystemInfo? info;
+            if (_useIPC && _ipcService.Reader.IsOpen)
+            {
+                info = IPCSystemInfoMapper.Read(_ipcService);
+            }
+            else
+            {
+                info = _sharedMemory.ReadSystemInfo();
+            }
             if (info != null)
             {
                 _consecutiveErrors = 0;
@@ -549,6 +588,7 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
     {
         if (_disposed) return;
         _timer.Stop();
+        _ipcService.Dispose();
         _sharedMemory.Dispose();
         _disposed = true;
         GC.SuppressFinalize(this);

@@ -18,6 +18,9 @@
 #include <mach/mach_time.h>
 #include <mach/mach.h>
 #include <mach/vm_statistics.h>
+#include <vector>
+#include <algorithm>
+#include <string>
 
 #include "core/cpu/CpuInfo.h"
 #include "core/gpu/GpuInfo.h"
@@ -26,13 +29,11 @@
 #include "core/os/OSInfo.h"
 #include "core/disk/DiskInfo.h"
 #include "core/DataStruct/DataStruct.h"
-#include "core/DataStruct/SharedMemoryManager.h"
 #include "core/temperature/TemperatureWrapper.h"
+#include "core/IPC/IPCServer.h"
+#include "core/IPC/IPCData.h"
 #include "core/Utils/Logger.h"
 #include "tui/TuiApp.h"
-
-// CPP-parsers + nlohmann/json — config management
-#include "core/Config/ConfigManager.h"
 
 // ======================== Signal Handling ========================
 static std::atomic<bool> g_shouldExit{false};
@@ -40,7 +41,6 @@ static std::atomic<bool> g_shouldExit{false};
 static void SignalHandler(int sig) {
     (void)sig;
     g_shouldExit = true;
-    // Force fast exit on second Ctrl+C
     static std::atomic<int> sigCount{0};
     if (++sigCount >= 2) {
         _exit(1);
@@ -63,14 +63,15 @@ static std::string FormatSize(uint64_t bytes) {
 int main(int argc, char* argv[]) {
     (void)argc; (void)argv;
 
-    // Setup signal handlers
     std::signal(SIGINT, SignalHandler);
     std::signal(SIGTERM, SignalHandler);
     std::signal(SIGHUP, SignalHandler);
+    std::signal(SIGPIPE, SIG_IGN); // Prevent crash on broken pipe
+    Logger::Info("main: starting TCMT-M (PID=" + std::to_string(getpid()) + ")");
 
     try {
         Logger::Initialize("system_monitor.log");
-        Logger::EnableConsoleOutput(false);  // TUI takes over console
+        Logger::EnableConsoleOutput(false);
         Logger::SetLogLevel(LOG_INFO);
         Logger::Info("TCMT macOS Client starting (TUI mode)...");
     } catch (const std::exception& e) {
@@ -78,31 +79,9 @@ int main(int argc, char* argv[]) {
         return 1;
     }
 
-    // Load application config (config.json)
-    {
-        ConfigManager cfg("system_monitor.json");
-        if (cfg.Load()) {
-            Logger::Info("Config loaded: " + cfg.GetPath());
-            // Apply config-driven settings
-            std::string logLevel = cfg.GetString("logging.level", "info");
-            if (logLevel == "debug")
-                Logger::SetLogLevel(LOG_DEBUG);
-            else if (logLevel == "warning")
-                Logger::SetLogLevel(LOG_WARNING);
-
-            int refreshRate = cfg.GetInt("display.refreshRate", 500);
-            // (used later for sleep interval)
-            (void)refreshRate;
-        } else {
-            Logger::Warn("No config file found, using defaults");
-        }
-    }
-
-    // Initialize temperature wrapper (macOS: limited support)
     TemperatureWrapper::Initialize();
     Logger::Debug("TemperatureWrapper initialized");
 
-    // Cache static system info
     OSInfo os;
     Logger::Debug("OS: " + os.GetVersion());
 
@@ -126,39 +105,109 @@ int main(int argc, char* argv[]) {
         Logger::Error("GpuInfo init failed: " + std::string(e.what()));
     }
 
-    // Initialize shared memory (optional, for future GUI clients)
-    bool shmOk = SharedMemoryManager::InitSharedMemory();
-    if (shmOk) {
-        Logger::Debug("SharedMemory initialized");
+    // ====== IPC Server (Unix socket + shared memory for GUI clients) ======
+    tcmt::ipc::IPCServer ipcServer;
+    ipcServer.Start();
+    if (ipcServer.IsRunning()) {
+        Logger::Info("IPC server started");
     } else {
-        Logger::Warn("SharedMemory init failed: " + SharedMemoryManager::GetLastError());
+        Logger::Warn("IPC server failed to start");
     }
 
-    // Start TUI
-    tcmt::TuiApp tuiApp;
-    tuiApp.SetLogBuffer(&Logger::GetTuiBuffer());
-    tuiApp.Start();
-    Logger::Info("TUI started");
+    // Build schema fields from IPCDataBlock layout
+    tcmt::ipc::SchemaHeader ipcHdr;
+    ipcHdr.magic = tcmt::ipc::IPC_MAGIC;
+    ipcHdr.version = tcmt::ipc::IPC_VERSION;
+    ipcHdr.totalSize = sizeof(tcmt::ipc::IPCDataBlock);
+    ipcHdr.stringBlockSize = 0;
 
-    // Static info caching
+    std::vector<tcmt::ipc::FieldDef> ipcFields;
+    auto addField = [&](const char* name, tcmt::ipc::FieldType type, size_t offset, size_t size,
+                        const char* units = "", float min = 0, float max = 0) {
+        if (ipcFields.size() >= tcmt::ipc::IPC_MAX_FIELDS) return;
+        tcmt::ipc::FieldDef f;
+        f.id = (uint32_t)ipcFields.size() + 1;
+        f.type = static_cast<uint8_t>(type);
+        f.offset = (uint32_t)offset;
+        f.size = (uint16_t)size;
+        f.count = 1;
+        f.strOffset = 0;
+        f.flags = 0;
+        f.minVal = min;
+        f.maxVal = max;
+        std::strncpy(f.name, name, tcmt::ipc::IPC_FIELD_NAME_LEN - 1);
+        std::strncpy(f.units, units, tcmt::ipc::IPC_FIELD_UNITS_LEN - 1);
+        ipcFields.push_back(f);
+    };
+
+    // CPU
+    addField("cpuName",   tcmt::ipc::FieldType::String,  offsetof(tcmt::ipc::IPCDataBlock, cpuName), 64);
+    addField("physicalCores",    tcmt::ipc::FieldType::UInt8,  offsetof(tcmt::ipc::IPCDataBlock, physicalCores), 1);
+    addField("performanceCores", tcmt::ipc::FieldType::UInt8,  offsetof(tcmt::ipc::IPCDataBlock, performanceCores), 1);
+    addField("efficiencyCores",  tcmt::ipc::FieldType::UInt8,  offsetof(tcmt::ipc::IPCDataBlock, efficiencyCores), 1);
+    addField("cpuUsage",  tcmt::ipc::FieldType::Float32, offsetof(tcmt::ipc::IPCDataBlock, cpuUsage), 4, "%", 0, 100);
+    addField("pCoreFreq", tcmt::ipc::FieldType::Float32, offsetof(tcmt::ipc::IPCDataBlock, pCoreFreq), 4, "MHz");
+    addField("eCoreFreq", tcmt::ipc::FieldType::Float32, offsetof(tcmt::ipc::IPCDataBlock, eCoreFreq), 4, "MHz");
+    addField("cpuTemp",   tcmt::ipc::FieldType::Float32, offsetof(tcmt::ipc::IPCDataBlock, cpuTemp), 4, "C", -50, 150);
+    // Memory
+    addField("totalMemory",      tcmt::ipc::FieldType::UInt64, offsetof(tcmt::ipc::IPCDataBlock, totalMemory), 8, "B");
+    addField("usedMemory",       tcmt::ipc::FieldType::UInt64, offsetof(tcmt::ipc::IPCDataBlock, usedMemory), 8, "B");
+    addField("availableMemory",  tcmt::ipc::FieldType::UInt64, offsetof(tcmt::ipc::IPCDataBlock, availableMemory), 8, "B");
+    addField("compressedMemory", tcmt::ipc::FieldType::UInt64, offsetof(tcmt::ipc::IPCDataBlock, compressedMemory), 8, "B");
+    // GPU
+    addField("gpuName",   tcmt::ipc::FieldType::String,  offsetof(tcmt::ipc::IPCDataBlock, gpuName), 48);
+    addField("gpuMemory", tcmt::ipc::FieldType::UInt64, offsetof(tcmt::ipc::IPCDataBlock, gpuMemory), 8, "B");
+    addField("gpuUsage",  tcmt::ipc::FieldType::Float32, offsetof(tcmt::ipc::IPCDataBlock, gpuUsage), 4, "%", 0, 100);
+    addField("gpuTemp",   tcmt::ipc::FieldType::Float32, offsetof(tcmt::ipc::IPCDataBlock, gpuTemp), 4, "C", -50, 150);
+    // Disks
+    for (int d = 0; d < 2; ++d) {
+        auto base = offsetof(tcmt::ipc::IPCDataBlock, disks) + d * sizeof(tcmt::ipc::IPCDataBlock::DiskSlot);
+        addField(("disk" + std::to_string(d) + "Label").c_str(), tcmt::ipc::FieldType::String, base + offsetof(tcmt::ipc::IPCDataBlock::DiskSlot, label), 32);
+        addField(("disk" + std::to_string(d) + "Total").c_str(),  tcmt::ipc::FieldType::UInt64, base + offsetof(tcmt::ipc::IPCDataBlock::DiskSlot, totalSize), 8, "B");
+        addField(("disk" + std::to_string(d) + "Used").c_str(),   tcmt::ipc::FieldType::UInt64, base + offsetof(tcmt::ipc::IPCDataBlock::DiskSlot, usedSpace), 8, "B");
+        addField(("disk" + std::to_string(d) + "FS").c_str(),    tcmt::ipc::FieldType::String,  base + offsetof(tcmt::ipc::IPCDataBlock::DiskSlot, fs), 16);
+    }
+    // Network
+    for (int n = 0; n < 2; ++n) {
+        auto base = offsetof(tcmt::ipc::IPCDataBlock, adapters) + n * sizeof(tcmt::ipc::IPCDataBlock::NetSlot);
+        addField(("net" + std::to_string(n) + "Name").c_str(), tcmt::ipc::FieldType::String, base + offsetof(tcmt::ipc::IPCDataBlock::NetSlot, name), 32);
+        addField(("net" + std::to_string(n) + "IP").c_str(),  tcmt::ipc::FieldType::String, base + offsetof(tcmt::ipc::IPCDataBlock::NetSlot, ip), 16);
+        addField(("net" + std::to_string(n) + "MAC").c_str(), tcmt::ipc::FieldType::String, base + offsetof(tcmt::ipc::IPCDataBlock::NetSlot, mac), 18);
+        addField(("net" + std::to_string(n) + "Speed").c_str(), tcmt::ipc::FieldType::UInt64, base + offsetof(tcmt::ipc::IPCDataBlock::NetSlot, speed), 8, "bps");
+    }
+    // Timestamp
+    addField("timestamp", tcmt::ipc::FieldType::String, offsetof(tcmt::ipc::IPCDataBlock, timestamp), 16);
+
+    ipcHdr.fieldCount = (uint16_t)ipcFields.size();
+    ipcServer.UpdateSchema(ipcHdr, ipcFields);
+
+    // Check if we have a TTY — if not, run in headless IPC-only mode
+    bool hasTty = isatty(STDIN_FILENO) == 1;
+
+    tcmt::TuiApp tuiApp;
+    if (hasTty) {
+        tuiApp.SetLogBuffer(&Logger::GetTuiBuffer());
+        tuiApp.Start();
+        Logger::Info("TUI started");
+    } else {
+        Logger::Info("No TTY detected — running in headless IPC-only mode");
+    }
     static std::string cachedCpuName;
     static int cachedTotalCores = 0;
     static int cachedPCores = 0;
     static int cachedECores = 0;
-    static bool cachedHT = false;
-    static bool cachedVirt = false;
     if (cpuInfo) {
         cachedCpuName = cpuInfo->GetName();
         cachedTotalCores = cpuInfo->GetTotalCores();
         cachedPCores = cpuInfo->GetLargeCores();
         cachedECores = cpuInfo->GetSmallCores();
-        cachedHT = cpuInfo->IsHyperThreadingEnabled();
-        cachedVirt = cpuInfo->IsVirtualizationEnabled();
     }
 
-    int loopCounter = 1;
+    // Get IPC shared memory pointer for writing
+    void* shmPtr = ipcServer.GetShmPtr();
+    size_t shmSize = ipcServer.GetShmSize();
 
-    while (!g_shouldExit.load() && tuiApp.IsRunning()) {
+    while (!g_shouldExit.load() && (hasTty ? tuiApp.IsRunning() : true)) {
         try {
             auto loopStart = std::chrono::high_resolution_clock::now();
 
@@ -178,21 +227,18 @@ int main(int argc, char* argv[]) {
             data.gpuUsage = 0.0;
             data.gpuTemp = 0.0;
 
-            // CPU dynamic info
             if (cpuInfo) {
                 data.cpuUsage = cpuInfo->GetUsage();
                 data.pCoreFreq = cpuInfo->GetLargeCoreSpeed();
                 data.eCoreFreq = cpuInfo->GetSmallCoreSpeed();
             }
 
-            // Memory
             try {
                 MemoryInfo mem;
                 data.totalMemory = mem.GetTotalPhysical();
                 data.usedMemory = mem.GetTotalPhysical() - mem.GetAvailablePhysical();
                 data.availableMemory = mem.GetAvailablePhysical();
 
-                // Compressed memory via host_statistics64
                 vm_statistics64_data_t vmStats;
                 mach_msg_type_number_t count = HOST_VM_INFO64_COUNT;
                 if (host_statistics64(mach_host_self(), HOST_VM_INFO64,
@@ -203,7 +249,6 @@ int main(int argc, char* argv[]) {
                 Logger::Error("Memory error: " + std::string(e.what()));
             }
 
-            // GPU
             if (gpuInfo) {
                 gpuInfo->RefreshUsage();
                 const auto& gpus = gpuInfo->GetGpuData();
@@ -219,7 +264,6 @@ int main(int argc, char* argv[]) {
                 }
             }
 
-            // Network
             try {
                 NetworkAdapter net;
                 const auto& adapters = net.GetAdapters();
@@ -236,7 +280,6 @@ int main(int argc, char* argv[]) {
                 Logger::Error("Network error: " + std::string(e.what()));
             }
 
-            // Disk
             try {
                 DiskInfo disk;
                 auto volumes = disk.GetDisks();
@@ -252,7 +295,6 @@ int main(int argc, char* argv[]) {
                 Logger::Error("Disk error: " + std::string(e.what()));
             }
 
-            // Temperature
             try {
                 auto temps = TemperatureWrapper::GetTemperatures();
                 data.temperatures = temps;
@@ -266,88 +308,74 @@ int main(int argc, char* argv[]) {
                 Logger::Error("Temperature error: " + std::string(e.what()));
             }
 
-            // Timestamp
             auto now = std::chrono::system_clock::now();
             auto time = std::chrono::system_clock::to_time_t(now);
             std::tm tm;
             localtime_r(&time, &tm);
-            char buf[64];
-            std::strftime(buf, sizeof(buf), "%H:%M:%S", &tm);
-            data.timestamp = buf;
+            char tbuf[64];
+            std::strftime(tbuf, sizeof(tbuf), "%H:%M:%S", &tm);
+            data.timestamp = tbuf;
 
-            // Update TUI
-            tuiApp.UpdateData(data);
+            // === Write to IPC shared memory ===
+            if (shmPtr && shmSize >= sizeof(tcmt::ipc::IPCDataBlock)) {
+                tcmt::ipc::IPCDataBlock* block = static_cast<tcmt::ipc::IPCDataBlock*>(shmPtr);
+                std::memset(block, 0, sizeof(tcmt::ipc::IPCDataBlock));
 
-            // Also write to shared memory (optional)
-            if (shmOk) {
-                SystemInfo sysInfo{};
-                sysInfo.cpuName = data.cpuName;
-                sysInfo.cpuUsage = data.cpuUsage;
-                sysInfo.performanceCoreFreq = data.pCoreFreq;
-                sysInfo.efficiencyCoreFreq = data.eCoreFreq;
-                sysInfo.cpuTemperature = data.cpuTemp;
-                sysInfo.totalMemory = data.totalMemory;
-                sysInfo.usedMemory = data.usedMemory;
-                sysInfo.availableMemory = data.availableMemory;
-                sysInfo.compressedMemory = data.compressedMemory;
-                sysInfo.physicalCores = data.physicalCores;
-                sysInfo.performanceCores = data.performanceCores;
-                sysInfo.efficiencyCores = data.efficiencyCores;
-                sysInfo.gpuUsage = data.gpuUsage;
-                sysInfo.gpuTemperature = data.gpuTemp;
-                sysInfo.gpuName = data.gpuName;
-                sysInfo.gpuMemory = data.gpuMemory;
-
-                // Network adapters
-                for (const auto& adapter : data.adapters) {
-                    NetworkAdapterData nad{};
-                    auto u16name = Platform::StringConverter::Utf8ToChar16(adapter.name);
-                    auto u16ip = Platform::StringConverter::Utf8ToChar16(adapter.ip);
-                    auto u16mac = Platform::StringConverter::Utf8ToChar16(adapter.mac);
-                    auto u16type = Platform::StringConverter::Utf8ToChar16(adapter.type);
-                    size_t copyLen = std::min(u16name.length(), size_t(127));
-                    for (size_t i = 0; i < copyLen; ++i) nad.name[i] = u16name[i];
-                    nad.name[copyLen] = u'\0';
-                    copyLen = std::min(u16ip.length(), size_t(63));
-                    for (size_t i = 0; i < copyLen; ++i) nad.ipAddress[i] = u16ip[i];
-                    nad.ipAddress[copyLen] = u'\0';
-                    copyLen = std::min(u16mac.length(), size_t(31));
-                    for (size_t i = 0; i < copyLen; ++i) nad.mac[i] = u16mac[i];
-                    nad.mac[copyLen] = u'\0';
-                    copyLen = std::min(u16type.length(), size_t(31));
-                    for (size_t i = 0; i < copyLen; ++i) nad.adapterType[i] = u16type[i];
-                    nad.adapterType[copyLen] = u'\0';
-                    nad.speed = adapter.speed;
-                    sysInfo.adapters.push_back(nad);
+                if (cpuInfo) {
+                    std::strncpy(block->cpuName, cpuInfo->GetName().c_str(), 63);
+                    block->physicalCores    = (uint8_t)cpuInfo->GetTotalCores();
+                    block->performanceCores = (uint8_t)cpuInfo->GetLargeCores();
+                    block->efficiencyCores  = (uint8_t)cpuInfo->GetSmallCores();
+                    block->cpuUsage  = (float)cpuInfo->GetUsage();
+                    block->pCoreFreq = (float)cpuInfo->GetLargeCoreSpeed();
+                    block->eCoreFreq = (float)cpuInfo->GetSmallCoreSpeed();
                 }
+                std::strncpy(block->timestamp, tbuf, 15);
+                block->cpuTemp = (float)data.cpuTemp;
+                block->totalMemory   = data.totalMemory;
+                block->usedMemory    = data.usedMemory;
+                block->availableMemory = data.availableMemory;
+                block->compressedMemory = data.compressedMemory;
 
-                // Disks
-                for (const auto& disk : data.disks) {
-                    DiskData dd{};
-                    dd.label = disk.label;
-                    dd.fileSystem = disk.fileSystem;
-                    dd.totalSize = disk.totalSize;
-                    dd.usedSpace = disk.usedSpace;
-                    dd.freeSpace = disk.totalSize - disk.usedSpace;
-                    sysInfo.disks.push_back(dd);
+                if (!data.gpuName.empty()) {
+                    std::strncpy(block->gpuName, data.gpuName.c_str(), 47);
                 }
+                block->gpuMemory = data.gpuMemory;
+                block->gpuUsage  = (float)data.gpuUsage;
+                block->gpuTemp   = (float)data.gpuTemp;
 
-                // Temperatures
-                sysInfo.temperatures = data.temperatures;
+                for (size_t d = 0; d < data.disks.size() && d < 2; ++d) {
+                    std::strncpy(block->disks[d].label, data.disks[d].label.c_str(), 31);
+                    block->disks[d].totalSize = data.disks[d].totalSize;
+                    block->disks[d].usedSpace = data.disks[d].usedSpace;
+                    std::strncpy(block->disks[d].fs, data.disks[d].fileSystem.c_str(), 15);
+                }
+                block->diskCount = (uint8_t)std::min(data.disks.size(), size_t(2));
 
-                SharedMemoryManager::WriteToSharedMemory(sysInfo);
+                for (size_t n = 0; n < data.adapters.size() && n < 2; ++n) {
+                    std::strncpy(block->adapters[n].name, data.adapters[n].name.c_str(), 31);
+                    std::strncpy(block->adapters[n].ip, data.adapters[n].ip.c_str(), 15);
+                    std::strncpy(block->adapters[n].mac, data.adapters[n].mac.c_str(), 17);
+                    std::strncpy(block->adapters[n].type, data.adapters[n].type.c_str(), 15);
+                    block->adapters[n].speed = data.adapters[n].speed;
+                }
+                block->adapterCount = (uint8_t)std::min(data.adapters.size(), size_t(2));
+
+                // Re-broadcast schema (for newly connected clients)
+                ipcServer.UpdateSchema(ipcHdr, ipcFields);
             }
 
-            // Sleep
+            // Update TUI (if running)
+            if (hasTty) {
+                tuiApp.UpdateData(data);
+            }
+
             auto loopEnd = std::chrono::high_resolution_clock::now();
             int loopMs = (int)std::chrono::duration_cast<std::chrono::milliseconds>(
                 loopEnd - loopStart).count();
-            int sleepMs = std::max(500 - loopMs, 50);  // 2 Hz update
-            // Sleep with responsive exit (check every 50ms)
             for (int s = 0; s < 10 && !g_shouldExit.load(); ++s) {
                 std::this_thread::sleep_for(std::chrono::milliseconds(50));
             }
-            loopCounter++;
         }
         catch (const std::exception& e) {
             Logger::Error("Loop error: " + std::string(e.what()));
@@ -360,9 +388,9 @@ int main(int argc, char* argv[]) {
     }
 
     Logger::Info("Exiting, cleaning up...");
-    tuiApp.Stop();
+    if (hasTty) tuiApp.Stop();
+    ipcServer.Stop();
     TemperatureWrapper::Cleanup();
-    SharedMemoryManager::CleanupSharedMemory();
     Logger::Info("Done.");
     return 0;
 }

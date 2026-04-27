@@ -40,6 +40,11 @@ set(CONFIG_SOURCES
     ${CMAKE_CURRENT_SOURCE_DIR}/core/Config/ConfigManager.cpp
 )
 
+# IPC module (macOS for now)
+set(IPC_SOURCES
+    ${CMAKE_CURRENT_SOURCE_DIR}/core/IPC/IPCServer.cpp
+)
+
 # Temperature modules (Windows only for now)
 set(TEMP_SOURCES "")
 set(TEMP_SOURCES_WINDOWS "")
@@ -101,6 +106,7 @@ add_library(TCMTCore STATIC
     ${CORE_MODULES_SOURCES}
     ${DATASTRUCT_SOURCES}
     ${CONFIG_SOURCES}
+    ${IPC_SOURCES}
     ${TEMP_SOURCES}
     ${TUI_SOURCES}
 )
