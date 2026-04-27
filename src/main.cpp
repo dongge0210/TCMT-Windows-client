@@ -845,6 +845,36 @@ int main(int argc, char* argv[]) {
                     sysInfo.totalMemory = mem.GetTotalPhysical();
                     sysInfo.usedMemory = mem.GetTotalPhysical() - mem.GetAvailablePhysical();
                     sysInfo.availableMemory = mem.GetAvailablePhysical();
+
+                    // Compressed memory via WMI (Windows 10+)
+                    if (wmiManager) {
+                        IWbemServices* wmiSvc = wmiManager->GetWmiService();
+                        if (wmiSvc) {
+                            IEnumWbemClassObject* pEnumMem = nullptr;
+                            if (SUCCEEDED(wmiSvc->ExecQuery(
+                                bstr_t(L"WQL"),
+                                bstr_t(L"SELECT CompressedMemory FROM Win32_PerfFormattedData_PerfOS_Memory"),
+                                WBEM_FLAG_FORWARD_ONLY | WBEM_FLAG_RETURN_IMMEDIATELY,
+                                nullptr, &pEnumMem)) && pEnumMem)
+                            {
+                                IWbemClassObject* objMem = nullptr;
+                                ULONG retMem = 0;
+                                if (pEnumMem->Next(WBEM_INFINITE, 1, &objMem, &retMem) == S_OK) {
+                                    VARIANT vtMem;
+                                    VariantInit(&vtMem);
+                                    if (SUCCEEDED(objMem->Get(L"CompressedMemory", 0, &vtMem, 0, 0))) {
+                                        if (vtMem.vt == VT_UI8)
+                                            sysInfo.compressedMemory = vtMem.ullVal * 1024;
+                                        else if (vtMem.vt == VT_I4 || vtMem.vt == VT_UI4)
+                                            sysInfo.compressedMemory = static_cast<uint64_t>((vtMem.vt == VT_I4) ? vtMem.lVal : vtMem.ulVal) * 1024;
+                                    }
+                                    VariantClear(&vtMem);
+                                    objMem->Release();
+                                }
+                                pEnumMem->Release();
+                            }
+                        }
+                    }
                 }
                 catch (const std::exception& e) {
                     Logger::Error("Failed to get memory info: " + std::string(e.what()));
