@@ -64,7 +64,8 @@ void NamedPipeServer::ServerLoop() {
 
         BOOL connected = ConnectNamedPipe(hPipe, nullptr);
         if (!connected) {
-            connected = (GetLastError() == ERROR_PIPE_CONNECTED);
+            DWORD err = GetLastError();
+            connected = (err == ERROR_PIPE_CONNECTED) ? TRUE : FALSE;
         }
 
         if (!connected) {
