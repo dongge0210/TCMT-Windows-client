@@ -22,7 +22,7 @@ public:
 
     void UpdateSchema(const SchemaHeader& header, const std::vector<FieldDef>& fields);
 
-    std::string GetLastError() const { return lastError_; }
+    std::string LastError() const { return lastError_; }
 
 private:
     void ServerLoop();

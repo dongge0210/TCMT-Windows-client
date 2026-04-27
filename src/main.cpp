@@ -712,7 +712,7 @@ int main(int argc, char* argv[]) {
         if (pipeServer.Start()) {
             Logger::Info("NamedPipe server started");
         } else {
-            Logger::Warn("NamedPipe server failed: " + pipeServer.GetLastError());
+            Logger::Warn("NamedPipe server failed: " + pipeServer.LastError());
         }
 
         // Start TUI (Windows version)
