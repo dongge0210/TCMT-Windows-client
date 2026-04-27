@@ -147,6 +147,18 @@ tcmt_target_set_options(TCMTCore)
 tcmt_set_platform_libraries(TCMTCore)
 tcmt_set_output_directories(TCMTCore)
 
+# ============================================================
+# CPP-parsers extern backends (macOS)
+# Builds yaml-cpp and nlohmann_json so they're linkable.
+# Source files in dongge0210/CPP-parsers have API incompatibilities
+# with current extern lib versions — skip for now.
+# ============================================================
+if(TCMT_MACOS)
+    add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/CPP-parsers/extern/json build-cpp-extern-json)
+    add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/CPP-parsers/extern/yaml-cpp build-cpp-extern-yaml)
+    target_link_libraries(TCMTCore PRIVATE yaml-cpp nlohmann_json::nlohmann_json)
+endif()
+
 # Link curses on Windows and macOS
 if(TCMT_WINDOWS)
     # Windows: PDCurses - link with prebuilt or skip for now
