@@ -104,5 +104,6 @@ git submodule update --init --recursive
 - No project-level test infrastructure exists yet
 
 ## TODO
-- **Windows NamedPipeServer** — `core/IPC/IPCServer` is macOS-only (UDS). Windows needs a
-  `NamedPipeServer.cpp` counterpart (see C# `IPCPipeClient.ConnectWindowsAsync` for the protocol).
+- **Windows main.cpp IPC integration** — `core/IPC/NamedPipeServer` is done. The Windows
+  entry point (`src/main.cpp`) still uses the legacy SharedMemoryManager path and has not
+  been migrated to the schema-based IPC pipeline. See `src/core/IPC/NamedPipeServer.h` for API.

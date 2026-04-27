@@ -20,7 +20,7 @@ cd AvaloniaUI && dotnet build AvaloniaUI.csproj -c Release
 
 ## Architecture
 
-- **IPC**: Schema-based pipeline — `core/IPC/IPCServer` (macOS UDS, TODO: Windows NamedPipe) +
+- **IPC**: Schema-based pipeline — `core/IPC/IPCServer` (macOS UDS) + `NamedPipeServer` (Windows) +
   `IPCDataBlock` mmap file. C# side reads via `IPCPipeClient` + `IPCMemoryReader`.
   Legacy `SharedMemoryManager`/`SharedMemoryBlock` still present but deprecated.
 - **UI**: AvaloniaUI (.NET 10.0, cross-platform) or ncurses TUI (macOS-only)
