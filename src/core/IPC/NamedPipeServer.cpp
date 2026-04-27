@@ -1,11 +1,11 @@
-#include "NamedPipeServer.h"
-#include <cstring>
-#include <algorithm>
-
 #ifdef _WIN32
 #define NOMINMAX
 #include <windows.h>
 #endif
+
+#include "NamedPipeServer.h"
+#include <cstring>
+#include <algorithm>
 
 namespace tcmt::ipc {
 
@@ -64,8 +64,8 @@ void NamedPipeServer::ServerLoop() {
 
         BOOL connected = ConnectNamedPipe(hPipe, nullptr);
         if (!connected) {
-            // Pipe was already connected by another client — still valid
-            connected = TRUE;
+            DWORD gle = GetLastError();
+            connected = (gle == ERROR_PIPE_CONNECTED) ? TRUE : FALSE;
         }
 
         if (!connected) {
