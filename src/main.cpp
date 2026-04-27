@@ -45,6 +45,7 @@ Please ignore this warning - the project structure doesn't support this scenario
 #include "core/utils/TpmBridge.h"
 #include "core/DataStruct/DataStruct.h"
 #include "core/IPC/SharedMemoryManager.h"
+#include "core/IPC/NamedPipeServer.h"
 #include "core/temperature/TemperatureWrapper.h"
 #include "tui/TuiApp.h"
 
@@ -703,13 +704,62 @@ int main(int argc, char* argv[]) {
         }
 
         Logger::Info("Program startup complete");
-        
+
+        // Start NamedPipe server for IPC schema broadcast
+        tcmt::ipc::NamedPipeServer pipeServer;
+        if (pipeServer.Start()) {
+            Logger::Info("NamedPipe server started");
+        } else {
+            Logger::Warn("NamedPipe server failed: " + pipeServer.GetLastError());
+        }
+
         // Start TUI (Windows version)
         tcmt::TuiApp tuiApp;
         tuiApp.SetLogBuffer(&Logger::GetTuiBuffer());
         tuiApp.Start();
         Logger::Info("TUI started");
-        
+
+        // Register schema fields for NamedPipe IPC
+        using namespace tcmt::ipc;
+        SchemaHeader ipcHdr;
+        ipcHdr.magic = IPC_MAGIC;
+        ipcHdr.version = IPC_VERSION;
+        ipcHdr.totalSize = sizeof(SharedMemoryBlock);
+        ipcHdr.stringBlockSize = 0;
+
+        std::vector<FieldDef> ipcFields;
+        auto addField = [&](const char* name, FieldType type, size_t offset, size_t size,
+                            const char* units = "", float min = 0, float max = 0) {
+            if (ipcFields.size() >= IPC_MAX_FIELDS) return;
+            FieldDef f;
+            f.id = (uint32_t)ipcFields.size() + 1;
+            f.type = static_cast<uint8_t>(type);
+            f.offset = (uint32_t)offset;
+            f.size = (uint16_t)size;
+            f.count = 1;
+            f.strOffset = 0;
+            f.flags = 0;
+            f.minVal = min;
+            f.maxVal = max;
+            std::strncpy(f.name, name, IPC_FIELD_NAME_LEN - 1);
+            std::strncpy(f.units, units, IPC_FIELD_UNITS_LEN - 1);
+            ipcFields.push_back(f);
+        };
+
+        addField("cpuName", FieldType::String, offsetof(SharedMemoryBlock, cpuName), 256);
+        addField("physicalCores", FieldType::UInt32, offsetof(SharedMemoryBlock, physicalCores), 4);
+        addField("logicalCores", FieldType::UInt32, offsetof(SharedMemoryBlock, logicalCores), 4);
+        addField("cpuUsage", FieldType::Float64, offsetof(SharedMemoryBlock, cpuUsage), 8, "%");
+        addField("totalMemory", FieldType::UInt64, offsetof(SharedMemoryBlock, totalMemory), 8, "B");
+        addField("usedMemory", FieldType::UInt64, offsetof(SharedMemoryBlock, usedMemory), 8, "B");
+        addField("availableMemory", FieldType::UInt64, offsetof(SharedMemoryBlock, availableMemory), 8, "B");
+        addField("cpuTemperature", FieldType::Float64, offsetof(SharedMemoryBlock, cpuTemperature), 8, "C");
+        addField("gpuTemperature", FieldType::Float64, offsetof(SharedMemoryBlock, gpuTemperature), 8, "C");
+
+        ipcHdr.fieldCount = (uint16_t)ipcFields.size();
+        pipeServer.UpdateSchema(ipcHdr, ipcFields);
+        Logger::Debug("IPC schema broadcast: " + std::to_string(ipcFields.size()) + " fields");
+
         int loopCounter = 1;
         bool isFirstRun = true;
         
@@ -1223,7 +1273,10 @@ int main(int argc, char* argv[]) {
                             Logger::Error("Failed to reinitialize shared memory: " + SharedMemoryManager::GetLastError());
                         }
                     }
-                    
+
+                    // Broadcast IPC schema (re-register each loop for new clients)
+                    pipeServer.UpdateSchema(ipcHdr, ipcFields);
+
                     if (isDetailedLogging) {
                         Logger::Debug("System info updated to shared memory");
                     }
@@ -1422,7 +1475,10 @@ int main(int argc, char* argv[]) {
         catch (const std::exception& e) {
             Logger::Error("Error stopping TUI: " + std::string(e.what()));
         }
-        
+
+        pipeServer.Stop();
+        Logger::Debug("NamedPipe server stopped");
+
         SafeExit(0);
     }
     catch (const std::exception& e) {
