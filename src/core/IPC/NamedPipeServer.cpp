@@ -2,6 +2,10 @@
 #include <cstring>
 #include <algorithm>
 
+#ifdef _WIN32
+#include <windows.h>
+#endif
+
 namespace tcmt::ipc {
 
 NamedPipeServer::NamedPipeServer() = default;
@@ -27,10 +31,12 @@ void NamedPipeServer::Stop() {
     // Close all client pipes to unblock ConnectNamedPipe
     {
         std::lock_guard<std::mutex> lock(clientsMutex_);
-        for (HANDLE h : clientPipes_) {
-            CancelIoEx(h, nullptr);
-            CloseHandle(h);
+#ifdef _WIN32
+        for (PipeHandle h : clientPipes_) {
+            CancelIoEx(static_cast<HANDLE>(h), nullptr);
+            CloseHandle(static_cast<HANDLE>(h));
         }
+#endif
         clientPipes_.clear();
     }
 
@@ -74,12 +80,13 @@ void NamedPipeServer::ServerLoop() {
 #endif
 }
 
-void NamedPipeServer::SendSchema(HANDLE pipe) {
+void NamedPipeServer::SendSchema(PipeHandle pipe) {
     auto data = SerializeSchema();
     if (data.empty()) return;
-
+#ifdef _WIN32
     DWORD written = 0;
-    WriteFile(pipe, data.data(), (DWORD)data.size(), &written, nullptr);
+    WriteFile(static_cast<HANDLE>(pipe), data.data(), static_cast<DWORD>(data.size()), &written, nullptr);
+#endif
 }
 
 std::vector<uint8_t> NamedPipeServer::SerializeSchema() {
@@ -108,13 +115,17 @@ void NamedPipeServer::UpdateSchema(const SchemaHeader& header, const std::vector
 
     std::lock_guard<std::mutex> lock(clientsMutex_);
     for (auto it = clientPipes_.begin(); it != clientPipes_.end(); ) {
+#ifdef _WIN32
         DWORD written = 0;
-        if (!WriteFile(*it, data.data(), (DWORD)data.size(), &written, nullptr)) {
-            CloseHandle(*it);
+        if (!WriteFile(static_cast<HANDLE>(*it), data.data(), static_cast<DWORD>(data.size()), &written, nullptr)) {
+            CloseHandle(static_cast<HANDLE>(*it));
             it = clientPipes_.erase(it);
         } else {
             ++it;
         }
+#else
+        ++it;
+#endif
     }
 }
 

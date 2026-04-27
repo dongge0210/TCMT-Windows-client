@@ -6,8 +6,7 @@
 If you see warning MSB8077: Some files are set to C++/CLI but "Enable CLR Support for Single File" property is not defined.
 Please ignore this warning - the project structure doesn't support this scenario
 */
-// Do NOT include winsock2.h here - it breaks other headers that include windows.h first
-// Network headers are included in the platform-specific source files instead
+#define WIN32_LEAN_AND_MEAN
 #include <winsock2.h>
 #include <windows.h>
 #include <shellapi.h>
@@ -15,6 +14,9 @@ Please ignore this warning - the project structure doesn't support this scenario
 #include <Aclapi.h>
 #include <conio.h>
 #include <eh.h>
+
+#pragma comment(lib, "kernel32.lib")
+#pragma comment(lib, "user32.lib")
 
 #include <chrono>
 #include <iostream>
@@ -741,8 +743,8 @@ int main(int argc, char* argv[]) {
             f.flags = 0;
             f.minVal = min;
             f.maxVal = max;
-            std::strncpy(f.name, name, IPC_FIELD_NAME_LEN - 1);
-            std::strncpy(f.units, units, IPC_FIELD_UNITS_LEN - 1);
+            strncpy_s(f.name, sizeof(f.name), name, _TRUNCATE);
+            strncpy_s(f.units, sizeof(f.units), units, _TRUNCATE);
             ipcFields.push_back(f);
         };
 
