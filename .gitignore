@@ -96,3 +96,4 @@ docs/superpowers/
 system_monitor.json
 TODO.md
 .remember/
+.remember/tmp/save-session.pid
