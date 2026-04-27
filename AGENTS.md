@@ -20,7 +20,9 @@ cd AvaloniaUI && dotnet build AvaloniaUI.csproj -c Release
 
 ## Architecture
 
-- **IPC**: `SharedMemoryBlock` (packed C struct, 129KB) via POSIX shm_open (macOS) / MemoryMappedFile (Windows)
+- **IPC**: Schema-based pipeline — `core/IPC/IPCServer` (macOS UDS, TODO: Windows NamedPipe) +
+  `IPCDataBlock` mmap file. C# side reads via `IPCPipeClient` + `IPCMemoryReader`.
+  Legacy `SharedMemoryManager`/`SharedMemoryBlock` still present but deprecated.
 - **UI**: AvaloniaUI (.NET 10.0, cross-platform) or ncurses TUI (macOS-only)
 - **C++ entry**: `src/main.cpp` (Windows), `src/main_mac.cpp` (macOS) — not interchangeable
 - **Build tooling**: `tcmt-build.json` + MCP server at `tools/mcp-build/` (run via `uv run --directory tools/mcp-build tcmt-build-mcp`)
