@@ -46,7 +46,7 @@ public static class IPCSystemInfoMapper
             info.GpuName = reader.ReadString("gpu/0/name") ?? "";
             info.GpuBrand = reader.ReadString("gpu/0/brand") ?? "";
             info.GpuMemory = reader.ReadUInt64("gpu/0/memory") ?? 0;
-            info.GpuUsage = (double?)(reader.ReadFloat32("gpu/0/usage")) ?? reader.ReadFloat64("gpu/0/usage") ?? 0;
+            var gpuUsage = (double?)(reader.ReadFloat32("gpu/0/usage")) ?? reader.ReadFloat64("gpu/0/usage") ?? 0.0;
             info.GpuCoreFreq = (double?)(reader.ReadFloat32("gpu/0/coreFreq")) ?? reader.ReadFloat64("gpu/0/coreFreq") ?? 0;
             info.GpuIsVirtual = reader.ReadBool("gpu/0/isVirtual") ?? false;
             info.GpuTemperature = (double?)(reader.ReadFloat32("gpu/0/temperature")) ?? reader.ReadFloat64("gpu/0/temperature") ?? 0;
@@ -60,6 +60,7 @@ public static class IPCSystemInfoMapper
                         Name = info.GpuName,
                         Brand = info.GpuBrand,
                         Memory = info.GpuMemory,
+                        Usage = gpuUsage,
                         CoreClock = info.GpuCoreFreq,
                         IsVirtual = info.GpuIsVirtual,
                         Temperature = info.GpuTemperature
