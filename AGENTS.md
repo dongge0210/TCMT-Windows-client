@@ -63,3 +63,8 @@ Do NOT hardcode build output paths. Use the MCP server's inference:
 - `FFmpeg` submodule — does not exist in `.gitmodules` (only 8, not 9)
 - macOS output `build/` — actual C++ binary is `build/src/TCMT-M` (not `build/bin/TCMT-M`)
 - macOS requires `brew install ncurses` — true, but `find_package(Curses)` in CMake handles it
+
+## TODO
+
+- **Windows NamedPipeServer** — `core/IPC/IPCServer` is macOS-only (UDS). Windows needs a
+  `NamedPipeServer` counterpart (see C# `IPCPipeClient.ConnectWindowsAsync` for protocol).

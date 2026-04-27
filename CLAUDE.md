@@ -107,6 +107,10 @@ git submodule update --init --recursive
 - `TODO.md` — Remaining macOS polish items
 - No project-level test infrastructure exists yet
 
+## TODO
+- **Windows NamedPipeServer** — `core/IPC/IPCServer` is macOS-only (UDS). Windows needs a
+  `NamedPipeServer.cpp` counterpart (see C# `IPCPipeClient.ConnectWindowsAsync` for the protocol).
+
 ### Core Component (`src/core/`)
 - **Hardware Modules**: CPU (`CpuInfo`), GPU (`GpuInfo`), Memory (`MemoryInfo`), Disk (`DiskInfo`), Network (`NetworkAdapter`), OS (`OSInfo`) info collectors
 - **Utilities**: `WMIManager` for WMI queries, `WinUtils` for Windows APIs, `Logger` for logging
