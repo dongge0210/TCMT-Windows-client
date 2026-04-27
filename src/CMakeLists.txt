@@ -148,15 +148,47 @@ tcmt_set_platform_libraries(TCMTCore)
 tcmt_set_output_directories(TCMTCore)
 
 # ============================================================
-# CPP-parsers extern backends (macOS)
-# Builds yaml-cpp and nlohmann_json so they're linkable.
-# Source files in dongge0210/CPP-parsers have API incompatibilities
-# with current extern lib versions — skip for now.
+# CPP-parsers — compile config parsers (macOS)
 # ============================================================
 if(TCMT_MACOS)
     add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/CPP-parsers/extern/json build-cpp-extern-json)
     add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/CPP-parsers/extern/yaml-cpp build-cpp-extern-yaml)
-    target_link_libraries(TCMTCore PRIVATE yaml-cpp nlohmann_json::nlohmann_json)
+    add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/CPP-parsers/extern/tinyxml2 build-cpp-extern-xml)
+    add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/CPP-parsers/extern/tomlplusplus build-cpp-extern-toml)
+
+    set(CPP_PARSERS_SRCS
+        ${CMAKE_CURRENT_SOURCE_DIR}/CPP-parsers/src/IniConfigParser.cpp
+        ${CMAKE_CURRENT_SOURCE_DIR}/CPP-parsers/src/TomlConfigParser.cpp
+        ${CMAKE_CURRENT_SOURCE_DIR}/CPP-parsers/src/XmlConfigParser.cpp
+        ${CMAKE_CURRENT_SOURCE_DIR}/CPP-parsers/src/YamlConfigParser.cpp
+    )
+    add_library(CPPParsers STATIC ${CPP_PARSERS_SRCS})
+
+    target_include_directories(CPPParsers PUBLIC
+        ${CMAKE_CURRENT_SOURCE_DIR}/CPP-parsers/include
+        ${CMAKE_CURRENT_SOURCE_DIR}/CPP-parsers/src
+        ${CMAKE_CURRENT_SOURCE_DIR}/CPP-parsers/extern/json/single_include
+        ${CMAKE_CURRENT_SOURCE_DIR}/CPP-parsers/extern/yaml-cpp/include
+        ${CMAKE_CURRENT_SOURCE_DIR}/CPP-parsers/extern/tinyxml2
+        ${CMAKE_CURRENT_SOURCE_DIR}/CPP-parsers/extern/tomlplusplus/include
+        ${CMAKE_CURRENT_SOURCE_DIR}/CPP-parsers/extern/inih
+        ${CMAKE_CURRENT_SOURCE_DIR}/CPP-parsers/extern/inih/cpp
+    )
+
+    # inih has no CMake — add its source manually
+    target_sources(CPPParsers PRIVATE
+        ${CMAKE_CURRENT_SOURCE_DIR}/CPP-parsers/extern/inih/ini.c
+        ${CMAKE_CURRENT_SOURCE_DIR}/CPP-parsers/extern/inih/cpp/INIReader.cpp
+    )
+
+    target_link_libraries(CPPParsers PUBLIC
+        nlohmann_json::nlohmann_json
+        yaml-cpp
+        tinyxml2
+        tomlplusplus_tomlplusplus
+    )
+
+    target_link_libraries(TCMTCore PRIVATE CPPParsers)
 endif()
 
 # Link curses on Windows and macOS
