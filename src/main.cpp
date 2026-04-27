@@ -748,15 +748,47 @@ int main(int argc, char* argv[]) {
             ipcFields.push_back(f);
         };
 
-        addField("cpuName", FieldType::String, offsetof(SharedMemoryBlock, cpuName), 256);
-        addField("physicalCores", FieldType::UInt32, offsetof(SharedMemoryBlock, physicalCores), 4);
-        addField("logicalCores", FieldType::UInt32, offsetof(SharedMemoryBlock, logicalCores), 4);
-        addField("cpuUsage", FieldType::Float64, offsetof(SharedMemoryBlock, cpuUsage), 8, "%");
-        addField("totalMemory", FieldType::UInt64, offsetof(SharedMemoryBlock, totalMemory), 8, "B");
-        addField("usedMemory", FieldType::UInt64, offsetof(SharedMemoryBlock, usedMemory), 8, "B");
-        addField("availableMemory", FieldType::UInt64, offsetof(SharedMemoryBlock, availableMemory), 8, "B");
-        addField("cpuTemperature", FieldType::Float64, offsetof(SharedMemoryBlock, cpuTemperature), 8, "C");
-        addField("gpuTemperature", FieldType::Float64, offsetof(SharedMemoryBlock, gpuTemperature), 8, "C");
+        // ─── CPU ───
+        addField("cpu/name",              FieldType::String,  offsetof(SharedMemoryBlock, cpuName),          128);
+        addField("cpu/cores/physical",    FieldType::UInt32,  offsetof(SharedMemoryBlock, physicalCores),    4);
+        addField("cpu/cores/logical",     FieldType::UInt32,  offsetof(SharedMemoryBlock, logicalCores),     4);
+        addField("cpu/cores/performance", FieldType::UInt32,  offsetof(SharedMemoryBlock, performanceCores), 4);
+        addField("cpu/cores/efficiency",  FieldType::UInt32,  offsetof(SharedMemoryBlock, efficiencyCores),  4);
+        addField("cpu/usage",             FieldType::Float64, offsetof(SharedMemoryBlock, cpuUsage),         8, "%", 0, 100);
+        addField("cpu/freq/pCore",        FieldType::Float64, offsetof(SharedMemoryBlock, pCoreFreq),        8, "MHz");
+        addField("cpu/freq/eCore",        FieldType::Float64, offsetof(SharedMemoryBlock, eCoreFreq),        8, "MHz");
+        addField("cpu/temperature",       FieldType::Float64, offsetof(SharedMemoryBlock, cpuTemperature),   8, "C", -50, 150);
+        addField("cpu/hyperThreading",    FieldType::Bool,    offsetof(SharedMemoryBlock, hyperThreading),   1);
+        addField("cpu/virtualization",    FieldType::Bool,    offsetof(SharedMemoryBlock, virtualization),   1);
+
+        // ─── Memory ───
+        addField("memory/total",         FieldType::UInt64, offsetof(SharedMemoryBlock, totalMemory),      8, "B");
+        addField("memory/used",          FieldType::UInt64, offsetof(SharedMemoryBlock, usedMemory),       8, "B");
+        addField("memory/available",     FieldType::UInt64, offsetof(SharedMemoryBlock, availableMemory),  8, "B");
+        addField("memory/compressed",    FieldType::UInt64, offsetof(SharedMemoryBlock, compressedMemory), 8, "B");
+
+        // ─── GPU #0 ───
+        addField("gpu/0/name",        FieldType::String,  offsetof(SharedMemoryBlock, gpus) + offsetof(GPUData, name),      128);
+        addField("gpu/0/brand",       FieldType::String,  offsetof(SharedMemoryBlock, gpus) + offsetof(GPUData, brand),     64);
+        addField("gpu/0/memory",      FieldType::UInt64,  offsetof(SharedMemoryBlock, gpus) + offsetof(GPUData, memory),    8, "B");
+        addField("gpu/0/usage",       FieldType::Float64, offsetof(SharedMemoryBlock, gpus) + offsetof(GPUData, usage),     8, "%", 0, 100);
+        addField("gpu/0/coreFreq",    FieldType::Float64, offsetof(SharedMemoryBlock, gpus) + offsetof(GPUData, coreClock), 8, "MHz");
+        addField("gpu/0/isVirtual",   FieldType::Bool,    offsetof(SharedMemoryBlock, gpus) + offsetof(GPUData, isVirtual), 1);
+        addField("gpu/0/temperature", FieldType::Float64, offsetof(SharedMemoryBlock, gpuTemperature),                      8, "C");
+
+        // ─── Network #0 ───
+        addField("net/0/name",  FieldType::String,  offsetof(SharedMemoryBlock, adapters) + offsetof(NetworkAdapterData, name),        128);
+        addField("net/0/mac",   FieldType::String,  offsetof(SharedMemoryBlock, adapters) + offsetof(NetworkAdapterData, mac),         32);
+        addField("net/0/ip",    FieldType::String,  offsetof(SharedMemoryBlock, adapters) + offsetof(NetworkAdapterData, ipAddress),   64);
+        addField("net/0/type",  FieldType::String,  offsetof(SharedMemoryBlock, adapters) + offsetof(NetworkAdapterData, adapterType), 32);
+        addField("net/0/speed", FieldType::UInt64,  offsetof(SharedMemoryBlock, adapters) + offsetof(NetworkAdapterData, speed),       8, "bps");
+
+        // ─── Disk #0 ───
+        addField("disk/0/letter", FieldType::String,  offsetof(SharedMemoryBlock, disks) + offsetof(SharedMemoryBlock::SharedDiskData, letter),     1);
+        addField("disk/0/label",  FieldType::String,  offsetof(SharedMemoryBlock, disks) + offsetof(SharedMemoryBlock::SharedDiskData, label),      128);
+        addField("disk/0/total",  FieldType::UInt64,  offsetof(SharedMemoryBlock, disks) + offsetof(SharedMemoryBlock::SharedDiskData, totalSize),  8, "B");
+        addField("disk/0/used",   FieldType::UInt64,  offsetof(SharedMemoryBlock, disks) + offsetof(SharedMemoryBlock::SharedDiskData, usedSpace),  8, "B");
+        addField("disk/0/free",   FieldType::UInt64,  offsetof(SharedMemoryBlock, disks) + offsetof(SharedMemoryBlock::SharedDiskData, freeSpace),  8, "B");
 
         ipcHdr.fieldCount = (uint16_t)ipcFields.size();
         pipeServer.UpdateSchema(ipcHdr, ipcFields);

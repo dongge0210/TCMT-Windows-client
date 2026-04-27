@@ -140,41 +140,47 @@ int main(int argc, char* argv[]) {
         ipcFields.push_back(f);
     };
 
-    // CPU
-    addField("cpuName",   tcmt::ipc::FieldType::String,  offsetof(tcmt::ipc::IPCDataBlock, cpuName), 64);
-    addField("physicalCores",    tcmt::ipc::FieldType::UInt8,  offsetof(tcmt::ipc::IPCDataBlock, physicalCores), 1);
-    addField("performanceCores", tcmt::ipc::FieldType::UInt8,  offsetof(tcmt::ipc::IPCDataBlock, performanceCores), 1);
-    addField("efficiencyCores",  tcmt::ipc::FieldType::UInt8,  offsetof(tcmt::ipc::IPCDataBlock, efficiencyCores), 1);
-    addField("cpuUsage",  tcmt::ipc::FieldType::Float32, offsetof(tcmt::ipc::IPCDataBlock, cpuUsage), 4, "%", 0, 100);
-    addField("pCoreFreq", tcmt::ipc::FieldType::Float32, offsetof(tcmt::ipc::IPCDataBlock, pCoreFreq), 4, "MHz");
-    addField("eCoreFreq", tcmt::ipc::FieldType::Float32, offsetof(tcmt::ipc::IPCDataBlock, eCoreFreq), 4, "MHz");
-    addField("cpuTemp",   tcmt::ipc::FieldType::Float32, offsetof(tcmt::ipc::IPCDataBlock, cpuTemp), 4, "C", -50, 150);
-    // Memory
-    addField("totalMemory",      tcmt::ipc::FieldType::UInt64, offsetof(tcmt::ipc::IPCDataBlock, totalMemory), 8, "B");
-    addField("usedMemory",       tcmt::ipc::FieldType::UInt64, offsetof(tcmt::ipc::IPCDataBlock, usedMemory), 8, "B");
-    addField("availableMemory",  tcmt::ipc::FieldType::UInt64, offsetof(tcmt::ipc::IPCDataBlock, availableMemory), 8, "B");
-    addField("compressedMemory", tcmt::ipc::FieldType::UInt64, offsetof(tcmt::ipc::IPCDataBlock, compressedMemory), 8, "B");
-    // GPU
-    addField("gpuName",   tcmt::ipc::FieldType::String,  offsetof(tcmt::ipc::IPCDataBlock, gpuName), 48);
-    addField("gpuMemory", tcmt::ipc::FieldType::UInt64, offsetof(tcmt::ipc::IPCDataBlock, gpuMemory), 8, "B");
-    addField("gpuUsage",  tcmt::ipc::FieldType::Float32, offsetof(tcmt::ipc::IPCDataBlock, gpuUsage), 4, "%", 0, 100);
-    addField("gpuTemp",   tcmt::ipc::FieldType::Float32, offsetof(tcmt::ipc::IPCDataBlock, gpuTemp), 4, "C", -50, 150);
-    // Disks
+    // ─── CPU ───
+    addField("cpu/name",              tcmt::ipc::FieldType::String,  offsetof(tcmt::ipc::IPCDataBlock, cpuName),       64);
+    addField("cpu/cores/physical",    tcmt::ipc::FieldType::UInt8,   offsetof(tcmt::ipc::IPCDataBlock, physicalCores), 1);
+    addField("cpu/cores/performance", tcmt::ipc::FieldType::UInt8,   offsetof(tcmt::ipc::IPCDataBlock, performanceCores), 1);
+    addField("cpu/cores/efficiency",  tcmt::ipc::FieldType::UInt8,   offsetof(tcmt::ipc::IPCDataBlock, efficiencyCores), 1);
+    addField("cpu/usage",             tcmt::ipc::FieldType::Float32, offsetof(tcmt::ipc::IPCDataBlock, cpuUsage),     4, "%", 0, 100);
+    addField("cpu/freq/pCore",        tcmt::ipc::FieldType::Float32, offsetof(tcmt::ipc::IPCDataBlock, pCoreFreq),    4, "MHz");
+    addField("cpu/freq/eCore",        tcmt::ipc::FieldType::Float32, offsetof(tcmt::ipc::IPCDataBlock, eCoreFreq),    4, "MHz");
+    addField("cpu/temperature",       tcmt::ipc::FieldType::Float32, offsetof(tcmt::ipc::IPCDataBlock, cpuTemp),      4, "C", -50, 150);
+
+    // ─── Memory ───
+    addField("memory/total",         tcmt::ipc::FieldType::UInt64, offsetof(tcmt::ipc::IPCDataBlock, totalMemory),      8, "B");
+    addField("memory/used",          tcmt::ipc::FieldType::UInt64, offsetof(tcmt::ipc::IPCDataBlock, usedMemory),       8, "B");
+    addField("memory/available",     tcmt::ipc::FieldType::UInt64, offsetof(tcmt::ipc::IPCDataBlock, availableMemory),  8, "B");
+    addField("memory/compressed",    tcmt::ipc::FieldType::UInt64, offsetof(tcmt::ipc::IPCDataBlock, compressedMemory), 8, "B");
+
+    // ─── GPU ───
+    addField("gpu/0/name",        tcmt::ipc::FieldType::String,  offsetof(tcmt::ipc::IPCDataBlock, gpuName),   48);
+    addField("gpu/0/memory",      tcmt::ipc::FieldType::UInt64,  offsetof(tcmt::ipc::IPCDataBlock, gpuMemory), 8, "B");
+    addField("gpu/0/usage",       tcmt::ipc::FieldType::Float32, offsetof(tcmt::ipc::IPCDataBlock, gpuUsage),  4, "%", 0, 100);
+    addField("gpu/0/temperature", tcmt::ipc::FieldType::Float32, offsetof(tcmt::ipc::IPCDataBlock, gpuTemp),   4, "C", -50, 150);
+
+    // ─── Disks ───
     for (int d = 0; d < 2; ++d) {
         auto base = offsetof(tcmt::ipc::IPCDataBlock, disks) + d * sizeof(tcmt::ipc::IPCDataBlock::DiskSlot);
-        addField(("disk" + std::to_string(d) + "Label").c_str(), tcmt::ipc::FieldType::String, base + offsetof(tcmt::ipc::IPCDataBlock::DiskSlot, label), 32);
-        addField(("disk" + std::to_string(d) + "Total").c_str(),  tcmt::ipc::FieldType::UInt64, base + offsetof(tcmt::ipc::IPCDataBlock::DiskSlot, totalSize), 8, "B");
-        addField(("disk" + std::to_string(d) + "Used").c_str(),   tcmt::ipc::FieldType::UInt64, base + offsetof(tcmt::ipc::IPCDataBlock::DiskSlot, usedSpace), 8, "B");
-        addField(("disk" + std::to_string(d) + "FS").c_str(),    tcmt::ipc::FieldType::String,  base + offsetof(tcmt::ipc::IPCDataBlock::DiskSlot, fs), 16);
+        addField(("disk/" + std::to_string(d) + "/label").c_str(), tcmt::ipc::FieldType::String, base + offsetof(tcmt::ipc::IPCDataBlock::DiskSlot, label),     32);
+        addField(("disk/" + std::to_string(d) + "/total").c_str(), tcmt::ipc::FieldType::UInt64, base + offsetof(tcmt::ipc::IPCDataBlock::DiskSlot, totalSize), 8, "B");
+        addField(("disk/" + std::to_string(d) + "/used").c_str(),  tcmt::ipc::FieldType::UInt64, base + offsetof(tcmt::ipc::IPCDataBlock::DiskSlot, usedSpace), 8, "B");
+        addField(("disk/" + std::to_string(d) + "/fs").c_str(),    tcmt::ipc::FieldType::String,  base + offsetof(tcmt::ipc::IPCDataBlock::DiskSlot, fs),        16);
     }
-    // Network
+
+    // ─── Network ───
     for (int n = 0; n < 2; ++n) {
         auto base = offsetof(tcmt::ipc::IPCDataBlock, adapters) + n * sizeof(tcmt::ipc::IPCDataBlock::NetSlot);
-        addField(("net" + std::to_string(n) + "Name").c_str(), tcmt::ipc::FieldType::String, base + offsetof(tcmt::ipc::IPCDataBlock::NetSlot, name), 32);
-        addField(("net" + std::to_string(n) + "IP").c_str(),  tcmt::ipc::FieldType::String, base + offsetof(tcmt::ipc::IPCDataBlock::NetSlot, ip), 16);
-        addField(("net" + std::to_string(n) + "MAC").c_str(), tcmt::ipc::FieldType::String, base + offsetof(tcmt::ipc::IPCDataBlock::NetSlot, mac), 18);
-        addField(("net" + std::to_string(n) + "Speed").c_str(), tcmt::ipc::FieldType::UInt64, base + offsetof(tcmt::ipc::IPCDataBlock::NetSlot, speed), 8, "bps");
+        addField(("net/" + std::to_string(n) + "/name").c_str(),  tcmt::ipc::FieldType::String, base + offsetof(tcmt::ipc::IPCDataBlock::NetSlot, name),  32);
+        addField(("net/" + std::to_string(n) + "/ip").c_str(),    tcmt::ipc::FieldType::String, base + offsetof(tcmt::ipc::IPCDataBlock::NetSlot, ip),    16);
+        addField(("net/" + std::to_string(n) + "/mac").c_str(),   tcmt::ipc::FieldType::String, base + offsetof(tcmt::ipc::IPCDataBlock::NetSlot, mac),   18);
+        addField(("net/" + std::to_string(n) + "/type").c_str(),  tcmt::ipc::FieldType::String, base + offsetof(tcmt::ipc::IPCDataBlock::NetSlot, type),  16);
+        addField(("net/" + std::to_string(n) + "/speed").c_str(), tcmt::ipc::FieldType::UInt64, base + offsetof(tcmt::ipc::IPCDataBlock::NetSlot, speed), 8, "bps");
     }
+
     // Timestamp
     addField("timestamp", tcmt::ipc::FieldType::String, offsetof(tcmt::ipc::IPCDataBlock, timestamp), 16);
 
