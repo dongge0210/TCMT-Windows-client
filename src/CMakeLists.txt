@@ -31,7 +31,7 @@ set(CORE_MODULES_SOURCES
 set(DATASTRUCT_SOURCES
     ${CMAKE_CURRENT_SOURCE_DIR}/core/DataStruct/DataStruct.h
     ${CMAKE_CURRENT_SOURCE_DIR}/core/DataStruct/Producer.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/core/DataStruct/SharedMemoryManager.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/core/IPC/SharedMemoryManager.cpp
 )
 
 # Application config (CPP-parsers + nlohmann/json wrapper)

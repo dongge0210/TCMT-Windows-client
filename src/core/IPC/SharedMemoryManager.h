@@ -1,5 +1,5 @@
 #pragma once
-#include "DataStruct.h"
+#include "../DataStruct/DataStruct.h"
 #include <string>
 
 // Shared memory management class to avoid multiple definitions

@@ -134,7 +134,7 @@ _WINSOCK_DEPRECATED_NO_WARNINGS;%(PreprocessorDefinitions)</PreprocessorDefiniti
   <ItemGroup>
     <ClInclude Include="src\core\cpu\CpuInfo.h" />
     <ClInclude Include="src\core\DataStruct\DataStruct.h" />
-    <ClInclude Include="src\core\DataStruct\SharedMemoryManager.h" />
+    <ClInclude Include="src\core\IPC\SharedMemoryManager.h" />
     <ClInclude Include="src\core\disk\DiskInfo.h" />
     <ClInclude Include="src\core\gpu\GpuInfo.h" />
     <ClInclude Include="src\core\memory\MemoryInfo.h" />
@@ -152,7 +152,7 @@ _WINSOCK_DEPRECATED_NO_WARNINGS;%(PreprocessorDefinitions)</PreprocessorDefiniti
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="src\core\cpu\CpuInfo.cpp" />
-    <ClCompile Include="src\core\DataStruct\SharedMemoryManager.cpp" />
+    <ClCompile Include="src\core\IPC\SharedMemoryManager.cpp" />
     <!-- SharedMemoryManager.cpp includes platform-specific implementation via #include -->
     <!-- SharedMemoryManager_Windows.cpp NOT needed here -->
     <ClCompile Include="src\core\disk\DiskInfo.cpp" />

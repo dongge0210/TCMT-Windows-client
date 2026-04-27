@@ -60,7 +60,7 @@
 #include "core/utils/WmiManager.h"
 #include "core/disk/DiskInfo.h"
 #include "core/DataStruct/DataStruct.h"
-#include "core/DataStruct/SharedMemoryManager.h"  // Include the new shared memory manager
+#include "core/IPC/SharedMemoryManager.h"  // Include the new shared memory manager
 #include "core/temperature/TemperatureWrapper.h"  // 使用TemperatureWrapper而不是直接调用LibreHardwareMonitorBridge
 
 #pragma comment(lib, "kernel32.lib")

@@ -1,5 +1,5 @@
 #include "DataStruct.h"
-#include "SharedMemoryManager.h"
+#include "../IPC/SharedMemoryManager.h"
 #include "../Utils/WinUtils.h"
 #include <iostream>
 #include <string>
