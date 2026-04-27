@@ -78,7 +78,7 @@ if(TCMT_WINDOWS)
     set(CURSES_INCLUDE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/third_party/PDCurses" CACHE PATH "PDCurses include")
     set(CURSES_LIBRARY "pdcurses" CACHE PATH "PDCurses library")
     # Note: PDCurses needs to be built first or use prebuilt library
-    
+
 elseif(TCMT_MACOS)
     set(CURSES_NEED_WIDE TRUE)
     # Prefer Homebrew ncurses (has wide chars) over system SDK (no ncursesw)
@@ -153,7 +153,7 @@ if(TCMT_WINDOWS)
     # target_link_libraries(TCMTCore PRIVATE ${CURSES_LIBRARY})
     # target_include_directories(TCMTCore PRIVATE ${CURSES_INCLUDE_PATH})
     # For now, skip - will be added after PDCurses is built
-    
+
 elseif(TCMT_MACOS)
     target_link_libraries(TCMTCore PRIVATE ${CURSES_LIBRARIES})
     target_include_directories(TCMTCore PRIVATE ${CURSES_INCLUDE_DIR})

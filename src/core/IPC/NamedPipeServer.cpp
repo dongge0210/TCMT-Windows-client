@@ -3,7 +3,7 @@
 #include <algorithm>
 
 #ifdef _WIN32
-#define WIN32_LEAN_AND_MEAN
+#define NOMINMAX
 #include <windows.h>
 #endif
 
@@ -62,8 +62,10 @@ void NamedPipeServer::ServerLoop() {
             continue;
         }
 
-        BOOL connected = ConnectNamedPipe(hPipe, nullptr)
-            ? TRUE : (GetLastError() == ERROR_PIPE_CONNECTED);
+        BOOL connected = ConnectNamedPipe(hPipe, nullptr);
+        if (!connected) {
+            connected = (GetLastError() == ERROR_PIPE_CONNECTED);
+        }
 
         if (!connected) {
             CloseHandle(hPipe);
