@@ -117,6 +117,15 @@ jobs:
       run: |
         msbuild ${{ env.SOLUTION_FILE_PATH }} /p:Configuration=${{ env.BUILD_CONFIGURATION }} /p:Platform=${{ env.BUILD_PLATFORM }} /p:PlatformToolset=v143 /p:WindowsTargetPlatformVersion=10.0 /p:LangVersion=preview /m
 
+    - name: CMake configure (test targets)
+      run: |
+        cmake -B build-test -DCMAKE_BUILD_TYPE=Release -DBUILD_TESTING=ON
+
+    - name: Build and run tests
+      run: |
+        cmake --build build-test --target test_ipc test_config -j --config Release
+        cd build-test && ctest --output-on-failure -C Release
+
     - name: Upload build artifacts
       uses: actions/upload-artifact@v7
       with:
@@ -147,6 +156,10 @@ jobs:
     - name: Build C++ core
       run: |
         cmake --build build -j$(sysctl -n hw.ncpu)
+
+    - name: Run C++ tests
+      run: |
+        cd build && ctest --output-on-failure
 
     - name: Build AvaloniaUI
       run: |
