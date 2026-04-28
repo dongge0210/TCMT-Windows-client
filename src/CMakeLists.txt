@@ -141,7 +141,7 @@ endif()
 
 # CUDA include path (Windows, for nvml.h)
 if(TCMT_WINDOWS AND DEFINED ENV{CUDA_PATH})
-    target_include_directories(TCMTCore PRIVATE $ENV{CUDA_PATH}/include)
+    target_include_directories(TCMTCore PUBLIC $ENV{CUDA_PATH}/include)
 endif()
 
 # Apply compile options from cmake/Options.cmake

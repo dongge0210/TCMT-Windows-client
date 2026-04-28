@@ -5,14 +5,17 @@
 
 // Cross-platform temp file helper
 #ifdef _WIN32
-#include <io.h>
+#include <windows.h>
+#include <cstdlib>
 static std::string WriteTempFile(const std::string& content) {
-    char path[_MAX_PATH];
-    if (_tmpnam_s(path, _MAX_PATH) != 0) return "";
-    std::ofstream out(path);
+    char path[MAX_PATH + 1];
+    char fname[MAX_PATH + 1];
+    GetTempPathA(MAX_PATH, path);
+    if (GetTempFileNameA(path, "tcm", 0, fname) == 0) return "";
+    std::ofstream out(fname);
     out << content;
     out.close();
-    return path;
+    return fname;
 }
 #else
 #include <unistd.h>
