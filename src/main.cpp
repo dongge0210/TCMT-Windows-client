@@ -793,6 +793,7 @@ int main(int argc, char* argv[]) {
         {
             constexpr int maxAdapters = (std::min)(
                 (int)(sizeof(SharedMemoryBlock::adapters) / sizeof(NetworkAdapterData)), 2);
+            char name[64];
             for (int i = 0; i < maxAdapters; i++) {
                 size_t base = offsetof(SharedMemoryBlock, adapters) + i * sizeof(NetworkAdapterData);
                 snprintf(name, sizeof(name), "net/%d/name", i);
@@ -812,6 +813,7 @@ int main(int argc, char* argv[]) {
         {
             constexpr int maxDisks = (std::min)(
                 (int)(sizeof(SharedMemoryBlock::disks) / sizeof(SharedMemoryBlock::SharedDiskData)), 4);
+            char name[64];
             for (int i = 0; i < maxDisks; i++) {
                 size_t base = offsetof(SharedMemoryBlock, disks) + i * sizeof(SharedMemoryBlock::SharedDiskData);
                 snprintf(name, sizeof(name), "disk/%d/letter", i);
