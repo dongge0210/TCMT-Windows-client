@@ -106,7 +106,7 @@ jobs:
 
     - name: Build CPP-parsers
       run: |
-        msbuild src/CPP-parsers/CPP-parsers/CPP-parsers.vcxproj /p:Configuration=Release /p:Platform=x64 /p:PlatformToolset=v143 /p:WindowsTargetPlatformVersion=10.0 /clp:Summary;Verbosity=minimal /m
+        msbuild --% src/CPP-parsers/CPP-parsers/CPP-parsers.vcxproj /p:Configuration=Release /p:Platform=x64 /p:PlatformToolset=v143 /p:WindowsTargetPlatformVersion=10.0 /clp:Summary;Verbosity=minimal /m
 
     - name: Build AvaloniaUI
       run: |
@@ -115,7 +115,7 @@ jobs:
 
     - name: Build main project
       run: |
-        msbuild ${{ env.SOLUTION_FILE_PATH }} /p:Configuration=${{ env.BUILD_CONFIGURATION }} /p:Platform=${{ env.BUILD_PLATFORM }} /p:PlatformToolset=v143 /p:WindowsTargetPlatformVersion=10.0 /p:LangVersion=preview /clp:Summary;Verbosity=minimal /m
+        msbuild --% ${{ env.SOLUTION_FILE_PATH }} /p:Configuration=${{ env.BUILD_CONFIGURATION }} /p:Platform=${{ env.BUILD_PLATFORM }} /p:PlatformToolset=v143 /p:WindowsTargetPlatformVersion=10.0 /p:LangVersion=preview /clp:Summary;Verbosity=minimal /m
 
     - name: Build and run tests
       shell: cmd
