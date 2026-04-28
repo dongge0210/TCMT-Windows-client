@@ -102,11 +102,11 @@ jobs:
     - name: Build LibreHardwareMonitorLib
       run: |
         cd src/third_party/LibreHardwareMonitor
-        dotnet build LibreHardwareMonitorLib/LibreHardwareMonitorLib.csproj -c Release -f net472
+        dotnet build LibreHardwareMonitorLib/LibreHardwareMonitorLib.csproj -c Release -f net472 -v minimal
 
     - name: Build CPP-parsers
       run: |
-        msbuild src/CPP-parsers/CPP-parsers/CPP-parsers.vcxproj /p:Configuration=Release /p:Platform=x64 /p:PlatformToolset=v143 /p:WindowsTargetPlatformVersion=10.0 /m
+        msbuild src/CPP-parsers/CPP-parsers/CPP-parsers.vcxproj /p:Configuration=Release /p:Platform=x64 /p:PlatformToolset=v143 /p:WindowsTargetPlatformVersion=10.0 /clp:Summary;Verbosity=minimal /m
 
     - name: Build AvaloniaUI
       run: |
@@ -115,7 +115,7 @@ jobs:
 
     - name: Build main project
       run: |
-        msbuild ${{ env.SOLUTION_FILE_PATH }} /p:Configuration=${{ env.BUILD_CONFIGURATION }} /p:Platform=${{ env.BUILD_PLATFORM }} /p:PlatformToolset=v143 /p:WindowsTargetPlatformVersion=10.0 /p:LangVersion=preview /m
+        msbuild ${{ env.SOLUTION_FILE_PATH }} /p:Configuration=${{ env.BUILD_CONFIGURATION }} /p:Platform=${{ env.BUILD_PLATFORM }} /p:PlatformToolset=v143 /p:WindowsTargetPlatformVersion=10.0 /p:LangVersion=preview /clp:Summary;Verbosity=minimal /m
 
     - name: Build and run tests
       shell: cmd

@@ -50,7 +50,7 @@ bool ConfigManager::Load() {
         in >> data_;
         loaded_ = true;
         return true;
-    } catch (const nlohmann::json::parse_error& e) {
+    } catch (const nlohmann::json::parse_error&) {
         // Corrupt JSON file — warn and reset
         data_ = nlohmann::json::object();
         loaded_ = true;
