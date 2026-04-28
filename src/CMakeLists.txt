@@ -116,6 +116,7 @@ set_target_properties(TCMTCore PROPERTIES
 target_include_directories(TCMTCore PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}
     ${CMAKE_CURRENT_SOURCE_DIR}/core
+    ${CMAKE_CURRENT_SOURCE_DIR}/core/Utils
 
     # CPP-parsers unified config interface
     ${CMAKE_CURRENT_SOURCE_DIR}/CPP-parsers/include
@@ -136,6 +137,11 @@ elseif(TCMT_MACOS)
     target_compile_definitions(TCMTCore PRIVATE
         TCMT_MACOS _DARWIN_C_SOURCE
     )
+endif()
+
+# CUDA include path (Windows, for nvml.h)
+if(TCMT_WINDOWS AND DEFINED ENV{CUDA_PATH})
+    target_include_directories(TCMTCore PRIVATE $ENV{CUDA_PATH}/include)
 endif()
 
 # Apply compile options from cmake/Options.cmake
