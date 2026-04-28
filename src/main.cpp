@@ -767,28 +767,65 @@ int main(int argc, char* argv[]) {
         addField("memory/available",     FieldType::UInt64, offsetof(SharedMemoryBlock, availableMemory),  8, "B");
         addField("memory/compressed",    FieldType::UInt64, offsetof(SharedMemoryBlock, compressedMemory), 8, "B");
 
-        // ─── GPU #0 ───
-        addField("gpu/0/name",        FieldType::String,  offsetof(SharedMemoryBlock, gpus) + offsetof(GPUData, name),      128);
-        addField("gpu/0/brand",       FieldType::String,  offsetof(SharedMemoryBlock, gpus) + offsetof(GPUData, brand),     64);
-        addField("gpu/0/memory",      FieldType::UInt64,  offsetof(SharedMemoryBlock, gpus) + offsetof(GPUData, memory),    8, "B");
-        addField("gpu/0/usage",       FieldType::Float64, offsetof(SharedMemoryBlock, gpus) + offsetof(GPUData, usage),     8, "%", 0, 100);
-        addField("gpu/0/coreFreq",    FieldType::Float64, offsetof(SharedMemoryBlock, gpus) + offsetof(GPUData, coreClock), 8, "MHz");
-        addField("gpu/0/isVirtual",   FieldType::Bool,    offsetof(SharedMemoryBlock, gpus) + offsetof(GPUData, isVirtual), 1);
-        addField("gpu/0/temperature", FieldType::Float64, offsetof(SharedMemoryBlock, gpuTemperature),                      8, "C");
+        // --- GPU array (up to 2) ---
+        {
+            constexpr int maxGpus = sizeof(SharedMemoryBlock::gpus) / sizeof(GPUData);
+            char name[64];
+            for (int i = 0; i < maxGpus; i++) {
+                size_t base = offsetof(SharedMemoryBlock, gpus) + i * sizeof(GPUData);
+                snprintf(name, sizeof(name), "gpu/%d/name", i);
+                addField(name, FieldType::String,  base + offsetof(GPUData, name),     128);
+                snprintf(name, sizeof(name), "gpu/%d/brand", i);
+                addField(name, FieldType::String,  base + offsetof(GPUData, brand),    64);
+                snprintf(name, sizeof(name), "gpu/%d/memory", i);
+                addField(name, FieldType::UInt64,  base + offsetof(GPUData, memory),   8, "B");
+                snprintf(name, sizeof(name), "gpu/%d/usage", i);
+                addField(name, FieldType::Float64, base + offsetof(GPUData, usage),    8, "%", 0, 100);
+                snprintf(name, sizeof(name), "gpu/%d/coreFreq", i);
+                addField(name, FieldType::Float64, base + offsetof(GPUData, coreClock),8, "MHz");
+                snprintf(name, sizeof(name), "gpu/%d/isVirtual", i);
+                addField(name, FieldType::Bool,    base + offsetof(GPUData, isVirtual),1);
+            }
+        }
+        addField("gpu/0/temperature", FieldType::Float64, offsetof(SharedMemoryBlock, gpuTemperature), 8, "C");
 
-        // ─── Network #0 ───
-        addField("net/0/name",  FieldType::String,  offsetof(SharedMemoryBlock, adapters) + offsetof(NetworkAdapterData, name),        128);
-        addField("net/0/mac",   FieldType::String,  offsetof(SharedMemoryBlock, adapters) + offsetof(NetworkAdapterData, mac),         32);
-        addField("net/0/ip",    FieldType::String,  offsetof(SharedMemoryBlock, adapters) + offsetof(NetworkAdapterData, ipAddress),   64);
-        addField("net/0/type",  FieldType::String,  offsetof(SharedMemoryBlock, adapters) + offsetof(NetworkAdapterData, adapterType), 32);
-        addField("net/0/speed", FieldType::UInt64,  offsetof(SharedMemoryBlock, adapters) + offsetof(NetworkAdapterData, speed),       8, "bps");
+        // --- Network array (up to 4) ---
+        {
+                        constexpr int maxAdapters = 2; // limit to stay under IPC_MAX_FIELDS
+            char name[64];
+            for (int i = 0; i < maxAdapters; i++) {
+                size_t base = offsetof(SharedMemoryBlock, adapters) + i * sizeof(NetworkAdapterData);
+                snprintf(name, sizeof(name), "net/%d/name", i);
+                addField(name, FieldType::String,  base + offsetof(NetworkAdapterData, name),        128);
+                snprintf(name, sizeof(name), "net/%d/mac", i);
+                addField(name, FieldType::String,  base + offsetof(NetworkAdapterData, mac),         32);
+                snprintf(name, sizeof(name), "net/%d/ip", i);
+                addField(name, FieldType::String,  base + offsetof(NetworkAdapterData, ipAddress),   64);
+                snprintf(name, sizeof(name), "net/%d/type", i);
+                addField(name, FieldType::String,  base + offsetof(NetworkAdapterData, adapterType), 32);
+                snprintf(name, sizeof(name), "net/%d/speed", i);
+                addField(name, FieldType::UInt64,  base + offsetof(NetworkAdapterData, speed),       8, "bps");
+            }
+        }
 
-        // ─── Disk #0 ───
-        addField("disk/0/letter", FieldType::String,  offsetof(SharedMemoryBlock, disks) + offsetof(SharedMemoryBlock::SharedDiskData, letter),     1);
-        addField("disk/0/label",  FieldType::String,  offsetof(SharedMemoryBlock, disks) + offsetof(SharedMemoryBlock::SharedDiskData, label),      128);
-        addField("disk/0/total",  FieldType::UInt64,  offsetof(SharedMemoryBlock, disks) + offsetof(SharedMemoryBlock::SharedDiskData, totalSize),  8, "B");
-        addField("disk/0/used",   FieldType::UInt64,  offsetof(SharedMemoryBlock, disks) + offsetof(SharedMemoryBlock::SharedDiskData, usedSpace),  8, "B");
-        addField("disk/0/free",   FieldType::UInt64,  offsetof(SharedMemoryBlock, disks) + offsetof(SharedMemoryBlock::SharedDiskData, freeSpace),  8, "B");
+        // --- Disk array (up to 8) ---
+        {
+                        constexpr int maxDisks = 4; // limit to stay under IPC_MAX_FIELDS
+            char name[64];
+            for (int i = 0; i < maxDisks; i++) {
+                size_t base = offsetof(SharedMemoryBlock, disks) + i * sizeof(SharedMemoryBlock::SharedDiskData);
+                snprintf(name, sizeof(name), "disk/%d/letter", i);
+                addField(name, FieldType::String,  base + offsetof(SharedMemoryBlock::SharedDiskData, letter),    1);
+                snprintf(name, sizeof(name), "disk/%d/label", i);
+                addField(name, FieldType::String,  base + offsetof(SharedMemoryBlock::SharedDiskData, label),     128);
+                snprintf(name, sizeof(name), "disk/%d/total", i);
+                addField(name, FieldType::UInt64,  base + offsetof(SharedMemoryBlock::SharedDiskData, totalSize), 8, "B");
+                snprintf(name, sizeof(name), "disk/%d/used", i);
+                addField(name, FieldType::UInt64,  base + offsetof(SharedMemoryBlock::SharedDiskData, usedSpace), 8, "B");
+                snprintf(name, sizeof(name), "disk/%d/free", i);
+                addField(name, FieldType::UInt64,  base + offsetof(SharedMemoryBlock::SharedDiskData, freeSpace), 8, "B");
+            }
+        }
 
         ipcHdr.fieldCount = (uint16_t)ipcFields.size();
         pipeServer.UpdateSchema(ipcHdr, ipcFields);
