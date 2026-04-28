@@ -2,9 +2,20 @@
 #include "core/Config/ConfigManager.h"
 #include <fstream>
 #include <cstdio>
-#include <unistd.h>
 
-// Helper: write a string to a temp file
+// Cross-platform temp file helper
+#ifdef _WIN32
+#include <io.h>
+static std::string WriteTempFile(const std::string& content) {
+    char path[_MAX_PATH];
+    if (_tmpnam_s(path, _MAX_PATH) != 0) return "";
+    std::ofstream out(path);
+    out << content;
+    out.close();
+    return path;
+}
+#else
+#include <unistd.h>
 static std::string WriteTempFile(const std::string& content) {
     char path[] = "/tmp/tcmt_test_XXXXXX";
     int fd = mkstemp(path);
@@ -15,6 +26,7 @@ static std::string WriteTempFile(const std::string& content) {
     out.close();
     return path;
 }
+#endif
 
 // ── Default / unloaded state ──
 TEST(ConfigManagerTest, UnloadedReturnsDefaults) {
