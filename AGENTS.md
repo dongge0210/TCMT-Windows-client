@@ -1,5 +1,8 @@
 # AGENTS.md
 
+## Rules
+- **DO NOT USE EMOJI** in responses or code. This includes all forms of emoji, emoticons, kaomoji, and Unicode pictographs.
+
 ## Build
 
 ```bash
