@@ -113,15 +113,15 @@ jobs:
         cd AvaloniaUI
         dotnet build AvaloniaUI.csproj -c Release
 
-    - name: Build main project (C++/CLI only, not solution)
+    - name: Build main project
       run: |
-        msbuild TCMT.vcxproj /p:Configuration=${{ env.BUILD_CONFIGURATION }} /p:Platform=${{ env.BUILD_PLATFORM }} /p:PlatformToolset=v143 /p:WindowsTargetPlatformVersion=10.0 /p:LangVersion=preview /m
+        msbuild ${{ env.SOLUTION_FILE_PATH }} /p:Configuration=${{ env.BUILD_CONFIGURATION }} /p:Platform=${{ env.BUILD_PLATFORM }} /p:PlatformToolset=v143 /p:WindowsTargetPlatformVersion=10.0 /p:LangVersion=preview /m
 
     - name: Build and run tests
       run: |
-        vcpkg install gtest --triplet x64-windows
-        msbuild tests\TCMT.Tests.vcxproj /p:Configuration=${{ env.BUILD_CONFIGURATION }} /p:Platform=${{ env.BUILD_PLATFORM }} /p:PlatformToolset=v143 /p:WindowsTargetPlatformVersion=10.0 /p:VcpkgRoot="$env:VCPKG_INSTALLATION_ROOT" /m
-        x64\${{ env.BUILD_CONFIGURATION }}\TCMT.Tests.exe
+        cmake -B build-test -DBUILD_TESTING=ON -DCMAKE_BUILD_TYPE=Release
+        cmake --build build-test --target test_ipc test_config --config Release
+        cd build-test && ctest --output-on-failure -C Release
 
     - name: Upload build artifacts
       uses: actions/upload-artifact@v7
