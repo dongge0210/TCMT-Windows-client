@@ -791,7 +791,7 @@ int main(int argc, char* argv[]) {
 
         // --- Network array (capped at 2 to stay within IPC_MAX_FIELDS) ---
         {
-            constexpr int maxAdapters = std::min(
+            constexpr int maxAdapters = (std::min)(
                 (int)(sizeof(SharedMemoryBlock::adapters) / sizeof(NetworkAdapterData)), 2);
             for (int i = 0; i < maxAdapters; i++) {
                 size_t base = offsetof(SharedMemoryBlock, adapters) + i * sizeof(NetworkAdapterData);
@@ -810,7 +810,7 @@ int main(int argc, char* argv[]) {
 
         // --- Disk array (capped at 4 to stay within IPC_MAX_FIELDS) ---
         {
-            constexpr int maxDisks = std::min(
+            constexpr int maxDisks = (std::min)(
                 (int)(sizeof(SharedMemoryBlock::disks) / sizeof(SharedMemoryBlock::SharedDiskData)), 4);
             for (int i = 0; i < maxDisks; i++) {
                 size_t base = offsetof(SharedMemoryBlock, disks) + i * sizeof(SharedMemoryBlock::SharedDiskData);
