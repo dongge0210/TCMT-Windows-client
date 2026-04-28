@@ -144,12 +144,18 @@ jobs:
       run: |
         cmake -B build -DCMAKE_BUILD_TYPE=Release
 
-    - name: Build
+    - name: Build C++ core
       run: |
         cmake --build build -j$(sysctl -n hw.ncpu)
+
+    - name: Build AvaloniaUI
+      run: |
+        dotnet build AvaloniaUI/AvaloniaUI.csproj -c Release -r osx-arm64
 
     - name: Upload build artifact
       uses: actions/upload-artifact@v7
       with:
         name: TCMT-macOS-arm64-Release
-        path: build/src/TCMT-M
+        path: |
+          build/src/TCMT-M
+          AvaloniaUI/bin/Release/net10.0/osx-arm64/AvaloniaUI

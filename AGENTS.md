@@ -20,7 +20,9 @@ cd AvaloniaUI && dotnet build AvaloniaUI.csproj -c Release
 
 ## Architecture
 
-- **IPC**: `SharedMemoryBlock` (packed C struct, 129KB) via POSIX shm_open (macOS) / MemoryMappedFile (Windows)
+- **IPC**: Schema-based pipeline — `core/IPC/IPCServer` (macOS UDS) + `NamedPipeServer` (Windows) +
+  `IPCDataBlock` mmap file. C# side reads via `IPCPipeClient` + `IPCMemoryReader`.
+  Legacy `SharedMemoryManager`/`SharedMemoryBlock` still present but deprecated.
 - **UI**: AvaloniaUI (.NET 10.0, cross-platform) or ncurses TUI (macOS-only)
 - **C++ entry**: `src/main.cpp` (Windows), `src/main_mac.cpp` (macOS) — not interchangeable
 - **Build tooling**: `tcmt-build.json` + MCP server at `tools/mcp-build/` (run via `uv run --directory tools/mcp-build tcmt-build-mcp`)
@@ -63,3 +65,8 @@ Do NOT hardcode build output paths. Use the MCP server's inference:
 - `FFmpeg` submodule — does not exist in `.gitmodules` (only 8, not 9)
 - macOS output `build/` — actual C++ binary is `build/src/TCMT-M` (not `build/bin/TCMT-M`)
 - macOS requires `brew install ncurses` — true, but `find_package(Curses)` in CMake handles it
+
+## TODO
+
+- **Windows NamedPipeServer** — `core/IPC/IPCServer` is macOS-only (UDS). Windows needs a
+  `NamedPipeServer` counterpart (see C# `IPCPipeClient.ConnectWindowsAsync` for protocol).

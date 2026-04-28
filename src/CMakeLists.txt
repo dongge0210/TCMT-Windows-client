@@ -31,13 +31,18 @@ set(CORE_MODULES_SOURCES
 set(DATASTRUCT_SOURCES
     ${CMAKE_CURRENT_SOURCE_DIR}/core/DataStruct/DataStruct.h
     ${CMAKE_CURRENT_SOURCE_DIR}/core/DataStruct/Producer.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/core/DataStruct/SharedMemoryManager.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/core/IPC/SharedMemoryManager.cpp
 )
 
 # Application config (CPP-parsers + nlohmann/json wrapper)
 set(CONFIG_SOURCES
     ${CMAKE_CURRENT_SOURCE_DIR}/core/Config/ConfigManager.h
     ${CMAKE_CURRENT_SOURCE_DIR}/core/Config/ConfigManager.cpp
+)
+
+# IPC module (macOS for now)
+set(IPC_SOURCES
+    ${CMAKE_CURRENT_SOURCE_DIR}/core/IPC/IPCServer.cpp
 )
 
 # Temperature modules (Windows only for now)
@@ -73,7 +78,7 @@ if(TCMT_WINDOWS)
     set(CURSES_INCLUDE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/third_party/PDCurses" CACHE PATH "PDCurses include")
     set(CURSES_LIBRARY "pdcurses" CACHE PATH "PDCurses library")
     # Note: PDCurses needs to be built first or use prebuilt library
-    
+
 elseif(TCMT_MACOS)
     set(CURSES_NEED_WIDE TRUE)
     # Prefer Homebrew ncurses (has wide chars) over system SDK (no ncursesw)
@@ -101,6 +106,7 @@ add_library(TCMTCore STATIC
     ${CORE_MODULES_SOURCES}
     ${DATASTRUCT_SOURCES}
     ${CONFIG_SOURCES}
+    ${IPC_SOURCES}
     ${TEMP_SOURCES}
     ${TUI_SOURCES}
 )
@@ -141,13 +147,57 @@ tcmt_target_set_options(TCMTCore)
 tcmt_set_platform_libraries(TCMTCore)
 tcmt_set_output_directories(TCMTCore)
 
+# ============================================================
+# CPP-parsers — compile config parsers (macOS)
+# ============================================================
+if(TCMT_MACOS)
+    add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/CPP-parsers/extern/json build-cpp-extern-json)
+    add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/CPP-parsers/extern/yaml-cpp build-cpp-extern-yaml)
+    add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/CPP-parsers/extern/tinyxml2 build-cpp-extern-xml)
+    add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/CPP-parsers/extern/tomlplusplus build-cpp-extern-toml)
+
+    set(CPP_PARSERS_SRCS
+        ${CMAKE_CURRENT_SOURCE_DIR}/CPP-parsers/src/IniConfigParser.cpp
+        ${CMAKE_CURRENT_SOURCE_DIR}/CPP-parsers/src/TomlConfigParser.cpp
+        ${CMAKE_CURRENT_SOURCE_DIR}/CPP-parsers/src/XmlConfigParser.cpp
+        ${CMAKE_CURRENT_SOURCE_DIR}/CPP-parsers/src/YamlConfigParser.cpp
+    )
+    add_library(CPPParsers STATIC ${CPP_PARSERS_SRCS})
+
+    target_include_directories(CPPParsers PUBLIC
+        ${CMAKE_CURRENT_SOURCE_DIR}/CPP-parsers/include
+        ${CMAKE_CURRENT_SOURCE_DIR}/CPP-parsers/src
+        ${CMAKE_CURRENT_SOURCE_DIR}/CPP-parsers/extern/json/single_include
+        ${CMAKE_CURRENT_SOURCE_DIR}/CPP-parsers/extern/yaml-cpp/include
+        ${CMAKE_CURRENT_SOURCE_DIR}/CPP-parsers/extern/tinyxml2
+        ${CMAKE_CURRENT_SOURCE_DIR}/CPP-parsers/extern/tomlplusplus/include
+        ${CMAKE_CURRENT_SOURCE_DIR}/CPP-parsers/extern/inih
+        ${CMAKE_CURRENT_SOURCE_DIR}/CPP-parsers/extern/inih/cpp
+    )
+
+    # inih has no CMake — add its source manually
+    target_sources(CPPParsers PRIVATE
+        ${CMAKE_CURRENT_SOURCE_DIR}/CPP-parsers/extern/inih/ini.c
+        ${CMAKE_CURRENT_SOURCE_DIR}/CPP-parsers/extern/inih/cpp/INIReader.cpp
+    )
+
+    target_link_libraries(CPPParsers PUBLIC
+        nlohmann_json::nlohmann_json
+        yaml-cpp
+        tinyxml2
+        tomlplusplus_tomlplusplus
+    )
+
+    target_link_libraries(TCMTCore PRIVATE CPPParsers)
+endif()
+
 # Link curses on Windows and macOS
 if(TCMT_WINDOWS)
     # Windows: PDCurses - link with prebuilt or skip for now
     # target_link_libraries(TCMTCore PRIVATE ${CURSES_LIBRARY})
     # target_include_directories(TCMTCore PRIVATE ${CURSES_INCLUDE_PATH})
     # For now, skip - will be added after PDCurses is built
-    
+
 elseif(TCMT_MACOS)
     target_link_libraries(TCMTCore PRIVATE ${CURSES_LIBRARIES})
     target_include_directories(TCMTCore PRIVATE ${CURSES_INCLUDE_DIR})
