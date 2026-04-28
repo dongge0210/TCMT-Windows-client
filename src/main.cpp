@@ -767,7 +767,7 @@ int main(int argc, char* argv[]) {
         addField("memory/available",     FieldType::UInt64, offsetof(SharedMemoryBlock, availableMemory),  8, "B");
         addField("memory/compressed",    FieldType::UInt64, offsetof(SharedMemoryBlock, compressedMemory), 8, "B");
 
-        // --- GPU array (up to 2) ---
+        // --- GPU array ---
         {
             constexpr int maxGpus = sizeof(SharedMemoryBlock::gpus) / sizeof(GPUData);
             char name[64];
@@ -789,10 +789,10 @@ int main(int argc, char* argv[]) {
         }
         addField("gpu/0/temperature", FieldType::Float64, offsetof(SharedMemoryBlock, gpuTemperature), 8, "C");
 
-        // --- Network array (up to 4) ---
+        // --- Network array (capped at 2 to stay within IPC_MAX_FIELDS) ---
         {
-                        constexpr int maxAdapters = 2; // limit to stay under IPC_MAX_FIELDS
-            char name[64];
+            constexpr int maxAdapters = std::min(
+                (int)(sizeof(SharedMemoryBlock::adapters) / sizeof(NetworkAdapterData)), 2);
             for (int i = 0; i < maxAdapters; i++) {
                 size_t base = offsetof(SharedMemoryBlock, adapters) + i * sizeof(NetworkAdapterData);
                 snprintf(name, sizeof(name), "net/%d/name", i);
@@ -808,10 +808,10 @@ int main(int argc, char* argv[]) {
             }
         }
 
-        // --- Disk array (up to 8) ---
+        // --- Disk array (capped at 4 to stay within IPC_MAX_FIELDS) ---
         {
-                        constexpr int maxDisks = 4; // limit to stay under IPC_MAX_FIELDS
-            char name[64];
+            constexpr int maxDisks = std::min(
+                (int)(sizeof(SharedMemoryBlock::disks) / sizeof(SharedMemoryBlock::SharedDiskData)), 4);
             for (int i = 0; i < maxDisks; i++) {
                 size_t base = offsetof(SharedMemoryBlock, disks) + i * sizeof(SharedMemoryBlock::SharedDiskData);
                 snprintf(name, sizeof(name), "disk/%d/letter", i);
