@@ -33,6 +33,13 @@ tcmt_set_compile_options()
 # Add subdirectories
 add_subdirectory(src)
 
+# Tests (optional, enabled via BUILD_TESTING)
+option(BUILD_TESTING "Build tests" ON)
+if(BUILD_TESTING)
+    enable_testing()
+    add_subdirectory(tests)
+endif()
+
 # Install configuration (if needed)
 if(TCMT_INSTALL)
     install(TARGETS TCMT-M

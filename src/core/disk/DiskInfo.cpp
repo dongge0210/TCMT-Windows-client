@@ -70,23 +70,6 @@ std::vector<DiskData> DiskInfo::GetDisks() {
     return disks;
 }
 
-static bool ParseDiskPartition(const std::wstring& text, int& diskIndexOut) {
-    size_t posDisk = text.find(L"Disk #");
-    if (posDisk == std::wstring::npos) return false;
-    posDisk += 6;
-    if (posDisk >= text.size()) return false;
-    int num = 0;
-    bool any = false;
-    while (posDisk < text.size() && iswdigit(text[posDisk])) {
-        any = true;
-        num = num * 10 + (text[posDisk] - L'0');
-        ++posDisk;
-    }
-    if (!any) return false;
-    diskIndexOut = num;
-    return true;
-}
-
 // 使用 WMI 关联查询获取物理磁盘到逻辑驱动器的映射
 void DiskInfo::CollectPhysicalDisks(WmiManager& wmi, const std::vector<DiskData>& logicalDisks, SystemInfo& sysInfo) {
     IWbemServices* svc = wmi.GetWmiService();

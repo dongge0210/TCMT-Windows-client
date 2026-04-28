@@ -26,7 +26,7 @@ jobs:
 
     - name: Cache CUDA
       id: cache-cuda
-      uses: actions/cache/restore@v4
+      uses: actions/cache/restore@v5
       with:
         path: C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA
         key: cuda-13.2.0
@@ -72,7 +72,7 @@ jobs:
 
     - name: Save CUDA cache
       if: steps.check-cuda.outputs.cuda_found != 'true'
-      uses: actions/cache/save@v4
+      uses: actions/cache/save@v5
       with:
         path: C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA
         key: cuda-13.2.0
@@ -102,11 +102,11 @@ jobs:
     - name: Build LibreHardwareMonitorLib
       run: |
         cd src/third_party/LibreHardwareMonitor
-        dotnet build LibreHardwareMonitorLib/LibreHardwareMonitorLib.csproj -c Release -f net472
+        dotnet build LibreHardwareMonitorLib/LibreHardwareMonitorLib.csproj -c Release -f net472 -v minimal
 
     - name: Build CPP-parsers
       run: |
-        msbuild src/CPP-parsers/CPP-parsers/CPP-parsers.vcxproj /p:Configuration=Release /p:Platform=x64 /p:PlatformToolset=v143 /p:WindowsTargetPlatformVersion=10.0 /m
+        msbuild --% src/CPP-parsers/CPP-parsers/CPP-parsers.vcxproj /p:Configuration=Release /p:Platform=x64 /p:PlatformToolset=v143 /p:WindowsTargetPlatformVersion=10.0 /clp:Summary;Verbosity=minimal /m
 
     - name: Build AvaloniaUI
       run: |
@@ -115,7 +115,15 @@ jobs:
 
     - name: Build main project
       run: |
-        msbuild ${{ env.SOLUTION_FILE_PATH }} /p:Configuration=${{ env.BUILD_CONFIGURATION }} /p:Platform=${{ env.BUILD_PLATFORM }} /p:PlatformToolset=v143 /p:WindowsTargetPlatformVersion=10.0 /p:LangVersion=preview /m
+        msbuild --% ${{ env.SOLUTION_FILE_PATH }} /p:Configuration=${{ env.BUILD_CONFIGURATION }} /p:Platform=${{ env.BUILD_PLATFORM }} /p:PlatformToolset=v143 /p:WindowsTargetPlatformVersion=10.0 /p:LangVersion=preview /clp:Summary;Verbosity=minimal /m
+
+    - name: Build and run tests
+      shell: cmd
+      run: |
+        cmake -B build-test -DBUILD_TESTING=ON -DCMAKE_BUILD_TYPE=Release
+        cmake --build build-test --target test_ipc --target test_config --config Release
+        cd build-test
+        ctest --output-on-failure -C Release
 
     - name: Upload build artifacts
       uses: actions/upload-artifact@v7
@@ -147,6 +155,10 @@ jobs:
     - name: Build C++ core
       run: |
         cmake --build build -j$(sysctl -n hw.ncpu)
+
+    - name: Run C++ tests
+      run: |
+        cd build && ctest --output-on-failure
 
     - name: Build AvaloniaUI
       run: |

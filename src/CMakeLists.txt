@@ -40,22 +40,24 @@ set(CONFIG_SOURCES
     ${CMAKE_CURRENT_SOURCE_DIR}/core/Config/ConfigManager.cpp
 )
 
-# IPC module (macOS for now)
-set(IPC_SOURCES
-    ${CMAKE_CURRENT_SOURCE_DIR}/core/IPC/IPCServer.cpp
-)
+# IPC module (macOS only - uses Unix sockets)
+set(IPC_SOURCES "")
+if(TCMT_MACOS)
+    list(APPEND IPC_SOURCES
+        ${CMAKE_CURRENT_SOURCE_DIR}/core/IPC/IPCServer.cpp
+    )
+endif()
 
 # Temperature modules (Windows only for now)
 set(TEMP_SOURCES "")
 set(TEMP_SOURCES_WINDOWS "")
 if(TCMT_WINDOWS)
     list(APPEND TEMP_SOURCES_WINDOWS
-        ${CMAKE_CURRENT_SOURCE_DIR}/core/temperature/LibreHardwareMonitorBridge.cpp
-        ${CMAKE_CURRENT_SOURCE_DIR}/core/temperature/TemperatureWrapper.cpp
-        ${CMAKE_CURRENT_SOURCE_DIR}/core/Utils/LibreHardwareMonitorBridge.cpp
         ${CMAKE_CURRENT_SOURCE_DIR}/core/Utils/WMIManager.cpp
     )
     list(APPEND TEMP_SOURCES ${TEMP_SOURCES_WINDOWS})
+    # Note: TemperatureWrapper.cpp and LibreHardwareMonitorBridge.cpp are C++/CLI
+    # and are compiled via MSBuild (TCMT.vcxproj), not CMake
 endif()
 
 if(TCMT_MACOS)
@@ -64,22 +66,16 @@ if(TCMT_MACOS)
     )
 endif()
 
-# TUI module (Windows and macOS)
+# TUI module (macOS only with CMake; Windows via MSBuild)
 set(TUI_SOURCES "")
-if(TCMT_WINDOWS OR TCMT_MACOS)
+if(TCMT_MACOS)
     list(APPEND TUI_SOURCES
         ${CMAKE_CURRENT_SOURCE_DIR}/tui/TuiApp.cpp
     )
 endif()
 
 # Curses library - platform specific
-if(TCMT_WINDOWS)
-    # Windows: use PDCurses from third_party
-    set(CURSES_INCLUDE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/third_party/PDCurses" CACHE PATH "PDCurses include")
-    set(CURSES_LIBRARY "pdcurses" CACHE PATH "PDCurses library")
-    # Note: PDCurses needs to be built first or use prebuilt library
-
-elseif(TCMT_MACOS)
+if(TCMT_MACOS)
     set(CURSES_NEED_WIDE TRUE)
     # Prefer Homebrew ncurses (has wide chars) over system SDK (no ncursesw)
     if(APPLE)
@@ -120,6 +116,7 @@ set_target_properties(TCMTCore PROPERTIES
 target_include_directories(TCMTCore PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}
     ${CMAKE_CURRENT_SOURCE_DIR}/core
+    ${CMAKE_CURRENT_SOURCE_DIR}/core/Utils
 
     # CPP-parsers unified config interface
     ${CMAKE_CURRENT_SOURCE_DIR}/CPP-parsers/include
@@ -140,6 +137,11 @@ elseif(TCMT_MACOS)
     target_compile_definitions(TCMTCore PRIVATE
         TCMT_MACOS _DARWIN_C_SOURCE
     )
+endif()
+
+# CUDA include path (Windows, for nvml.h)
+if(TCMT_WINDOWS AND DEFINED ENV{CUDA_PATH})
+    target_include_directories(TCMTCore PUBLIC $ENV{CUDA_PATH}/include)
 endif()
 
 # Apply compile options from cmake/Options.cmake

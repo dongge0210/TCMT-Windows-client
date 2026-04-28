@@ -16,7 +16,6 @@ namespace AvaloniaUI.Services.IPC;
 public class IPCPipeClient : IAsyncDisposable
 {
     private CancellationTokenSource? _cts;
-    private Task? _receiveTask;
     private bool _disposed;
 
     /// <summary>
@@ -206,8 +205,6 @@ public class IPCPipeClient : IAsyncDisposable
         if (_disposed) return;
         _disposed = true;
         _cts?.Cancel();
-        if (_receiveTask != null)
-            await _receiveTask.WaitAsync(TimeSpan.FromSeconds(2)).ConfigureAwait(false);
         _cts?.Dispose();
     }
 }

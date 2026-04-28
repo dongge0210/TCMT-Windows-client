@@ -137,19 +137,19 @@ public class IPCMemoryReader : IDisposable
     public short? ReadInt16(string fieldName)
     {
         var field = FindField(fieldName); if (field == null) return null;
-        return (short)ReadUInt16(fieldName);
+        return (short?)ReadUInt16(fieldName);
     }
 
     public int? ReadInt32(string fieldName)
     {
         var field = FindField(fieldName); if (field == null) return null;
-        return (int)ReadUInt32(fieldName);
+        return (int?)ReadUInt32(fieldName);
     }
 
     public long? ReadInt64(string fieldName)
     {
         var field = FindField(fieldName); if (field == null) return null;
-        return (long)ReadUInt64(fieldName);
+        return (long?)ReadUInt64(fieldName);
     }
 
     public float? ReadFloat32(string fieldName)
