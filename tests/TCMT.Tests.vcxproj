@@ -16,6 +16,8 @@
     <ProjectGuid>{A1B2C3D4-E5F6-7890-ABCD-EF1234567890}</ProjectGuid>
     <RootNamespace>TCMTTests</RootNamespace>
     <WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>
+    <VcpkgConfiguration>Release</VcpkgConfiguration>
+    <VcpkgTriplet>x64-windows</VcpkgTriplet>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="Configuration">
@@ -33,7 +35,6 @@
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
   <ImportGroup Label="ExtensionSettings">
-    <Import Project="$(VCTargetsPath)\Microsoft.googletest.v140\Microsoft.googletest.v140.Cpp.x64.targets" Condition="Exists('$(VCTargetsPath)\Microsoft.googletest.v140\Microsoft.googletest.v140.Cpp.x64.targets')" />
   </ImportGroup>
   <ImportGroup Label="Shared">
   </ImportGroup>
@@ -98,6 +99,6 @@
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
-    <Import Project="$(SolutionDir)packages\Microsoft.googletest.v140.1.15.2\build\native\Microsoft.googletest.v140.Cpp.x64.targets" Condition="Exists('$(SolutionDir)packages\Microsoft.googletest.v140.1.15.2\build\native\Microsoft.googletest.v140.Cpp.x64.targets')" />
+    <Import Project="$(VcpkgRoot)\scripts\buildsystems\msbuild\vcpkg.targets" Condition="HasTrailingSlash('$(VcpkgRoot)') and Exists('$(VcpkgRoot)\scripts\buildsystems\msbuild\vcpkg.targets')" />
   </ImportGroup>
 </Project>
