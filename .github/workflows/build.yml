@@ -121,7 +121,7 @@ jobs:
       shell: cmd
       run: |
         cmake -B build-test -DBUILD_TESTING=ON -DCMAKE_BUILD_TYPE=Release
-        cmake --build build-test --config Release
+        cmake --build build-test --target test_ipc --target test_config --config Release
         cd build-test
         ctest --output-on-failure -C Release
 
