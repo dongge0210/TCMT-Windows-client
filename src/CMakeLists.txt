@@ -48,6 +48,11 @@ if(TCMT_MACOS)
     )
 endif()
 
+# Web dashboard (cross-platform)
+set(WEB_SOURCES
+    ${CMAKE_CURRENT_SOURCE_DIR}/web/WebServer.cpp
+)
+
 # Temperature modules (Windows only for now)
 set(TEMP_SOURCES "")
 set(TEMP_SOURCES_WINDOWS "")
@@ -103,6 +108,7 @@ add_library(TCMTCore STATIC
     ${DATASTRUCT_SOURCES}
     ${CONFIG_SOURCES}
     ${IPC_SOURCES}
+    ${WEB_SOURCES}
     ${TEMP_SOURCES}
     ${TUI_SOURCES}
 )
@@ -124,6 +130,10 @@ target_include_directories(TCMTCore PUBLIC
 
     # nlohmann/json (header-only) — single include
     ${CMAKE_CURRENT_SOURCE_DIR}/CPP-parsers/extern/json/single_include
+
+    # websocketpp (header-only) + ASIO standalone
+    ${CMAKE_CURRENT_SOURCE_DIR}/third_party/websocketpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/third_party/websocketpp/third_party/asio/asio/include
 )
 
 # Platform-specific defines
@@ -138,6 +148,9 @@ elseif(TCMT_MACOS)
         TCMT_MACOS _DARWIN_C_SOURCE
     )
 endif()
+
+# Web server: ASIO standalone (no Boost)
+target_compile_definitions(TCMTCore PRIVATE ASIO_STANDALONE)
 
 # CUDA include path (Windows, for nvml.h)
 if(TCMT_WINDOWS AND DEFINED ENV{CUDA_PATH})

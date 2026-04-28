@@ -1,0 +1,393 @@
+#include "WebServer.h"
+
+#include <websocketpp/http/constants.hpp>
+#include <websocketpp/frame.hpp>
+
+#include <functional>
+
+namespace tcmt::web {
+
+WebServer::WebServer() {
+    server_.set_access_channels(websocketpp::log::alevel::none);
+    server_.set_error_channels(websocketpp::log::elevel::none);
+
+    server_.set_http_handler(std::bind(&WebServer::OnHttp, this, std::placeholders::_1));
+    server_.set_open_handler(std::bind(&WebServer::OnWsOpen, this, std::placeholders::_1));
+    server_.set_close_handler(std::bind(&WebServer::OnWsClose, this, std::placeholders::_1));
+}
+
+WebServer::~WebServer() {
+    Stop();
+}
+
+bool WebServer::Start(int port) {
+    try {
+        server_.init_asio();
+        server_.set_reuse_addr(true);
+        server_.listen(static_cast<uint16_t>(port));
+        server_.start_accept();
+    } catch (const std::exception& e) {
+        lastError_ = std::string("WebServer start failed: ") + e.what();
+        return false;
+    }
+
+    running_ = true;
+    serverThread_ = std::thread([this]() {
+        try {
+            server_.run();
+        } catch (...) {
+            // Thread exiting — server stopped
+        }
+    });
+
+    return true;
+}
+
+void WebServer::Stop() {
+    running_ = false;
+    try {
+        server_.stop();
+    } catch (...) {
+    }
+    if (serverThread_.joinable()) {
+        serverThread_.join();
+    }
+}
+
+void WebServer::BroadcastData(const std::string& jsonData) {
+    std::lock_guard<std::mutex> lock(connectionsMutex_);
+    for (auto it = connections_.begin(); it != connections_.end();) {
+        try {
+            server_.send(*it, jsonData, websocketpp::frame::opcode::text);
+            ++it;
+        } catch (...) {
+            it = connections_.erase(it);
+        }
+    }
+}
+
+void WebServer::OnHttp(connection_hdl hdl) {
+    auto con = server_.get_con_from_hdl(hdl);
+
+    static const std::string kDashboardHtml = R"html(<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TCMT Dashboard</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body {
+  background: #1a1a2e;
+  color: #e0e0e0;
+  font-family: 'Courier New', monospace;
+  padding: 16px;
+  min-height: 100vh;
+}
+h1 { font-size: 1.4em; margin-bottom: 16px; letter-spacing: 1px; }
+h2 { font-size: 0.95em; margin-bottom: 10px; letter-spacing: 0.5px; }
+.dashboard { display: flex; flex-direction: column; gap: 12px; max-width: 1200px; margin: 0 auto; }
+.section {
+  border: 1px solid #2d2d4a;
+  border-radius: 8px;
+  padding: 14px;
+  background: #16213e;
+}
+.section h2 { margin-bottom: 10px; }
+.cpu-section { border-left: 3px solid #00d2ff; }
+.cpu-section h2 { color: #00d2ff; }
+.mem-section { border-left: 3px solid #ff6b6b; }
+.mem-section h2 { color: #ff6b6b; }
+.gpu-section { border-left: 3px solid #ffd93d; }
+.gpu-section h2 { color: #ffd93d; }
+.net-section { border-left: 3px solid #6bcb77; }
+.net-section h2 { color: #6bcb77; }
+.disk-section { border-left: 3px solid #a66cff; }
+.disk-section h2 { color: #a66cff; }
+.cards { display: flex; flex-direction: column; gap: 8px; }
+.card { display: flex; flex-direction: column; gap: 6px; }
+.card + .card { padding-top: 8px; border-top: 1px solid #2d2d4a; }
+.grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; }
+.metric { line-height: 1.6; }
+.metric .label { color: #888; font-size: 0.78em; }
+.metric .value { color: #e0e0e0; font-size: 0.9em; }
+.gauge-wrap { display: flex; align-items: center; gap: 14px; }
+.gauge { position: relative; width: 80px; height: 80px; flex-shrink: 0; }
+.gauge svg { transform: rotate(-90deg); }
+.gauge .bg { fill: none; stroke: #2d2d4a; stroke-width: 6; }
+.gauge .fg { fill: none; stroke: #00d2ff; stroke-width: 6; stroke-linecap: round; transition: stroke-dashoffset 0.4s ease, stroke 0.4s ease; }
+.gauge .center { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font-size: 1.1em; font-weight: bold; color: #e0e0e0; }
+.cpu-name { font-size: 0.85em; color: #aaa; }
+.sub-metrics { display: flex; gap: 16px; flex-wrap: wrap; }
+.sub-metrics .metric { min-width: 100px; }
+.bar-wrap { display: flex; align-items: center; gap: 8px; }
+.bar-track { flex: 1; height: 16px; background: #2d2d4a; border-radius: 4px; overflow: hidden; }
+.bar-fill { height: 100%; border-radius: 4px; transition: width 0.4s ease; }
+.bar-label { font-size: 0.78em; white-space: nowrap; min-width: 48px; text-align: right; color: #aaa; }
+.footer { text-align: center; padding: 12px; font-size: 0.8em; color: #666; display: flex; justify-content: center; align-items: center; gap: 12px; }
+.status-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: #ff6b6b; transition: background 0.3s; }
+.status-dot.connected { background: #6bcb77; }
+@media (min-width: 640px) {
+  .dashboard { display: grid; grid-template-columns: 1fr 1fr; }
+  h1 { grid-column: 1 / -1; }
+  .footer { grid-column: 1 / -1; }
+}
+@media (min-width: 960px) {
+  .dashboard { grid-template-columns: 1fr 1fr 1fr; }
+}
+</style>
+</head>
+<body>
+<div class="dashboard">
+  <h1>TCMT Hardware Monitor</h1>
+  <div class="section cpu-section">
+    <h2>CPU</h2>
+    <div class="gauge-wrap">
+      <div class="gauge" id="cpu-gauge">
+        <svg width="80" height="80" viewBox="0 0 80 80">
+          <circle class="bg" cx="40" cy="40" r="32"/>
+          <circle class="fg" id="cpu-gauge-fg" cx="40" cy="40" r="32" stroke-dasharray="201" stroke-dashoffset="0"/>
+        </svg>
+        <div class="center" id="cpu-gauge-text">0%</div>
+      </div>
+      <div>
+        <div class="cpu-name" id="cpu-name">--</div>
+        <div class="sub-metrics">
+          <div><span class="label">Temp</span><br><span class="value" id="cpu-temp">--</span></div>
+          <div><span class="label">P-Core</span><br><span class="value" id="cpu-freq-p">--</span></div>
+          <div><span class="label">E-Core</span><br><span class="value" id="cpu-freq-e">--</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="section mem-section">
+    <h2>Memory</h2>
+    <div><span class="label">Used / Available / Total</span></div>
+    <div class="bar-wrap" style="margin:6px 0;">
+      <div class="bar-track"><div class="bar-fill" id="mem-bar" style="width:0%;background:#ff6b6b;"></div></div>
+      <span class="bar-label" id="mem-pct">0%</span>
+    </div>
+    <div class="grid-3">
+      <div><span class="label">Used</span><br><span class="value" id="mem-used">--</span></div>
+      <div><span class="label">Available</span><br><span class="value" id="mem-avail">--</span></div>
+      <div><span class="label">Total</span><br><span class="value" id="mem-total">--</span></div>
+    </div>
+  </div>
+  <div class="section gpu-section" id="gpu-section">
+    <h2>GPU</h2>
+    <div class="cards" id="gpu-cards"></div>
+  </div>
+  <div class="section net-section" id="net-section">
+    <h2>Network</h2>
+    <div class="cards" id="net-cards"></div>
+  </div>
+  <div class="section disk-section" id="disk-section">
+    <h2>Disk</h2>
+    <div class="cards" id="disk-cards"></div>
+  </div>
+  <div class="footer">
+    <span><span class="status-dot" id="status-dot"></span> <span id="status-text">Disconnected</span></span>
+    <span id="last-update">--</span>
+  </div>
+</div>
+<script>
+(function() {
+var WS_URL = (function(){var l=window.location;return 'ws://'+l.host+'/ws';})();
+var ws = null;
+var reconnectTimer = null;
+
+function connect() {
+  if (ws && (ws.readyState===0||ws.readyState===1)) return;
+  try { ws = new WebSocket(WS_URL); } catch(e) { reconnect(); return; }
+  ws.onopen = function(){setStatus(true);if(reconnectTimer){clearTimeout(reconnectTimer);reconnectTimer=null;}};
+  ws.onclose = function(){setStatus(false);reconnect();};
+  ws.onerror = function(){if(ws)ws.close();};
+  ws.onmessage = function(e){try{update(JSON.parse(e.data));}catch(_){}};
+}
+
+function reconnect() {
+  if (reconnectTimer) return;
+  reconnectTimer = setTimeout(function(){reconnectTimer=null;connect();},1000);
+}
+
+function setStatus(ok) {
+  var d=document.getElementById('status-dot'),t=document.getElementById('status-text');
+  if(ok){d.classList.add('connected');t.textContent='Connected';}
+  else{d.classList.remove('connected');t.textContent='Disconnected';}
+}
+
+function fmtBytes(v) {
+  if(v===0)return'0 B';var u=['B','KB','MB','GB','TB'];
+  var i=Math.min(Math.floor(Math.log(v)/Math.log(1024)),u.length-1);
+  return (v/Math.pow(1024,i)).toFixed(i<2?0:1)+' '+u[i];
+}
+function fmtFreq(v){if(!v)return'--';return v>=1000?(v/1000).toFixed(2)+' GHz':v.toFixed(0)+' MHz';}
+function fmtTemp(v){return v==null?'--':v.toFixed(1)+' C';}
+function fmtSpeed(v){
+  if(!v)return'--';
+  if(v>=1e9)return(v/1e9).toFixed(0)+' Gbps';
+  if(v>=1e6)return(v/1e6).toFixed(0)+' Mbps';
+  return(v/1e3).toFixed(0)+' Kbps';
+}
+function pct(a,b){if(!b||b===0)return 0;return Math.min(100,(a/b)*100);}
+function gaugeDash(p){var c=2*Math.PI*32;return c*(1-Math.min(100,Math.max(0,p))/100);}
+function gaugeColor(p){return p>=80?'#ff6b6b':p>=50?'#ffd93d':'#00d2ff';}
+
+/* DOM helpers */
+function el(tag,attrs,children){
+  var e=document.createElement(tag);
+  if(attrs)for(var k in attrs)if(k==='className')e.className=attrs[k];else e.setAttribute(k,attrs[k]);
+  if(children)for(var i=0;i<children.length;i++)if(children[i]!=null)(typeof children[i]==='string'?e.appendChild(document.createTextNode(children[i])):e.appendChild(children[i]));
+  return e;
+}
+function txt(n){return document.createTextNode(n);}
+function labl(s){return el('span',{className:'label'},[txt(s)]);}
+function valEl(id){return el('span',{className:'value',id:id},[txt('--')]);}
+function metric(l,v){return el('div',{className:'metric'},[labl(l),el('br'),v]);}
+function barFill(pct,color){
+  return el('div',{className:'bar-track'},[el('div',{className:'bar-fill',style:'width:'+pct.toFixed(1)+'%;background:'+color})]);
+}
+function barLabel(t){return el('span',{className:'bar-label'},[txt(t)]);}
+function barWrap(pct,color,lbl){
+  return el('div',{className:'bar-wrap'},[barFill(pct,color),barLabel(lbl)]);
+}
+function setText(id,v){var e=document.getElementById(id);if(e)e.textContent=v;}
+
+function update(d){
+  var now=new Date();
+  document.getElementById('last-update').textContent='Updated: '+now.toLocaleTimeString();
+
+  /* CPU */
+  if(d['cpu/name']!=null)setText('cpu-name',d['cpu/name']);
+  var usage=d['cpu/usage']!=null?d['cpu/usage']:0;
+  setText('cpu-gauge-text',usage.toFixed(1)+'%');
+  var fg=document.getElementById('cpu-gauge-fg');
+  fg.setAttribute('stroke-dashoffset',gaugeDash(usage));
+  fg.setAttribute('stroke',gaugeColor(usage));
+  if(d['cpu/temperature']!=null)setText('cpu-temp',fmtTemp(d['cpu/temperature']));
+  if(d['cpu/freq/pCore']!=null)setText('cpu-freq-p',fmtFreq(d['cpu/freq/pCore']));
+  if(d['cpu/freq/eCore']!=null)setText('cpu-freq-e',fmtFreq(d['cpu/freq/eCore']));
+
+  /* Memory */
+  var mT=d['memory/total']||0,mU=d['memory/used']||0,mA=d['memory/available']||0,mP=pct(mU,mT);
+  document.getElementById('mem-bar').style.width=mP.toFixed(1)+'%';
+  setText('mem-pct',mP.toFixed(1)+'%');
+  setText('mem-used',fmtBytes(mU));
+  setText('mem-avail',fmtBytes(mA));
+  setText('mem-total',fmtBytes(mT));
+
+  /* Dynamic sections */
+  renderCards('gpu',d,buildGpuCard);
+  renderCards('net',d,buildNetCard);
+  renderCards('disk',d,buildDiskCard);
+}
+
+/* Collect prefix/idx/subkey from flat keys */
+function groupByIndex(d,prefix){
+  var re=RegExp('^'+prefix+'/(\\d+)/(.+)$');
+  var grp={};
+  for(var k in d){var m=k.match(re);if(!m)continue;var idx=m[1],sk=m[2];if(!grp[idx])grp[idx]={};grp[idx][sk]=d[k];}
+  return grp;
+}
+
+function renderCards(prefix,d,buildFn){
+  var cont=document.getElementById(prefix+'-cards');
+  if(!cont)return;
+  var grp=groupByIndex(d,prefix);
+  var keys=Object.keys(grp).sort(function(a,b){return parseInt(a)-parseInt(b);});
+  /* Remove excess */
+  while(cont.children.length>keys.length)cont.removeChild(cont.lastChild);
+  /* Add missing */
+  while(cont.children.length<keys.length){var c=el('div',{className:'card'});cont.appendChild(c);}
+  /* Update content */
+  for(var i=0;i<keys.length;i++){
+    var card=cont.children[i];
+    var v=grp[keys[i]];
+    /* Replace card children */
+    while(card.firstChild)card.removeChild(card.firstChild);
+    buildFn(card,keys[i],v);
+  }
+  var sec=document.getElementById(prefix+'-section');
+  if(sec)sec.style.display=keys.length?'':'none';
+}
+
+function buildGpuCard(card,key,vals){
+  var name=vals.name||'GPU '+key;
+  var gpuUsage=vals.usage!=null?vals.usage:0;
+  var temp=vals.temperature;
+  var mem=vals.memory;
+  var freq=vals.coreFreq;
+
+  card.appendChild(el('div',{className:'metric'},[labl(name)]));
+
+  var g2=el('div',{className:'grid-2'});
+  g2.appendChild(metric('Usage',txt(gpuUsage.toFixed(1)+'%')));
+  g2.appendChild(metric('Temp',txt(temp!=null?fmtTemp(temp):'--')));
+  card.appendChild(g2);
+
+  card.appendChild(barWrap(gpuUsage,'#ffd93d',gpuUsage.toFixed(1)+'%'));
+
+  if(mem!=null){
+    var memPct=pct(mem,1);
+    card.appendChild(barWrap(memPct<100?memPct:100,'#ffd93d',fmtBytes(mem)));
+  }
+
+  var g2b=el('div',{className:'grid-2'});
+  if(freq!=null)g2b.appendChild(metric('Core Clock',txt(fmtFreq(freq))));
+  if(mem!=null)g2b.appendChild(metric('VRAM',txt(fmtBytes(mem))));
+  if(g2b.children.length)card.appendChild(g2b);
+}
+
+function buildNetCard(card,key,vals){
+  var name=vals.name||'Adapter '+key;
+  var ip=vals.ip||'--';
+  var speed=vals.speed;
+
+  var g2=el('div',{className:'grid-2'});
+  g2.appendChild(metric('Name',txt(name)));
+  g2.appendChild(metric('IP',txt(ip)));
+  card.appendChild(g2);
+
+  if(speed!=null)card.appendChild(metric('Speed',txt(fmtSpeed(speed))));
+}
+
+function buildDiskCard(card,key,vals){
+  var letter=vals.letter||'';
+  var total=vals.total||0;
+  var used=vals.used||0;
+  var diskPct=pct(used,total);
+
+  card.appendChild(metric('Drive '+letter,txt('')));
+  card.appendChild(barWrap(diskPct,'#a66cff',diskPct.toFixed(1)+'%'));
+
+  var g3=el('div',{className:'grid-3'});
+  g3.appendChild(metric('Used',txt(fmtBytes(used))));
+  g3.appendChild(metric('Free',txt(fmtBytes(vals.free||0))));
+  g3.appendChild(metric('Total',txt(fmtBytes(total))));
+  card.appendChild(g3);
+}
+
+connect();
+})();
+</script>
+</body>
+</html>
+)html";
+
+    con->set_status(websocketpp::http::status_code::ok);
+    con->set_body(kDashboardHtml);
+    con->replace_header("Content-Type", "text/html; charset=utf-8");
+}
+
+void WebServer::OnWsOpen(connection_hdl hdl) {
+    std::lock_guard<std::mutex> lock(connectionsMutex_);
+    connections_.insert(hdl);
+}
+
+void WebServer::OnWsClose(connection_hdl hdl) {
+    std::lock_guard<std::mutex> lock(connectionsMutex_);
+    connections_.erase(hdl);
+}
+
+} // namespace tcmt::web
