@@ -118,10 +118,12 @@ jobs:
         msbuild ${{ env.SOLUTION_FILE_PATH }} /p:Configuration=${{ env.BUILD_CONFIGURATION }} /p:Platform=${{ env.BUILD_PLATFORM }} /p:PlatformToolset=v143 /p:WindowsTargetPlatformVersion=10.0 /p:LangVersion=preview /m
 
     - name: Build and run tests
+      shell: cmd
       run: |
         cmake -B build-test -DBUILD_TESTING=ON -DCMAKE_BUILD_TYPE=Release
-        cmake --build build-test --target test_ipc test_config --config Release
-        cd build-test && ctest --output-on-failure -C Release
+        cmake --build build-test --config Release
+        cd build-test
+        ctest --output-on-failure -C Release
 
     - name: Upload build artifacts
       uses: actions/upload-artifact@v7
