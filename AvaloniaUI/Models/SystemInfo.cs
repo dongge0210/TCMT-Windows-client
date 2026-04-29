@@ -223,7 +223,7 @@ namespace AvaloniaUI.Models
     public class PhysicalDiskView : NotifyBase
     {
         private PhysicalDiskSmartData? _disk;
-        public PhysicalDiskSmartData? Disk { get => _disk!; set => SetProperty(ref _disk, value); }
+        public PhysicalDiskSmartData? Disk { get => _disk!; set { if (SetProperty(ref _disk, value)) { OnPropertyChanged(nameof(DisplayName)); OnPropertyChanged(nameof(LettersDisplay)); } } }
         public ObservableCollection<DiskData> Partitions { get; } = new();
         public string LettersDisplay {
         get {
