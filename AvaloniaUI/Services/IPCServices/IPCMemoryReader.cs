@@ -246,6 +246,27 @@ public class IPCMemoryReader : IDisposable
         return _shmView.Span[(int)field.Offset] != 0;
     }
 
+    public string? ReadWString(string fieldName)
+    {
+        var field = FindField(fieldName); if (field == null) return null;
+
+        if (OperatingSystem.IsWindows() && _accessor != null)
+        {
+            int maxBytes = (int)Math.Min(field.Size, _schema!.Header.TotalSize - field.Offset);
+            if (maxBytes <= 0) return null;
+            var buf = new byte[maxBytes];
+            _accessor.ReadArray((int)field.Offset, buf, 0, maxBytes);
+            int len = 0;
+            while (len + 1 < maxBytes && (buf[len] != 0 || buf[len + 1] != 0)) len += 2;
+            if (len == 0) return string.Empty;
+            return Encoding.Unicode.GetString(buf, 0, len);
+        }
+
+        // macOS: WString not used (IPCDataBlock uses char[], not WCHAR)
+        // Fall back to ASCII read for safety
+        return ReadString(fieldName);
+    }
+
     public string? ReadString(string fieldName)
     {
         var field = FindField(fieldName); if (field == null) return null;
@@ -290,6 +311,7 @@ public class IPCMemoryReader : IDisposable
             FieldType.Float64 => ReadFloat64(field.Name),
             FieldType.Bool    => ReadBool(field.Name),
             FieldType.String  => ReadString(field.Name),
+            FieldType.WString => ReadWString(field.Name),
             _ => null
         };
     }

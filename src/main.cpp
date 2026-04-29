@@ -749,7 +749,7 @@ int main(int argc, char* argv[]) {
         };
 
         // ─── CPU ───
-        addField("cpu/name",              FieldType::String,  offsetof(SharedMemoryBlock, cpuName),          128);
+        addField("cpu/name",              FieldType::WString, offsetof(SharedMemoryBlock, cpuName),          128);
         addField("cpu/cores/physical",    FieldType::UInt32,  offsetof(SharedMemoryBlock, physicalCores),    4);
         addField("cpu/cores/logical",     FieldType::UInt32,  offsetof(SharedMemoryBlock, logicalCores),     4);
         addField("cpu/cores/performance", FieldType::UInt32,  offsetof(SharedMemoryBlock, performanceCores), 4);
@@ -774,9 +774,9 @@ int main(int argc, char* argv[]) {
             for (int i = 0; i < maxGpus; i++) {
                 size_t base = offsetof(SharedMemoryBlock, gpus) + i * sizeof(GPUData);
                 snprintf(name, sizeof(name), "gpu/%d/name", i);
-                addField(name, FieldType::String,  base + offsetof(GPUData, name),     128);
+                addField(name, FieldType::WString, base + offsetof(GPUData, name),     128);
                 snprintf(name, sizeof(name), "gpu/%d/brand", i);
-                addField(name, FieldType::String,  base + offsetof(GPUData, brand),    64);
+                addField(name, FieldType::WString, base + offsetof(GPUData, brand),    64);
                 snprintf(name, sizeof(name), "gpu/%d/memory", i);
                 addField(name, FieldType::UInt64,  base + offsetof(GPUData, memory),   8, "B");
                 snprintf(name, sizeof(name), "gpu/%d/usage", i);
@@ -797,13 +797,13 @@ int main(int argc, char* argv[]) {
             for (int i = 0; i < maxAdapters; i++) {
                 size_t base = offsetof(SharedMemoryBlock, adapters) + i * sizeof(NetworkAdapterData);
                 snprintf(name, sizeof(name), "net/%d/name", i);
-                addField(name, FieldType::String,  base + offsetof(NetworkAdapterData, name),        128);
+                addField(name, FieldType::WString, base + offsetof(NetworkAdapterData, name),        128);
                 snprintf(name, sizeof(name), "net/%d/mac", i);
-                addField(name, FieldType::String,  base + offsetof(NetworkAdapterData, mac),         32);
+                addField(name, FieldType::WString, base + offsetof(NetworkAdapterData, mac),         32);
                 snprintf(name, sizeof(name), "net/%d/ip", i);
-                addField(name, FieldType::String,  base + offsetof(NetworkAdapterData, ipAddress),   64);
+                addField(name, FieldType::WString, base + offsetof(NetworkAdapterData, ipAddress),   64);
                 snprintf(name, sizeof(name), "net/%d/type", i);
-                addField(name, FieldType::String,  base + offsetof(NetworkAdapterData, adapterType), 32);
+                addField(name, FieldType::WString, base + offsetof(NetworkAdapterData, adapterType), 32);
                 snprintf(name, sizeof(name), "net/%d/speed", i);
                 addField(name, FieldType::UInt64,  base + offsetof(NetworkAdapterData, speed),       8, "bps");
             }
@@ -819,7 +819,7 @@ int main(int argc, char* argv[]) {
                 snprintf(name, sizeof(name), "disk/%d/letter", i);
                 addField(name, FieldType::String,  base + offsetof(SharedMemoryBlock::SharedDiskData, letter),    1);
                 snprintf(name, sizeof(name), "disk/%d/label", i);
-                addField(name, FieldType::String,  base + offsetof(SharedMemoryBlock::SharedDiskData, label),     128);
+                addField(name, FieldType::WString, base + offsetof(SharedMemoryBlock::SharedDiskData, label),     128);
                 snprintf(name, sizeof(name), "disk/%d/total", i);
                 addField(name, FieldType::UInt64,  base + offsetof(SharedMemoryBlock::SharedDiskData, totalSize), 8, "B");
                 snprintf(name, sizeof(name), "disk/%d/used", i);

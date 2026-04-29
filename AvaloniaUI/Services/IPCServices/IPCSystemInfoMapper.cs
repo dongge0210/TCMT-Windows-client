@@ -24,7 +24,7 @@ public static class IPCSystemInfoMapper
             };
 
             // CPU
-            info.CpuName = reader.ReadString("cpu/name") ?? "";
+            info.CpuName = ipc.ReadWString("cpu/name") ?? "";
             info.PhysicalCores = reader.ReadInt32("cpu/cores/physical") ?? reader.ReadUInt8("cpu/cores/physical") ?? 0;
             info.LogicalCores = reader.ReadInt32("cpu/cores/logical") ?? 0;
             info.PerformanceCores = reader.ReadInt32("cpu/cores/performance") ?? reader.ReadUInt8("cpu/cores/performance") ?? 0;
@@ -43,8 +43,8 @@ public static class IPCSystemInfoMapper
             info.CompressedMemory = reader.ReadUInt64("memory/compressed") ?? 0;
 
             // GPU (gpu/0 = first card)
-            info.GpuName = reader.ReadString("gpu/0/name") ?? "";
-            info.GpuBrand = reader.ReadString("gpu/0/brand") ?? "";
+            info.GpuName = ipc.ReadWString("gpu/0/name") ?? "";
+            info.GpuBrand = ipc.ReadWString("gpu/0/brand") ?? "";
             info.GpuMemory = reader.ReadUInt64("gpu/0/memory") ?? 0;
             var gpuUsage = (double?)(reader.ReadFloat32("gpu/0/usage")) ?? reader.ReadFloat64("gpu/0/usage") ?? 0.0;
             info.GpuCoreFreq = (double?)(reader.ReadFloat32("gpu/0/coreFreq")) ?? reader.ReadFloat64("gpu/0/coreFreq") ?? 0;
@@ -69,10 +69,10 @@ public static class IPCSystemInfoMapper
             }
 
             // Network (net/0 = first adapter)
-            info.NetworkAdapterName = reader.ReadString("net/0/name") ?? "";
-            info.NetworkAdapterMac = reader.ReadString("net/0/mac") ?? "";
-            info.NetworkAdapterIp = reader.ReadString("net/0/ip") ?? "";
-            info.NetworkAdapterType = reader.ReadString("net/0/type") ?? "";
+            info.NetworkAdapterName = ipc.ReadWString("net/0/name") ?? "";
+            info.NetworkAdapterMac = ipc.ReadWString("net/0/mac") ?? "";
+            info.NetworkAdapterIp = ipc.ReadWString("net/0/ip") ?? "";
+            info.NetworkAdapterType = ipc.ReadWString("net/0/type") ?? "";
             info.NetworkAdapterSpeed = reader.ReadUInt64("net/0/speed") ?? 0;
 
             if (!string.IsNullOrEmpty(info.NetworkAdapterName))
