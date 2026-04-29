@@ -955,7 +955,7 @@ int main(int argc, char* argv[]) {
                     if (cpuInfo) {
                         sysInfo.cpuUsage = cpuInfo->GetUsage();
                         sysInfo.performanceCoreFreq = cpuInfo->GetLargeCoreSpeed();
-                        sysInfo.efficiencyCoreFreq = cpuInfo->GetSmallCoreSpeed() * 0.8;
+                        sysInfo.efficiencyCoreFreq = cpuInfo->GetSmallCoreSpeed();
                         sysInfo.cpuUsageSampleIntervalMs = cpuInfo->GetLastSampleIntervalMs();
                     }
                 }

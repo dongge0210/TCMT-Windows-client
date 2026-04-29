@@ -171,8 +171,8 @@ struct SharedMemoryBlock {
     double cpuUsage;          // Changed to double type, improved precision
     int performanceCores;     // Performance cores
     int efficiencyCores;      // Efficiency cores
-    double pCoreFreq;         // Performance core frequency (GHz)
-    double eCoreFreq;         // Efficiency core frequency (GHz)
+    double pCoreFreq;         // Performance core frequency (MHz)
+    double eCoreFreq;         // Efficiency core frequency (MHz)
     bool hyperThreading;      // Hyperthreading enabled
     bool virtualization;      // Virtualization enabled
     uint64_t totalMemory;     // Total memory (bytes)
