@@ -130,12 +130,16 @@ target_include_directories(TCMTCore PUBLIC
 )
 
 # ASIO (standalone, header-only) — brew on macOS, submodule on Windows
-find_path(ASIO_INCLUDE_DIR asio/version.hpp
-    HINTS
-        ${CMAKE_CURRENT_SOURCE_DIR}/third_party/asio/asio/include
-)
+set(ASIO_INCLUDE_DIR "" CACHE PATH "Path to ASIO include directory (asio/version.hpp)")
+if(NOT ASIO_INCLUDE_DIR)
+    find_path(ASIO_INCLUDE_DIR asio/version.hpp
+        HINTS
+            ${CMAKE_CURRENT_SOURCE_DIR}/third_party/asio/asio/include
+    )
+endif()
 if(ASIO_INCLUDE_DIR)
-    target_include_directories(TCMTCore PUBLIC ${ASIO_INCLUDE_DIR})
+    target_include_directories(TCMTCore PRIVATE ${ASIO_INCLUDE_DIR})
+    target_compile_definitions(TCMTCore PRIVATE ASIO_STANDALONE)
     message(STATUS "ASIO found: ${ASIO_INCLUDE_DIR}")
 else()
     message(FATAL_ERROR "ASIO not found. Install via 'brew install asio' or add as submodule at third_party/asio")
@@ -153,9 +157,6 @@ elseif(TCMT_MACOS)
         TCMT_MACOS _DARWIN_C_SOURCE
     )
 endif()
-
-# ASIO standalone (no Boost) — needed by websocketpp
-target_compile_definitions(TCMTCore PRIVATE ASIO_STANDALONE)
 
 # CUDA include path (Windows, for nvml.h)
 if(TCMT_WINDOWS AND DEFINED ENV{CUDA_PATH})
