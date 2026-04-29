@@ -45,21 +45,21 @@ public class SchemaHeader
     {
         return new SchemaHeader
         {
-            Magic           = ReadUInt32BE(data, offset + 0),
+            Magic           = ReadUInt32LE(data, offset + 0),
             Version         = data[offset + 4],
             Flags           = data[offset + 5],
             FieldCount      = (ushort)(data[offset + 6] | (data[offset + 7] << 8)),
-            TotalSize       = ReadUInt32BE(data, offset + 8),
-            StringBlockSize = ReadUInt32BE(data, offset + 12)
+            TotalSize       = ReadUInt32LE(data, offset + 8),
+            StringBlockSize = ReadUInt32LE(data, offset + 12)
         };
     }
 
-    private static uint ReadUInt32BE(byte[] data, int offset)
+    private static uint ReadUInt32LE(byte[] data, int offset)
     {
-        return ((uint)data[offset] << 24)
-             | ((uint)data[offset + 1] << 16)
-             | ((uint)data[offset + 2] << 8)
-             | data[offset + 3];
+        return data[offset]
+             | ((uint)data[offset + 1] << 8)
+             | ((uint)data[offset + 2] << 16)
+             | ((uint)data[offset + 3] << 24);
     }
 }
 
@@ -82,14 +82,14 @@ public class FieldDef
     {
         var def = new FieldDef
         {
-            Id         = ReadUInt32BE(data, baseOffset + 0),
+            Id         = ReadUInt32LE(data, baseOffset + 0),
             Type       = data[baseOffset + 4],
             Reserved1  = data[baseOffset + 5],
             Size       = (ushort)(data[baseOffset + 6] | (data[baseOffset + 7] << 8)),
-            Offset     = ReadUInt32BE(data, baseOffset + 8),
-            Count      = ReadUInt32BE(data, baseOffset + 12),
-            StrOffset  = ReadUInt32BE(data, baseOffset + 16),
-            Flags      = ReadUInt32BE(data, baseOffset + 20),
+            Offset     = ReadUInt32LE(data, baseOffset + 8),
+            Count      = ReadUInt32LE(data, baseOffset + 12),
+            StrOffset  = ReadUInt32LE(data, baseOffset + 16),
+            Flags      = ReadUInt32LE(data, baseOffset + 20),
             MinVal     = ReadFloat(data, baseOffset + 24),
             MaxVal     = ReadFloat(data, baseOffset + 28),
             Name       = ReadString(data, baseOffset + 32, IPCConstants.FieldNameLen),
@@ -98,18 +98,18 @@ public class FieldDef
         return def;
     }
 
-    private static uint ReadUInt32BE(byte[] data, int offset)
+    private static uint ReadUInt32LE(byte[] data, int offset)
     {
-        return ((uint)data[offset] << 24)
-             | ((uint)data[offset + 1] << 16)
-             | ((uint)data[offset + 2] << 8)
-             | data[offset + 3];
+        return data[offset]
+             | ((uint)data[offset + 1] << 8)
+             | ((uint)data[offset + 2] << 16)
+             | ((uint)data[offset + 3] << 24);
     }
 
     private static float ReadFloat(byte[] data, int offset)
     {
-        uint bits = ReadUInt32BE(data, offset);
-        return BitConverter.SingleToUInt32Bits(bits);
+        uint bits = ReadUInt32LE(data, offset);
+        return BitConverter.UInt32BitsToSingle(bits);
     }
 
     private static string ReadString(byte[] data, int offset, int maxLen)
