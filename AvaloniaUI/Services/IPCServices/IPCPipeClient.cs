@@ -134,8 +134,7 @@ public class IPCPipeClient : IAsyncDisposable
                 int n = await ReadFullAsync(stream, headerBuf, headerSize, ct);
                 if (n == 0) break;
 
-                byte fieldCount = headerBuf[3];
-                uint totalSize = BitConverter.ToUInt32(headerBuf, 4);
+                ushort fieldCount = (ushort)(headerBuf[6] | (headerBuf[7] << 8));
 
                 int fieldsSize = Math.Min(fieldCount, maxFields) * fieldDefSize;
                 if (fieldsSize > 0)
