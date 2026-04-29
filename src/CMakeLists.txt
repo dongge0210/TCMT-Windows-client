@@ -131,10 +131,22 @@ target_include_directories(TCMTCore PUBLIC
     # nlohmann/json (header-only) — single include
     ${CMAKE_CURRENT_SOURCE_DIR}/CPP-parsers/extern/json/single_include
 
-    # websocketpp (header-only) + ASIO standalone
+    # websocketpp (header-only)
     ${CMAKE_CURRENT_SOURCE_DIR}/third_party/websocketpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/third_party/websocketpp/third_party/asio/asio/include
 )
+
+# ASIO (standalone, header-only) — brew on macOS, submodule or system on Windows
+find_path(ASIO_INCLUDE_DIR asio/version.hpp
+    HINTS
+        ${CMAKE_CURRENT_SOURCE_DIR}/third_party/asio/asio/include
+        ${CMAKE_CURRENT_SOURCE_DIR}/third_party/websocketpp/third_party/asio/asio/include
+)
+if(ASIO_INCLUDE_DIR)
+    target_include_directories(TCMTCore PUBLIC ${ASIO_INCLUDE_DIR})
+    message(STATUS "ASIO found: ${ASIO_INCLUDE_DIR}")
+else()
+    message(FATAL_ERROR "ASIO not found. Install via 'brew install asio' or add as submodule at third_party/asio")
+endif()
 
 # Platform-specific defines
 if(TCMT_WINDOWS)

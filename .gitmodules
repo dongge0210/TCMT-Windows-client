@@ -28,3 +28,6 @@
 [submodule "src/third_party/zlib"]
 	path = src/third_party/zlib
 	url = https://github.com/dongge0210/zlib.git
+[submodule "src/third_party/asio"]
+	path = src/third_party/asio
+	url = https://github.com/dongge0210/asio.git
