@@ -101,7 +101,7 @@ static std::string GetBrandFromName(const std::string& name) {
 static nlohmann::json SystemInfoToJson(const SystemInfo& sysInfo) {
     nlohmann::json j;
 
-    j["cpu"]["name"] = sysInfo.cpuName.empty() ? nullptr : sysInfo.cpuName;
+    j["cpu"]["name"] = sysInfo.cpuName;
     j["cpu"]["usage"] = sysInfo.cpuUsage;
     j["cpu"]["temperature"] = sysInfo.cpuTemperature;
     j["cpu"]["cores"]["physical"] = sysInfo.physicalCores;
