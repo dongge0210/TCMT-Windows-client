@@ -145,7 +145,8 @@
                                 <ColumnDefinition Width="*"/>
                             </Grid.ColumnDefinitions>
                             <StackPanel>
-                                <TextBlock Text="{Binding SelectedGpu.MemoryDisplay, TargetNullValue='N/A', StringFormat='显存: {0}'}" Foreground="#FFB3B3B3"/>
+                                <TextBlock Text="{Binding SelectedGpu.MemoryDisplay, TargetNullValue='N/A', StringFormat='显存: {0}'}" Foreground="#FFB3B3B3"
+                                           IsVisible="{Binding IsNotMacOS}"/>
                                 <TextBlock Text="{Binding SelectedGpu.Brand, TargetNullValue='N/A', StringFormat='品牌: {0}'}" Foreground="#FF666666" FontSize="11"/>
                             </StackPanel>
                             <StackPanel Grid.Column="1">

@@ -564,7 +564,6 @@ int main(int argc, char* argv[]) {
             // === Write to IPC shared memory ===
             if (shmPtr && shmSize >= sizeof(tcmt::ipc::IPCDataBlock)) {
                 tcmt::ipc::IPCDataBlock* block = static_cast<tcmt::ipc::IPCDataBlock*>(shmPtr);
-                std::memset(block, 0, sizeof(tcmt::ipc::IPCDataBlock));
 
                 if (cpuInfo) {
                     std::strncpy(block->cpuName, cpuInfo->GetName().c_str(), 63);
