@@ -104,6 +104,12 @@ bool TpmBridge::GetTpmInfo(TpmInfo& info) {
 
         // Get vendor ID from implementation revision
         info.vendorId = static_cast<uint16_t>(tpmInfo.tpmImpRevision & 0xFFFF);
+
+        // Overwrite manufacturer with actual TPM vendor name
+        std::wstring vendor = GetVendorString(info.vendorId);
+        if (!vendor.empty()) {
+            wcsncpy_s(info.manufacturer, vendor.c_str(), _TRUNCATE);
+        }
     }
 
     // Cleanup context

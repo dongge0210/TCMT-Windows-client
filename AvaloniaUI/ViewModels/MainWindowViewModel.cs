@@ -594,5 +594,4 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
         GC.SuppressFinalize(this);
     }
 
-    ~MainWindowViewModel() => Dispose();
 }

@@ -92,7 +92,8 @@ void WmiManager::Cleanup() {
         pLoc->Release();
         pLoc = nullptr;
     }
-    CoUninitialize();
+    // Do NOT call CoUninitialize here -- COM is initialized by main.cpp
+    // and tearing it down prematurely breaks other components still using it.
     initialized = false;
 }
 
@@ -130,6 +131,11 @@ ULONG STDMETHODCALLTYPE WmiManager::Release() {
 
 HRESULT STDMETHODCALLTYPE WmiManager::QueryService(REFGUID guidService, REFIID riid, void** ppvObject) {
     if (guidService == IID_IWbemServices) {
+        if (pSvc == nullptr) {
+            Logger::Error("WMI service not initialized (pSvc is null)");
+            *ppvObject = nullptr;
+            return E_FAIL;
+        }
         return pSvc->QueryInterface(riid, ppvObject);
     }
     *ppvObject = nullptr;
