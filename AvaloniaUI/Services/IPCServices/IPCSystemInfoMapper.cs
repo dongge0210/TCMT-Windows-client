@@ -1,15 +1,13 @@
+using System.Runtime.InteropServices;
 using AvaloniaUI.Models;
 using Serilog;
 
 namespace AvaloniaUI.Services.IPC;
 
-/// <summary>
-/// Schema field name → SystemInfo mapper.
-/// Field names use hierarchical /-separated paths (e.g. "cpu/name", "gpu/0/memory").
-/// Both macOS (IPCDataBlock) and Windows (SharedMemoryBlock) register the same names.
-/// </summary>
 public static class IPCSystemInfoMapper
 {
+    private static bool IsMacOS => RuntimeInformation.IsOSPlatform(OSPlatform.OSX);
+
     public static SystemInfo Read(IPCService ipc)
     {
         var reader = ipc.Reader;
@@ -24,7 +22,7 @@ public static class IPCSystemInfoMapper
             };
 
             // CPU
-            info.CpuName = ipc.ReadWString("cpu/name") ?? "";
+            info.CpuName = ipc.ReadWString("cpu/name") ?? ipc.ReadString("cpu/name") ?? "";
             info.PhysicalCores = reader.ReadInt32("cpu/cores/physical") ?? reader.ReadUInt8("cpu/cores/physical") ?? 0;
             info.LogicalCores = reader.ReadInt32("cpu/cores/logical") ?? 0;
             info.PerformanceCores = reader.ReadInt32("cpu/cores/performance") ?? reader.ReadUInt8("cpu/cores/performance") ?? 0;
@@ -42,14 +40,21 @@ public static class IPCSystemInfoMapper
             info.AvailableMemory = reader.ReadUInt64("memory/available") ?? 0;
             info.CompressedMemory = reader.ReadUInt64("memory/compressed") ?? 0;
 
-            // GPU (gpu/0 = first card)
-            info.GpuName = ipc.ReadWString("gpu/0/name") ?? "";
+            // GPU
+            info.GpuName = ipc.ReadWString("gpu/0/name") ?? ipc.ReadString("gpu/0/name") ?? "";
             info.GpuBrand = ipc.ReadWString("gpu/0/brand") ?? "";
             info.GpuMemory = reader.ReadUInt64("gpu/0/memory") ?? 0;
             var gpuUsage = (double?)(reader.ReadFloat32("gpu/0/usage")) ?? reader.ReadFloat64("gpu/0/usage") ?? 0.0;
             info.GpuCoreFreq = (double?)(reader.ReadFloat32("gpu/0/coreFreq")) ?? reader.ReadFloat64("gpu/0/coreFreq") ?? 0;
             info.GpuIsVirtual = reader.ReadBool("gpu/0/isVirtual") ?? false;
             info.GpuTemperature = (double?)(reader.ReadFloat32("gpu/0/temperature")) ?? reader.ReadFloat64("gpu/0/temperature") ?? 0;
+
+            // On Apple Silicon, CPU/GPU share the same die temperature.
+            // Use CPU temp as SoC temp and hide GPU temp.
+            if (IsMacOS && info.GpuTemperature > 0 && info.CpuTemperature <= 0)
+                info.CpuTemperature = info.GpuTemperature;
+            if (IsMacOS)
+                info.GpuTemperature = 0;
 
             if (!string.IsNullOrEmpty(info.GpuName))
             {
@@ -68,11 +73,11 @@ public static class IPCSystemInfoMapper
                 };
             }
 
-            // Network (net/0 = first adapter)
-            info.NetworkAdapterName = ipc.ReadWString("net/0/name") ?? "";
-            info.NetworkAdapterMac = ipc.ReadWString("net/0/mac") ?? "";
-            info.NetworkAdapterIp = ipc.ReadWString("net/0/ip") ?? "";
-            info.NetworkAdapterType = ipc.ReadWString("net/0/type") ?? "";
+            // Network
+            info.NetworkAdapterName = ipc.ReadWString("net/0/name") ?? ipc.ReadString("net/0/name") ?? "";
+            info.NetworkAdapterMac = ipc.ReadWString("net/0/mac") ?? ipc.ReadString("net/0/mac") ?? "";
+            info.NetworkAdapterIp = ipc.ReadWString("net/0/ip") ?? ipc.ReadString("net/0/ip") ?? "";
+            info.NetworkAdapterType = ipc.ReadWString("net/0/type") ?? ipc.ReadString("net/0/type") ?? "";
             info.NetworkAdapterSpeed = reader.ReadUInt64("net/0/speed") ?? 0;
 
             if (!string.IsNullOrEmpty(info.NetworkAdapterName))
@@ -90,26 +95,30 @@ public static class IPCSystemInfoMapper
                 };
             }
 
-            // Temperature sensors
-            if (reader.HasField("sensor/0/name"))
+            // Disks
+            int diskIdx = 0;
+            while (reader.HasField($"disk/{diskIdx}/label"))
             {
-                int idx = 0;
-                while (reader.HasField($"sensor/{idx}/name"))
+                var label = reader.ReadString($"disk/{diskIdx}/label") ?? reader.ReadWString($"disk/{diskIdx}/label") ?? "";
+                if (!string.IsNullOrEmpty(label))
                 {
-                    var name = reader.ReadString($"sensor/{idx}/name") ?? "";
-                    var temp = (double?)(reader.ReadFloat32($"sensor/{idx}/temp")) ?? reader.ReadFloat64($"sensor/{idx}/temp") ?? 0;
-                    info.Temperatures.Add(new TemperatureData
+                    var total = reader.ReadUInt64($"disk/{diskIdx}/total") ?? 0;
+                    var used = reader.ReadUInt64($"disk/{diskIdx}/used") ?? 0;
+                    var free = reader.ReadUInt64($"disk/{diskIdx}/free") ?? 0;
+                    var fs = reader.ReadString($"disk/{diskIdx}/fs") ?? "";
+                    info.Disks.Add(new DiskData
                     {
-                        SensorName = name,
-                        Temperature = temp
+                        Label = label,
+                        FileSystem = fs,
+                        TotalSize = total,
+                        UsedSpace = used,
+                        FreeSpace = free
                     });
-                    idx++;
                 }
+                diskIdx++;
             }
 
-            // Sample interval
             info.CpuUsageSampleIntervalMs = reader.ReadFloat64("cpu/sampleIntervalMs") ?? 500;
-
             return info;
         }
         catch (Exception ex)

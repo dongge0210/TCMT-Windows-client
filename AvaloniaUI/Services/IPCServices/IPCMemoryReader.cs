@@ -146,6 +146,7 @@ public class IPCMemoryReader : IDisposable
     public ushort? ReadUInt16(string fieldName)
     {
         var field = FindField(fieldName); if (field == null) return null;
+        if (field.Size < 2) return null; // too small for UInt16
         if (OperatingSystem.IsWindows() && _accessor != null)
             return _accessor.ReadUInt16((int)field.Offset);
         if (_shmPtr == IntPtr.Zero || (int)field.Offset + 2 > _shmSize) return null;
@@ -157,6 +158,7 @@ public class IPCMemoryReader : IDisposable
     public uint? ReadUInt32(string fieldName)
     {
         var field = FindField(fieldName); if (field == null) return null;
+        if (field.Size < 4) return null; // too small for UInt32
         if (OperatingSystem.IsWindows() && _accessor != null)
             return _accessor.ReadUInt32((int)field.Offset);
         if (_shmPtr == IntPtr.Zero || (int)field.Offset + 4 > _shmSize) return null;
@@ -170,6 +172,7 @@ public class IPCMemoryReader : IDisposable
     public ulong? ReadUInt64(string fieldName)
     {
         var field = FindField(fieldName); if (field == null) return null;
+        if (field.Size < 8) return null; // too small for UInt64
         if (OperatingSystem.IsWindows() && _accessor != null)
             return _accessor.ReadUInt64((int)field.Offset);
         if (_shmPtr == IntPtr.Zero || (int)field.Offset + 8 > _shmSize) return null;
