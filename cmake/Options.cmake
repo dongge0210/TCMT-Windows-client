@@ -64,6 +64,7 @@ function(tcmt_set_compile_options)
     endif()
 
     # 通用定义
+    string(TIMESTAMP CMAKE_BUILD_TIMESTAMP "%Y-%m-%d %H:%M:%S")
     add_definitions(
         -DTCMT_VERSION="${PROJECT_VERSION}"
         -DTCMT_BUILD_TIMESTAMP="${CMAKE_BUILD_TIMESTAMP}"
@@ -118,12 +119,10 @@ function(tcmt_target_set_options target)
         endif()
 
         # Windows子系统设置
-        if(NOT CMAKE_BUILD_TYPE STREQUAL "Debug")
-            target_link_options(${target} PRIVATE
-                /SUBSYSTEM:CONSOLE
-                /ENTRY:mainCRTStartup
-            )
-        endif()
+        target_link_options(${target} PRIVATE
+            /SUBSYSTEM:CONSOLE
+            /ENTRY:mainCRTStartup
+        )
 
     elseif(TCMT_MACOS)
         # macOS目标选项

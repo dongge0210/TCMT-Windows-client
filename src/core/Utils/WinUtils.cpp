@@ -63,16 +63,26 @@ std::string WinUtils::FormatWindowsErrorMessage(DWORD errorCode) {
     if (!buffer) return "Unknown error: " + std::to_string(errorCode);
     std::wstring wideMsg(buffer);
     LocalFree(buffer);
-    return std::string(wideMsg.begin(), wideMsg.end());
+    return WstringToUtf8(wideMsg);
 }
 
 std::string WinUtils::GetExecutableDirectory() {
-    char path[MAX_PATH];
-    GetModuleFileNameA(NULL, path, MAX_PATH);
-    std::string fullPath(path);
-    size_t pos = fullPath.find_last_of("\\");
-    if (pos != std::string::npos) return fullPath.substr(0, pos);
-    return fullPath;
+    DWORD len = MAX_PATH;
+    std::wstring path(len, L'\0');
+    DWORD written;
+    while (true) {
+        written = GetModuleFileNameW(NULL, &path[0], len);
+        if (written == 0) return ".";
+        if (written < len) break; // Success
+        // Buffer too small, double and retry
+        len *= 2;
+        path.resize(len);
+    }
+    path.resize(written);
+    std::string utf8Path = WstringToUtf8(path);
+    size_t pos = utf8Path.find_last_of("\\");
+    if (pos != std::string::npos) return utf8Path.substr(0, pos);
+    return utf8Path;
 }
 
 #elif defined(TCMT_MACOS)

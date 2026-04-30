@@ -8,6 +8,7 @@
 #endif
 
 #include "Platform.h"
+#include "../Utils/WinUtils.h"
 
 namespace Platform {
 
@@ -549,21 +550,7 @@ bool EnablePrivilege(const wchar_t* privilegeName) {
 }
 
 std::string FormatWindowsErrorMessage(uint32_t errorCode) {
-    LPSTR buffer = nullptr;
-    size_t size = FormatMessageA(
-        FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS,
-        NULL, errorCode, MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT),
-        (LPSTR)&buffer, 0, NULL);
-
-    std::string result;
-    if (buffer) {
-        result = std::string(buffer, size);
-        LocalFree(buffer);
-    } else {
-        result = "Unknown Windows error: " + std::to_string(errorCode);
-    }
-
-    return result;
+    return WinUtils::FormatWindowsErrorMessage(errorCode);
 }
 
 } // namespace PlatformWindows

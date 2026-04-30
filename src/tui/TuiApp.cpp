@@ -484,7 +484,6 @@ void TuiApp::Run() {
                 int color = 2;
                 if (entry.find("[ERROR]") != std::string::npos) color = 4;
                 else if (entry.find("[WARN]") != std::string::npos) color = 3;
-                else if (entry.find("[DEBUG]") != std::string::npos) color = 6;
                 wattron(stdscr, COLOR_PAIR(color));
                 mvwprintw(stdscr, logTop + 1 + static_cast<int>(i), 2, "%.*s",
                           cols - 4, entry.c_str());
@@ -500,7 +499,6 @@ void TuiApp::Run() {
         }
     }
 
-    SafeEndwin();
 }
 
 void TuiApp::SafeEndwin() {

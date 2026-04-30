@@ -7,15 +7,15 @@
 // Static member initialization
 bool TpmBridge::initialized = false;
 bool TpmBridge::tpmPresent = false;
+std::once_flag TpmBridge::initFlag;
 
 bool TpmBridge::Initialize() {
-    if (initialized) return true;
-
-    // Check if TPM exists
-    tpmPresent = IsTpmPresent();
-
-    initialized = true;
-    return true;
+    std::call_once(initFlag, []() {
+        // Check if TPM exists
+        tpmPresent = IsTpmPresent();
+        initialized = true;
+    });
+    return initialized;
 }
 
 void TpmBridge::Cleanup() {

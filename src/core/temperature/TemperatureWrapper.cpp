@@ -31,7 +31,9 @@ std::vector<std::pair<std::string, double>> TemperatureWrapper::GetTemperatures(
     if (initialized) {
         try {
             temps = LibreHardwareMonitorBridge::GetTemperatures();
-        } catch (...) {}
+        } catch (...) {
+            Logger::Warn("TemperatureWrapper: GetTemperatures threw an exception in LibreHardwareMonitor bridge");
+        }
     }
     return temps;
 }

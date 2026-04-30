@@ -364,22 +364,11 @@ double CpuInfo::updateUsage() {
         else cpuUsage = newUsage;
     }
 
+    uint64_t prevTime = prevSampleTimeMs;
     prevSampleTimeMs = now;
-    lastSampleIntervalMs = (double)(now - prevSampleTimeMs + (now - prevSampleTimeMs));
-    // Correct: use previous sample time for interval
-    lastSampleIntervalMs = (double)(now - prevSampleTimeMs);
-    // Actually prevSampleTimeMs was just updated, so we need to track before update
-    // The interval is (now - prevSampleTimeMs) before update. Let's use deltaTotal ticks
-    // as a proxy for elapsed time. mach_tick_rate gives ticks/sec.
-    static mach_timebase_info_data_t sTimebase;
-    static bool sTimebaseInit = false;
-    if (!sTimebaseInit) {
-        mach_timebase_info(&sTimebase);
-        sTimebaseInit = true;
+    if (prevTime != 0) {
+        lastSampleIntervalMs = static_cast<double>(now - prevTime);
     }
-    // Convert tick delta to ms
-    uint64_t elapsedNs = deltaTotal * sTimebase.numer / sTimebase.denom;
-    lastSampleIntervalMs = elapsedNs / 1000000.0;
 
     prevTotalTicks = totalTicks;
     prevIdleTicks  = idleTicks;

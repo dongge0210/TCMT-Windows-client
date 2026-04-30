@@ -54,7 +54,10 @@ function(tcmt_find_windows_dependencies)
     check_library_exists(kernel32 GetSystemTime "" HAVE_KERNEL32)
     check_library_exists(user32 MessageBoxW "" HAVE_USER32)
     check_library_exists(pdh PdhOpenQueryW "" HAVE_PDH_LIB)
-    check_library_exists(wbemuuid CLSID_WbemLocator "" HAVE_WBEMUUID_LIB)
+    # wbemuuid is part of the Windows SDK and provides only GUID symbols (not functions),
+    # so link without a detailed check -- the linker will fail if it's missing.
+    set(HAVE_WBEMUUID_LIB TRUE)
+    message(STATUS "    wbemuuid (Windows SDK built-in)")
 
     if(NOT HAVE_KERNEL32)
         message(FATAL_ERROR "kernel32 library not found")
@@ -62,10 +65,6 @@ function(tcmt_find_windows_dependencies)
     if(NOT HAVE_PDH_LIB)
         message(FATAL_ERROR "pdh library not found")
     endif()
-    if(NOT HAVE_WBEMUUID_LIB)
-        message(FATAL_ERROR "wbemuuid library not found")
-    endif()
-
     # CUDA check (if enabled)
     if(TCMT_ENABLE_CUDA)
         find_package(CUDAToolkit QUIET)

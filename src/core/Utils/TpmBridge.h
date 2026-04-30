@@ -11,6 +11,7 @@ typedef uint8_t LPBYTE;
 typedef int64_t HRESULT;
 #endif
 
+#include <mutex>
 #include <vector>
 #include "../DataStruct/DataStruct.h"
 
@@ -52,6 +53,7 @@ public:
 private:
     static bool initialized;
     static bool tpmPresent;
+    static std::once_flag initFlag;
 
     // Internal methods
     static HRESULT GetTpmProperty(DWORD propertyId, LPBYTE buffer, DWORD bufferSize);

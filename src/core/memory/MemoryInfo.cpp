@@ -41,25 +41,32 @@ MemoryInfo::MemoryInfo() : totalPhysical(0), availablePhysical(0), totalVirtual(
         Logger::Error("MemoryInfo: sysctl HW_MEMSIZE failed");
     }
 
-    // Available memory via host_statistics64 (free + inactive pages)
+    // Available memory via host_statistics64 (free + inactive + speculative + purgeable pages)
     mach_port_t host = mach_host_self();
     vm_size_t pageSize = vm_kernel_page_size;
     vm_statistics64_data_t vmStats;
     mach_msg_type_number_t count = HOST_VM_INFO64_COUNT;
 
     if (host_statistics64(host, HOST_VM_INFO64, (host_info64_t)&vmStats, &count) == KERN_SUCCESS) {
-        // free + inactive = available (active + wired = used)
         uint64_t freePages = vmStats.free_count;
         uint64_t inactivePages = vmStats.inactive_count;
-        availablePhysical = (freePages + inactivePages) * pageSize;
+        uint64_t speculativePages = vmStats.speculative_count;
+        uint64_t purgeablePages = vmStats.purgeable_count;
+        availablePhysical = (freePages + inactivePages + speculativePages + purgeablePages) * pageSize;
     } else {
         Logger::Error("MemoryInfo: host_statistics64 failed");
         // Fallback: approximate available as total (won't be accurate)
         availablePhysical = totalPhysical;
     }
 
-    // Total virtual memory
-    totalVirtual = totalPhysical; // macOS doesn't expose swap easily; this is safe
+    // Total virtual memory (physical + swap)
+    struct xsw_usage swapUsage;
+    size_t swapLen = sizeof(swapUsage);
+    if (sysctlbyname("vm.swapusage", &swapUsage, &swapLen, nullptr, 0) == 0) {
+        totalVirtual = totalPhysical + swapUsage.xsu_total;
+    } else {
+        totalVirtual = totalPhysical; // fallback if sysctl fails
+    }
 }
 
 uint64_t MemoryInfo::GetTotalPhysical() const {

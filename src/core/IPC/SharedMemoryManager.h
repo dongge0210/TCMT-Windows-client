@@ -14,7 +14,6 @@ private:
 
     static SharedMemoryBlock* pBuffer;
     static std::string lastError; // Store last error message
-    static void* interprocessMutex; // Platform-specific interprocess mutex
 
 public:
     // Initialize shared memory

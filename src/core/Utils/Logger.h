@@ -5,20 +5,6 @@
 #include <algorithm>
 
 #ifdef TCMT_WINDOWS
-    #ifndef TCMT_WINDOWS
-        #define TCMT_WINDOWS
-    #endif
-#elif defined(__APPLE__) && defined(__MACH__)
-    #ifndef TCMT_MACOS
-        #define TCMT_MACOS
-    #endif
-#elif defined(__linux__)
-    #ifndef TCMT_LINUX
-        #define TCMT_LINUX
-    #endif
-#endif
-
-#ifdef TCMT_WINDOWS
 // winsock2.h must be before windows.h
 #include <winsock2.h>
 #include <windows.h>

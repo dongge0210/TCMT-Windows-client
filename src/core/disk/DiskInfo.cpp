@@ -351,7 +351,7 @@ void DiskInfo::QueryDrives() {
         // Skip if we've already seen this physical disk
         std::string physicalDisk = bsdName;
         // Remove partition suffixes: keep only up to first 's' after "diskN"
-        auto diskPrefixEnd = physicalDisk.find('s', 4); // skip "disk"
+        auto diskPrefixEnd = physicalDisk.find('s'); // find first 's' in disk name
         if (diskPrefixEnd != std::string::npos) {
             physicalDisk = physicalDisk.substr(0, diskPrefixEnd);
         }

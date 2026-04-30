@@ -213,7 +213,7 @@ TEST(IPCDataTest, MaxFields) {
 // ── Name length boundary ──
 TEST(IPCDataTest, NameTruncation) {
     FieldDef f;
-    std::string longName(IPC_FIELD_NAME_LEN, 'x'); // exactly len
+    std::string longName(40, 'x'); // longer than sizeof(f.name), triggers truncation
     std::strncpy(f.name, longName.c_str(), sizeof(f.name) - 1);
-    EXPECT_EQ(std::strlen(f.name), IPC_FIELD_NAME_LEN - 1); // null-terminated
+    EXPECT_EQ(std::strlen(f.name), IPC_FIELD_NAME_LEN - 1); // max storable (31)
 }
