@@ -11,9 +11,10 @@ namespace AvaloniaUI.Services.IPC;
 
 public class IPCMemoryReader : IDisposable
 {
-    // macOS: file-based
-    private FileStream? _shmStream;
-    private Memory<byte> _shmView;
+    // macOS: POSIX shared memory via shm_open/mmap
+    private IntPtr _shmPtr = IntPtr.Zero;
+    private int _shmFd = -1;
+    private int _shmSize;
 
     // Windows: MemoryMappedFile
     private MemoryMappedFile? _mmf;
@@ -23,27 +24,37 @@ public class IPCMemoryReader : IDisposable
     private bool _disposed;
     private readonly object _lock = new();
 
-    public bool IsOpen => OperatingSystem.IsWindows() ? _accessor != null : _shmStream != null;
+    // POSIX P/Invoke
+    private const int O_RDONLY = 0;
+    private const int PROT_READ = 1;
+    private const int MAP_SHARED = 1;
+    private static readonly IntPtr MAP_FAILED = new IntPtr(-1);
+
+    [DllImport("libc", EntryPoint = "shm_open", SetLastError = true)]
+    private static extern int shm_open(string name, int oflag, int mode);
+
+    [DllImport("libc", EntryPoint = "mmap", SetLastError = true)]
+    private static extern IntPtr mmap(IntPtr addr, IntPtr length, int prot, int flags, int fd, IntPtr offset);
+
+    [DllImport("libc", EntryPoint = "munmap", SetLastError = true)]
+    private static extern int munmap(IntPtr addr, IntPtr length);
+
+    [DllImport("libc", EntryPoint = "close", SetLastError = true)]
+    private static extern int close(int fd);
+
+    public bool IsOpen => OperatingSystem.IsWindows() ? _accessor != null : _shmPtr != IntPtr.Zero;
     public uint TotalSize => _schema?.Header.TotalSize ?? 0;
 
     public bool Open(SchemaMessage schema)
     {
+        if (_disposed) return false;
         lock (_lock)
         {
             try
             {
-                Close();
                 _schema = schema;
-
-                if (_schema.Header.TotalSize == 0)
-                {
-                    Log.Error("IPC Memory: Schema totalSize is 0");
-                    return false;
-                }
-
                 if (OperatingSystem.IsWindows())
                     return OpenWindows();
-
                 return OpenMacOS();
             }
             catch (Exception ex)
@@ -67,7 +78,7 @@ public class IPCMemoryReader : IDisposable
         {
             try
             {
-#pragma warning disable CA1416 // validated by caller (OpenWindows called only on Windows)
+#pragma warning disable CA1416
                 _mmf = MemoryMappedFile.OpenExisting(name, MemoryMappedFileRights.Read);
 #pragma warning restore CA1416
                 _accessor = _mmf.CreateViewAccessor(0, _schema!.Header.TotalSize, MemoryMappedFileAccess.Read);
@@ -92,79 +103,44 @@ public class IPCMemoryReader : IDisposable
 
     private bool OpenMacOS()
     {
-        string path = IPCConstants.SharedMemoryPath;
-        if (!File.Exists(path))
+        string shmName = "/tcmt_ipc";
+        _shmFd = shm_open(shmName, O_RDONLY, 0);
+        if (_shmFd == -1)
         {
-            Log.Warning("IPC Memory: Shared memory file not found: {Path}", path);
+            int err = Marshal.GetLastWin32Error();
+            Log.Error("IPC Memory: shm_open({Name}) failed, errno={Errno}", shmName, err);
             return false;
         }
 
-        _shmStream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
-        if (_shmStream.Length < _schema!.Header.TotalSize)
+        int totalSize = (int)_schema!.Header.TotalSize;
+        if (totalSize <= 0) totalSize = 4096;
+
+        _shmPtr = mmap(IntPtr.Zero, (IntPtr)totalSize, PROT_READ, MAP_SHARED, _shmFd, IntPtr.Zero);
+        if (_shmPtr == MAP_FAILED)
         {
-            Log.Warning("IPC Memory: File too small: {Len} < {Expected}",
-                _shmStream.Length, _schema.Header.TotalSize);
+            int err = Marshal.GetLastWin32Error();
+            Log.Error("IPC Memory: mmap failed, errno={Errno}", err);
+            close(_shmFd);
+            _shmFd = -1;
+            return false;
         }
 
-        _shmView = new byte[Math.Min(_shmStream.Length, (long)_schema.Header.TotalSize)];
+        _shmSize = totalSize;
+        Log.Information("IPC Memory: Connected to macOS shared memory: {Name}, size={Size}", shmName, totalSize);
         return true;
     }
 
-    /// <summary>
-    /// 刷新读取（每次 UI 刷新前调用）
-    /// On Windows MemoryMappedViewAccessor always reflects the latest data (no-op).
-    /// </summary>
-    public void Refresh()
-    {
-        if (_schema == null) return;
-        lock (_lock)
-        {
-            try
-            {
-                if (OperatingSystem.IsWindows())
-                {
-                    // MemoryMappedViewAccessor always reflects latest content
-                    return;
-                }
+    public void Refresh() { } // mmap/MMF always reflect latest data
 
-                // macOS: re-read from backing file
-                if (_shmStream == null) return;
-                _shmStream.Seek(0, SeekOrigin.Begin);
-                var buf = _shmView.Span;
-                int totalRead = 0;
-                while (totalRead < buf.Length)
-                {
-                    int n = _shmStream.Read(buf.Slice(totalRead));
-                    if (n == 0) break;
-                    totalRead += n;
-                }
-            }
-            catch (Exception ex)
-            {
-                Log.Debug("IPC Memory: Refresh failed: {Msg}", ex.Message);
-            }
-        }
-    }
-
-    public bool HasField(string name)
-    {
-        if (_schema == null) return false;
-        foreach (var f in _schema.Fields)
-        {
-            if (f.Name.Equals(name, StringComparison.OrdinalIgnoreCase))
-                return true;
-        }
-        return false;
-    }
-
-    // --- 基础类型读取 ---
+    // --- Typed readers ---
 
     public byte? ReadUInt8(string fieldName)
     {
         var field = FindField(fieldName); if (field == null) return null;
         if (OperatingSystem.IsWindows() && _accessor != null)
             return _accessor.ReadByte((int)field.Offset);
-        return _shmView.Span[(int)field.Offset];
+        if (_shmPtr == IntPtr.Zero || (int)field.Offset >= _shmSize) return null;
+        return Marshal.ReadByte(_shmPtr, (int)field.Offset);
     }
 
     public ushort? ReadUInt16(string fieldName)
@@ -172,9 +148,10 @@ public class IPCMemoryReader : IDisposable
         var field = FindField(fieldName); if (field == null) return null;
         if (OperatingSystem.IsWindows() && _accessor != null)
             return _accessor.ReadUInt16((int)field.Offset);
-        // little-endian
-        return (ushort)(_shmView.Span[(int)field.Offset]
-                      | (_shmView.Span[(int)field.Offset + 1] << 8));
+        if (_shmPtr == IntPtr.Zero || (int)field.Offset + 2 > _shmSize) return null;
+        byte b0 = Marshal.ReadByte(_shmPtr, (int)field.Offset);
+        byte b1 = Marshal.ReadByte(_shmPtr, (int)field.Offset + 1);
+        return (ushort)(b0 | (b1 << 8));
     }
 
     public uint? ReadUInt32(string fieldName)
@@ -182,9 +159,12 @@ public class IPCMemoryReader : IDisposable
         var field = FindField(fieldName); if (field == null) return null;
         if (OperatingSystem.IsWindows() && _accessor != null)
             return _accessor.ReadUInt32((int)field.Offset);
-        // little-endian
-        var s = _shmView.Span.Slice((int)field.Offset);
-        return s[0] | ((uint)s[1] << 8) | ((uint)s[2] << 16) | ((uint)s[3] << 24);
+        if (_shmPtr == IntPtr.Zero || (int)field.Offset + 4 > _shmSize) return null;
+        byte b0 = Marshal.ReadByte(_shmPtr, (int)field.Offset);
+        byte b1 = Marshal.ReadByte(_shmPtr, (int)field.Offset + 1);
+        byte b2 = Marshal.ReadByte(_shmPtr, (int)field.Offset + 2);
+        byte b3 = Marshal.ReadByte(_shmPtr, (int)field.Offset + 3);
+        return (uint)(b0 | (b1 << 8) | (b2 << 16) | (b3 << 24));
     }
 
     public ulong? ReadUInt64(string fieldName)
@@ -192,10 +172,10 @@ public class IPCMemoryReader : IDisposable
         var field = FindField(fieldName); if (field == null) return null;
         if (OperatingSystem.IsWindows() && _accessor != null)
             return _accessor.ReadUInt64((int)field.Offset);
-        // little-endian
-        var s = _shmView.Span.Slice((int)field.Offset);
-        return s[0] | ((ulong)s[1] << 8) | ((ulong)s[2] << 16) | ((ulong)s[3] << 24)
-             | ((ulong)s[4] << 32) | ((ulong)s[5] << 40) | ((ulong)s[6] << 48) | ((ulong)s[7] << 56);
+        if (_shmPtr == IntPtr.Zero || (int)field.Offset + 8 > _shmSize) return null;
+        uint lo = ReadUInt32Le((int)field.Offset);
+        uint hi = ReadUInt32Le((int)field.Offset + 4);
+        return lo | ((ulong)hi << 32);
     }
 
     public sbyte? ReadInt8(string fieldName)
@@ -203,26 +183,13 @@ public class IPCMemoryReader : IDisposable
         var field = FindField(fieldName); if (field == null) return null;
         if (OperatingSystem.IsWindows() && _accessor != null)
             return _accessor.ReadSByte((int)field.Offset);
-        return (sbyte)_shmView.Span[(int)field.Offset];
+        if (_shmPtr == IntPtr.Zero || (int)field.Offset >= _shmSize) return null;
+        return (sbyte)Marshal.ReadByte(_shmPtr, (int)field.Offset);
     }
 
-    public short? ReadInt16(string fieldName)
-    {
-        var field = FindField(fieldName); if (field == null) return null;
-        return (short?)ReadUInt16(fieldName);
-    }
-
-    public int? ReadInt32(string fieldName)
-    {
-        var field = FindField(fieldName); if (field == null) return null;
-        return (int?)ReadUInt32(fieldName);
-    }
-
-    public long? ReadInt64(string fieldName)
-    {
-        var field = FindField(fieldName); if (field == null) return null;
-        return (long?)ReadUInt64(fieldName);
-    }
+    public short? ReadInt16(string fieldName) => (short?)ReadUInt16(fieldName);
+    public int? ReadInt32(string fieldName) => (int?)ReadUInt32(fieldName);
+    public long? ReadInt64(string fieldName) => (long?)ReadUInt64(fieldName);
 
     public float? ReadFloat32(string fieldName)
     {
@@ -243,13 +210,13 @@ public class IPCMemoryReader : IDisposable
         var field = FindField(fieldName); if (field == null) return null;
         if (OperatingSystem.IsWindows() && _accessor != null)
             return _accessor.ReadByte((int)field.Offset) != 0;
-        return _shmView.Span[(int)field.Offset] != 0;
+        if (_shmPtr == IntPtr.Zero || (int)field.Offset >= _shmSize) return null;
+        return Marshal.ReadByte(_shmPtr, (int)field.Offset) != 0;
     }
 
     public string? ReadWString(string fieldName)
     {
         var field = FindField(fieldName); if (field == null) return null;
-
         if (OperatingSystem.IsWindows() && _accessor != null)
         {
             int maxBytes = (int)Math.Min(field.Size, _schema!.Header.TotalSize - field.Offset);
@@ -261,16 +228,12 @@ public class IPCMemoryReader : IDisposable
             if (len == 0) return string.Empty;
             return Encoding.Unicode.GetString(buf, 0, len);
         }
-
-        // macOS: WString not used (IPCDataBlock uses char[], not WCHAR)
-        // Fall back to ASCII read for safety
         return ReadString(fieldName);
     }
 
     public string? ReadString(string fieldName)
     {
         var field = FindField(fieldName); if (field == null) return null;
-
         if (OperatingSystem.IsWindows() && _accessor != null)
         {
             int maxLen = (int)Math.Min(field.Size, _schema!.Header.TotalSize - field.Offset);
@@ -283,18 +246,34 @@ public class IPCMemoryReader : IDisposable
             return Encoding.ASCII.GetString(buf, 0, len);
         }
 
-        int mLen = (int)Math.Min(field.Size, _shmView.Length - field.Offset);
+        if (_shmPtr == IntPtr.Zero) return null;
+        int mLen = (int)Math.Min(field.Size, _shmSize - field.Offset);
         if (mLen <= 0) return null;
-
         int l = 0;
-        while (l < mLen && _shmView.Span[(int)field.Offset + l] != 0) l++;
+        while (l < mLen && Marshal.ReadByte(_shmPtr, (int)field.Offset + l) != 0) l++;
         if (l == 0) return string.Empty;
-
-        return Encoding.ASCII.GetString(
-            _shmView.Span.Slice((int)field.Offset, l));
+        var bytes = new byte[l];
+        Marshal.Copy(_shmPtr + (int)field.Offset, bytes, 0, l);
+        return Encoding.ASCII.GetString(bytes);
     }
 
-    // --- 按 FieldDef 读取 ---
+    public bool HasField(string name)
+    {
+        if (_schema == null) return false;
+        foreach (var f in _schema.Fields)
+            if (f.Name == name) return true;
+        return false;
+    }
+
+    public Dictionary<string, object?> ReadAllFields()
+    {
+        var result = new Dictionary<string, object?>();
+        if (_schema == null) return result;
+        foreach (var f in _schema.Fields)
+            result[f.Name] = ReadField(f);
+        return result;
+    }
+
     public object? ReadField(FieldDef field)
     {
         return (FieldType)field.Type switch
@@ -316,45 +295,36 @@ public class IPCMemoryReader : IDisposable
         };
     }
 
-    public Dictionary<string, object?> ReadAllFields()
+    private uint ReadUInt32Le(int offset)
     {
-        var result = new Dictionary<string, object?>();
-        if (_schema == null) return result;
-        foreach (var f in _schema.Fields)
-            result[f.Name] = ReadField(f);
-        return result;
+        byte b0 = Marshal.ReadByte(_shmPtr, offset);
+        byte b1 = Marshal.ReadByte(_shmPtr, offset + 1);
+        byte b2 = Marshal.ReadByte(_shmPtr, offset + 2);
+        byte b3 = Marshal.ReadByte(_shmPtr, offset + 3);
+        return (uint)(b0 | (b1 << 8) | (b2 << 16) | (b3 << 24));
     }
 
-    private FieldDef? FindField(string name)
+    private FieldDef? FindField(string fieldName)
     {
         if (_schema == null) return null;
         foreach (var f in _schema.Fields)
-            if (f.Name.Equals(name, StringComparison.OrdinalIgnoreCase))
-                return f;
+            if (f.Name == fieldName) return f;
         return null;
-    }
-
-    public void Close()
-    {
-        lock (_lock)
-        {
-            // Windows cleanup
-            _accessor?.Dispose();
-            _mmf?.Dispose();
-            _accessor = null;
-            _mmf = null;
-
-            // macOS cleanup
-            _shmStream?.Dispose();
-            _shmStream = null;
-            _shmView = default;
-        }
     }
 
     public void Dispose()
     {
-        if (_disposed) return;
-        _disposed = true;
-        Close();
+        lock (_lock)
+        {
+            if (_disposed) return;
+            _disposed = true;
+            _accessor?.Dispose();
+            _mmf?.Dispose();
+            _accessor = null;
+            _mmf = null;
+            if (_shmPtr != IntPtr.Zero) { munmap(_shmPtr, _shmSize); _shmPtr = IntPtr.Zero; }
+            if (_shmFd != -1) { close(_shmFd); _shmFd = -1; }
+            _shmSize = 0;
+        }
     }
 }
