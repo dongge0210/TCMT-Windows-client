@@ -15,9 +15,15 @@ void IpcCommandHandler::ProcessCommands(IpcCommand* cmd, uint32_t* ack) {
     if (!cmd || !ack) return;
 
     if (cmd->magic == 0x54434D54 && cmd->status == 0) {
-        auto it = handlers_.find(cmd->type);
-        if (it != handlers_.end()) {
-            bool ok = it->second(*cmd);
+        IpcCommandCallback handler;
+        {
+            std::lock_guard<std::mutex> lock(mutex_);
+            auto it = handlers_.find(cmd->type);
+            if (it != handlers_.end())
+                handler = it->second;
+        }
+        if (handler) {
+            bool ok = handler(*cmd);
             cmd->status = ok ? 1 : 2;
             cmd->result = ok ? 0 : 1;
             Logger::Debug("IPC command processed: type=" + std::to_string(cmd->type) +

@@ -32,10 +32,13 @@ private:
     void RotateIfNeeded();   // delete data older than retention
 
     std::string dbPath_;
+    void* db_ = nullptr;             // sqlite3* connection (open for lifetime)
     std::atomic<bool> running_{false};
     std::thread worker_;
     std::mutex queueMutex_;
+    std::condition_variable queueCv_;
     std::vector<SensorSnapshot> pending_;
-    size_t maxPending_ = 1000;   // max items before forced flush
-    int64_t retentionDays_ = 7; // auto-delete data older than this
+    size_t maxPending_ = 1000;       // force flush when exceeded
+    int64_t retentionDays_ = 7;     // auto-delete data older than this
+    int64_t lastRotateCheckMs_ = 0; // last rotation timestamp
 };

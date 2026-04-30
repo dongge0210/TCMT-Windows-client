@@ -3,7 +3,6 @@
 #include <chrono>
 #include <cstring>
 #include <sstream>
-#include <algorithm>
 
 HistoryLogger::HistoryLogger() = default;
 
@@ -12,207 +11,145 @@ HistoryLogger::~HistoryLogger() {
 }
 
 bool HistoryLogger::Initialize(const std::string& dbPath) {
-    if (running_.load()) {
-        return false; // already running
-    }
+    if (running_.load()) return false;
 
     dbPath_ = dbPath;
 
-    // Open database
-    sqlite3* db = nullptr;
+    auto db = static_cast<sqlite3*>(db_);
     if (sqlite3_open(dbPath_.c_str(), &db) != SQLITE_OK) {
         if (db) sqlite3_close(db);
         return false;
     }
+    db_ = db;
 
-    // Enable WAL mode for better concurrent performance
-    char* errMsg = nullptr;
-    if (sqlite3_exec(db, "PRAGMA journal_mode=WAL;", nullptr, nullptr, &errMsg) != SQLITE_OK) {
-        if (errMsg) {
-            sqlite3_free(errMsg);
-        }
-    }
+    // WAL mode for better concurrent performance
+    sqlite3_exec(db, "PRAGMA journal_mode=WAL;", nullptr, nullptr, nullptr);
 
-    // Create tables
     CreateTables();
-
-    // Rotate old data
     RotateIfNeeded();
 
-    sqlite3_close(db);
+    auto nowMs = std::chrono::duration_cast<std::chrono::milliseconds>(
+        std::chrono::system_clock::now().time_since_epoch()).count();
+    lastRotateCheckMs_ = nowMs;
 
-    // Start background worker thread
     running_.store(true);
     worker_ = std::thread(&HistoryLogger::RunLoop, this);
-
     return true;
 }
 
 void HistoryLogger::Shutdown() {
-    if (!running_.load()) {
-        return;
-    }
-
+    if (!running_.load()) return;
     running_.store(false);
+    queueCv_.notify_all();
 
-    if (worker_.joinable()) {
+    if (worker_.joinable())
         worker_.join();
-    }
 
-    // Flush any remaining items
+    // Flush remaining
     std::vector<SensorSnapshot> remaining;
     {
         std::lock_guard<std::mutex> lock(queueMutex_);
         remaining.swap(pending_);
     }
-
-    if (!remaining.empty()) {
+    if (!remaining.empty())
         FlushBatch(remaining);
+
+    if (db_) {
+        sqlite3_close(static_cast<sqlite3*>(db_));
+        db_ = nullptr;
     }
 }
 
 void HistoryLogger::WriteBatch(const std::vector<SensorSnapshot>& batch) {
-    if (!running_.load()) {
-        return;
-    }
+    if (!running_.load()) return;
 
     {
         std::lock_guard<std::mutex> lock(queueMutex_);
         pending_.insert(pending_.end(), batch.begin(), batch.end());
+        if (pending_.size() >= maxPending_)
+            queueCv_.notify_one();
     }
 }
 
 void HistoryLogger::RunLoop() {
-    // 1-second tick loop: dequeue pending items and flush to DB
+    using namespace std::chrono_literals;
+    auto db = static_cast<sqlite3*>(db_);
+    if (!db) return;
+
     while (running_.load()) {
-        std::this_thread::sleep_for(std::chrono::seconds(1));
+        std::unique_lock<std::mutex> lock(queueMutex_);
+        queueCv_.wait_for(lock, 1s);
 
         std::vector<SensorSnapshot> local;
-        {
-            std::lock_guard<std::mutex> lock(queueMutex_);
-            if (pending_.empty()) {
-                continue;
-            }
-            local.swap(pending_);
-        }
+        local.swap(pending_);
+        lock.unlock();
 
-        FlushBatch(local);
+        if (!local.empty())
+            FlushBatch(local);
+
+        // Daily rotation check
+        auto nowMs = std::chrono::duration_cast<std::chrono::milliseconds>(
+            std::chrono::system_clock::now().time_since_epoch()).count();
+        if (nowMs - lastRotateCheckMs_ > 3600 * 1000) {
+            RotateIfNeeded();
+            lastRotateCheckMs_ = nowMs;
+        }
     }
 }
 
 void HistoryLogger::CreateTables() {
-    sqlite3* db = nullptr;
-    if (sqlite3_open(dbPath_.c_str(), &db) != SQLITE_OK) {
-        if (db) sqlite3_close(db);
-        return;
-    }
+    auto db = static_cast<sqlite3*>(db_);
+    if (!db) return;
 
-    const char* createTableSQL =
+    sqlite3_exec(db,
         "CREATE TABLE IF NOT EXISTS sensors ("
         "  id INTEGER PRIMARY KEY AUTOINCREMENT,"
         "  name TEXT NOT NULL,"
         "  value REAL,"
         "  units TEXT,"
         "  timestamp_ms INTEGER NOT NULL"
-        ");";
+        ");", nullptr, nullptr, nullptr);
 
-    const char* createIndexSQL =
+    sqlite3_exec(db,
         "CREATE INDEX IF NOT EXISTS idx_sensors_name_ts "
-        "ON sensors(name, timestamp_ms);";
-
-    char* errMsg = nullptr;
-    if (sqlite3_exec(db, createTableSQL, nullptr, nullptr, &errMsg) != SQLITE_OK) {
-        if (errMsg) {
-            sqlite3_free(errMsg);
-            errMsg = nullptr;
-        }
-    }
-
-    if (sqlite3_exec(db, createIndexSQL, nullptr, nullptr, &errMsg) != SQLITE_OK) {
-        if (errMsg) {
-            sqlite3_free(errMsg);
-        }
-    }
-
-    sqlite3_close(db);
+        "ON sensors(name, timestamp_ms);", nullptr, nullptr, nullptr);
 }
 
 void HistoryLogger::FlushBatch(const std::vector<SensorSnapshot>& batch) {
-    if (batch.empty()) {
-        return;
-    }
+    if (batch.empty()) return;
+    auto db = static_cast<sqlite3*>(db_);
+    if (!db) return;
 
-    sqlite3* db = nullptr;
-    if (sqlite3_open(dbPath_.c_str(), &db) != SQLITE_OK) {
-        if (db) sqlite3_close(db);
-        return;
-    }
-
-    // Use a transaction for batch insert performance
-    char* errMsg = nullptr;
-    sqlite3_exec(db, "BEGIN TRANSACTION;", nullptr, nullptr, &errMsg);
-    if (errMsg) {
-        sqlite3_free(errMsg);
-        errMsg = nullptr;
-    }
+    sqlite3_exec(db, "BEGIN TRANSACTION;", nullptr, nullptr, nullptr);
 
     const char* insertSQL =
         "INSERT INTO sensors (name, value, units, timestamp_ms) "
         "VALUES (?1, ?2, ?3, ?4);";
-
     sqlite3_stmt* stmt = nullptr;
-    if (sqlite3_prepare_v2(db, insertSQL, -1, &stmt, nullptr) != SQLITE_OK) {
-        sqlite3_close(db);
-        return;
-    }
+    if (sqlite3_prepare_v2(db, insertSQL, -1, &stmt, nullptr) != SQLITE_OK) return;
 
     for (const auto& snapshot : batch) {
         sqlite3_bind_text(stmt, 1, snapshot.name.c_str(), -1, SQLITE_TRANSIENT);
         sqlite3_bind_double(stmt, 2, snapshot.value);
         sqlite3_bind_text(stmt, 3, snapshot.units.c_str(), -1, SQLITE_TRANSIENT);
         sqlite3_bind_int64(stmt, 4, static_cast<sqlite3_int64>(snapshot.timestampMs));
-
         sqlite3_step(stmt);
         sqlite3_reset(stmt);
     }
 
     sqlite3_finalize(stmt);
-
-    sqlite3_exec(db, "COMMIT;", nullptr, nullptr, &errMsg);
-    if (errMsg) {
-        sqlite3_free(errMsg);
-    }
-
-    sqlite3_close(db);
+    sqlite3_exec(db, "COMMIT;", nullptr, nullptr, nullptr);
 }
 
 void HistoryLogger::RotateIfNeeded() {
-    sqlite3* db = nullptr;
-    if (sqlite3_open(dbPath_.c_str(), &db) != SQLITE_OK) {
-        if (db) sqlite3_close(db);
-        return;
-    }
+    auto db = static_cast<sqlite3*>(db_);
+    if (!db) return;
 
-    auto now = std::chrono::system_clock::now();
-    auto duration = now.time_since_epoch();
-    int64_t nowMs = std::chrono::duration_cast<std::chrono::milliseconds>(duration).count();
+    auto nowMs = std::chrono::duration_cast<std::chrono::milliseconds>(
+        std::chrono::system_clock::now().time_since_epoch()).count();
     int64_t cutoffMs = nowMs - retentionDays_ * 86400000LL;
 
     std::ostringstream sql;
     sql << "DELETE FROM sensors WHERE timestamp_ms < " << cutoffMs << ";";
-
-    char* errMsg = nullptr;
-    if (sqlite3_exec(db, sql.str().c_str(), nullptr, nullptr, &errMsg) != SQLITE_OK) {
-        if (errMsg) {
-            sqlite3_free(errMsg);
-        }
-    }
-
-    // Vacuum to reclaim space after deletion
-    sqlite3_exec(db, "VACUUM;", nullptr, nullptr, &errMsg);
-    if (errMsg) {
-        sqlite3_free(errMsg);
-    }
-
-    sqlite3_close(db);
+    sqlite3_exec(db, sql.str().c_str(), nullptr, nullptr, nullptr);
 }
