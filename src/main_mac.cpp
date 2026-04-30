@@ -342,7 +342,7 @@ int main(int argc, char* argv[]) {
     if (ipcServer.IsRunning()) {
         Logger::Info("IPC server started");
     } else {
-        Logger::Warn("IPC server failed to start");
+        Logger::Warn("IPC server failed to start: " + ipcServer.GetLastError());
     }
 
     // Build schema fields from IPCDataBlock layout
