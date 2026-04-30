@@ -12,6 +12,7 @@ private:
     static void* shmPtr;    // POSIX: pointer to shared memory object info
     #endif
 
+    static void* interprocessMutex;  // Platform::InterprocessMutex*
     static SharedMemoryBlock* pBuffer;
     static std::string lastError; // Store last error message
 

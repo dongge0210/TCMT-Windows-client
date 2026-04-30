@@ -316,7 +316,7 @@ void PowerInfo::Detect() {
     if (powerSourcesInfo) {
         CFStringRef powerSourceType = IOPSGetProvidingPowerSourceType(powerSourcesInfo);
         if (powerSourceType) {
-            isAcPlugged = CFEqual(powerSourceType, CFSTR(kIOPSACPowerKey)) != 0;
+            isAcPlugged = CFEqual(powerSourceType, CFSTR(kIOPMACPowerKey)) != 0;
         }
         CFRelease(powerSourcesInfo);
     }

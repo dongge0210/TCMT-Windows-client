@@ -18,7 +18,6 @@
 void* SharedMemoryManager::shmPtr = nullptr;
 SharedMemoryBlock* SharedMemoryManager::pBuffer = nullptr;
 std::string SharedMemoryManager::lastError = "";
-void* SharedMemoryManager::interprocessMutex = nullptr;
 
 // Helper function: safely copy wide string (WCHAR = char16_t on macOS)
 static void SafeCopyWideString(WCHAR* dest, size_t destSize, const std::u16string& src) {
