@@ -264,8 +264,9 @@
                     </StackPanel>
                 </Border>
 
-                <!-- TPM 信息 -->
-                <Border Margin="0,0,0,10" Background="#FF191919" Padding="15">
+                <!-- TPM 信息 (macOS 隐藏) -->
+                <Border Margin="0,0,0,10" Background="#FF191919" Padding="15"
+                        IsVisible="{Binding IsNotMacOS}">
                     <StackPanel>
                         <TextBlock Text="TPM 安全芯片" FontSize="16" FontWeight="Bold" Foreground="White" Margin="0,0,0,10"/>
                         <TextBlock Text="{Binding TpmInfo.DisplayName, TargetNullValue='未检测到 TPM'}" Foreground="White"/>
