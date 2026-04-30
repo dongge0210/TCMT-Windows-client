@@ -228,7 +228,7 @@ public class IPCMemoryReader : IDisposable
     {
         var field = FindField(fieldName); if (field == null) return null;
         uint bits = ReadUInt32(fieldName) ?? 0;
-        return BitConverter.UInt32ToSingle(bits);
+        return BitConverter.Int32BitsToSingle((int)bits);
     }
 
     public double? ReadFloat64(string fieldName)
@@ -283,15 +283,15 @@ public class IPCMemoryReader : IDisposable
             return Encoding.ASCII.GetString(buf, 0, len);
         }
 
-        int maxLen = (int)Math.Min(field.Size, _shmView.Length - field.Offset);
-        if (maxLen <= 0) return null;
+        int mLen = (int)Math.Min(field.Size, _shmView.Length - field.Offset);
+        if (mLen <= 0) return null;
 
-        int len = 0;
-        while (len < maxLen && _shmView.Span[(int)field.Offset + len] != 0) len++;
-        if (len == 0) return string.Empty;
+        int l = 0;
+        while (l < mLen && _shmView.Span[(int)field.Offset + l] != 0) l++;
+        if (l == 0) return string.Empty;
 
         return Encoding.ASCII.GetString(
-            _shmView.Span.Slice((int)field.Offset, len));
+            _shmView.Span.Slice((int)field.Offset, l));
     }
 
     // --- 按 FieldDef 读取 ---

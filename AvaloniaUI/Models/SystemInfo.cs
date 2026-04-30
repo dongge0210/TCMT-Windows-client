@@ -102,6 +102,8 @@ namespace AvaloniaUI.Models
             PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(name));
             return true;
         }
+        protected void NotifyPropertyChanged(string name) =>
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(name));
     }
 
     public class GpuData : NotifyBase
@@ -223,7 +225,7 @@ namespace AvaloniaUI.Models
     public class PhysicalDiskView : NotifyBase
     {
         private PhysicalDiskSmartData? _disk;
-        public PhysicalDiskSmartData? Disk { get => _disk!; set { if (SetProperty(ref _disk, value)) { OnPropertyChanged(nameof(DisplayName)); OnPropertyChanged(nameof(LettersDisplay)); } } }
+        public PhysicalDiskSmartData? Disk { get => _disk!; set { if (SetProperty(ref _disk, value)) { NotifyPropertyChanged(nameof(DisplayName)); NotifyPropertyChanged(nameof(LettersDisplay)); } } }
         public ObservableCollection<DiskData> Partitions { get; } = new();
         public string LettersDisplay {
         get {
