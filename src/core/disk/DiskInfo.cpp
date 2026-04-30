@@ -267,6 +267,7 @@ void DiskInfo::CollectSmartData(SystemInfo& sysInfo) {
 #include <mach/mach.h>
 #include <IOKit/IOKitLib.h>
 #include <CoreFoundation/CoreFoundation.h>
+#include <nlohmann/json.hpp>
 
 #include <dirent.h>
 #include <algorithm>
@@ -387,13 +388,68 @@ std::vector<DiskData> DiskInfo::GetDisks() {
     return disks;
 }
 
-// Collect SMART data
-// On Windows: uses LibreHardwareMonitor bridge
-// On macOS: not available
+// Collect SMART data via system_profiler on macOS
+// NVMe SMART requires sending Get Log Page (0x02) via IOKit user-client,
+// which is complex. system_profiler provides a reliable JSON interface.
 void DiskInfo::CollectSmartData(SystemInfo& sysInfo) {
-    // macOS: SMART data collection not available
-    (void)sysInfo;
-    Logger::Debug("DiskInfo: SMART data collection skipped");
+    // Try reading NVMe drives
+    FILE* fp = popen("system_profiler SPNVMeDataType -json 2>/dev/null", "r");
+    if (!fp) {
+        // Fallback: try SATA
+        fp = popen("system_profiler SPSerialATADataType -json 2>/dev/null", "r");
+        if (!fp) return;
+    }
+
+    std::string json;
+    char buf[4096];
+    while (fgets(buf, sizeof(buf), fp))
+        json += buf;
+    int rc = pclose(fp);
+
+    if (rc != 0 || json.empty()) return;
+
+    // system_profiler JSON format: {"SPNVMeDataType": [{"_name": "disk0", "spnvme_model": "...", ...}]}
+    auto j = nlohmann::json::parse(json, nullptr, false);
+    if (j.is_discarded()) return;
+
+    const nlohmann::json* arr = nullptr;
+    if (j.contains("SPNVMeDataType")) arr = &j["SPNVMeDataType"];
+    else if (j.contains("SPSerialATADataType")) arr = &j["SPSerialATADataType"];
+    if (!arr || !arr->is_array()) return;
+
+    // Helper: copy ASCII string to WCHAR array
+    auto copyToWchar = [](WCHAR* dst, size_t dstLen, const std::string& src) {
+        size_t n = std::min(dstLen - 1, src.size());
+        for (size_t i = 0; i < n; ++i) dst[i] = static_cast<WCHAR>(src[i]);
+        dst[n] = 0;
+    };
+
+    for (const auto& item : *arr) {
+        PhysicalDiskSmartData pd = {};
+
+        std::string model = item.value("spnvme_model", item.value("spsata_model", item.value("_name", "")));
+        std::string serial = item.value("spnvme_serial", item.value("spsata_serial", ""));
+        std::string status = item.value("spnvme_smart_status", item.value("spsata_smart_status", ""));
+        std::string capacity = item.value("spnvme_capacity", item.value("spsata_capacity", ""));
+        std::string medium = item.value("spnvme_medium_type", item.value("spsata_medium_type", ""));
+
+        copyToWchar(pd.model, sizeof(pd.model)/sizeof(WCHAR), model);
+        copyToWchar(pd.serialNumber, sizeof(pd.serialNumber)/sizeof(WCHAR), serial);
+        copyToWchar(pd.diskType, sizeof(pd.diskType)/sizeof(WCHAR), medium);
+
+        pd.smartSupported = !status.empty();
+        pd.smartEnabled = (status == "Verified" || status == "Supported");
+        pd.healthPercentage = (status == "Verified") ? 100u : 0u;
+
+        if (!capacity.empty()) {
+            try { pd.capacity = std::stoull(capacity); } catch (...) {}
+        }
+
+        sysInfo.physicalDisks.push_back(pd);
+    }
+
+    Logger::Debug("DiskInfo: system_profiler SMART collected " +
+        std::to_string(sysInfo.physicalDisks.size()) + " disks");
 }
 
 #else
