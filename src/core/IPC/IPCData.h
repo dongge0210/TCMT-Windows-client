@@ -1,6 +1,7 @@
 #pragma once
 #include <cstdint>
 #include <cstring>
+#include "../DataStruct/DataStruct.h"
 
 namespace tcmt::ipc {
 
@@ -104,6 +105,10 @@ struct IPCDataBlock {
     };
     NetSlot  adapters[2]             = {};
     uint8_t  adapterCount            = 0;
+
+    // --- IPC Command channel — Frontend → Backend ---
+    ::IpcCommand command;
+    uint32_t commandAck;          // Backend sets to id when command processed
 };
 
 #pragma pack(pop)

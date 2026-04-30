@@ -48,8 +48,10 @@ Please ignore this warning - the project structure doesn't support this scenario
 #include "core/DataStruct/DataStruct.h"
 #include "core/IPC/SharedMemoryManager.h"
 #include "core/IPC/NamedPipeServer.h"
+#include "core/IPC/IpcCommandHandler.h"
 #include "core/temperature/TemperatureWrapper.h"
 #include "tui/TuiApp.h"
+#include <nlohmann/json.hpp>
 
 #pragma comment(lib, "kernel32.lib")
 #pragma comment(lib, "user32.lib")
@@ -592,6 +594,173 @@ public:
     }
 };
 
+// ======================== JSON Output Helpers ========================
+
+static std::string GetIsoTimestamp() {
+    auto now = std::chrono::system_clock::now();
+    auto time = std::chrono::system_clock::to_time_t(now);
+    std::tm tm;
+    gmtime_s(&tm, &time);
+    std::stringstream ss;
+    ss << std::put_time(&tm, "%Y-%m-%dT%H:%M:%SZ");
+    return ss.str();
+}
+
+static nlohmann::json SystemInfoToJson(const SystemInfo& sysInfo) {
+    nlohmann::json j;
+
+    j["cpu"]["name"] = sysInfo.cpuName.empty() ? nullptr : sysInfo.cpuName;
+    j["cpu"]["usage"] = sysInfo.cpuUsage;
+    j["cpu"]["temperature"] = sysInfo.cpuTemperature;
+    j["cpu"]["cores"]["physical"] = sysInfo.physicalCores;
+    j["cpu"]["cores"]["logical"] = sysInfo.logicalCores;
+    j["cpu"]["cores"]["performance"] = sysInfo.performanceCores;
+    j["cpu"]["cores"]["efficiency"] = sysInfo.efficiencyCores;
+    j["cpu"]["freq"]["pCore"] = sysInfo.performanceCoreFreq;
+    j["cpu"]["freq"]["eCore"] = sysInfo.efficiencyCoreFreq;
+
+    j["memory"]["total"] = sysInfo.totalMemory;
+    j["memory"]["used"] = sysInfo.usedMemory;
+    j["memory"]["available"] = sysInfo.availableMemory;
+    j["memory"]["compressed"] = sysInfo.compressedMemory;
+
+    if (!sysInfo.gpus.empty()) {
+        const auto& gpu = sysInfo.gpus[0];
+        j["gpu"]["name"] = WinUtils::WstringToString(std::wstring(gpu.name));
+        j["gpu"]["brand"] = WinUtils::WstringToString(std::wstring(gpu.brand));
+        j["gpu"]["usage"] = gpu.usage;
+        j["gpu"]["memory"] = gpu.memory;
+        j["gpu"]["coreClock"] = gpu.coreClock;
+    }
+    j["gpu"]["temperature"] = sysInfo.gpuTemperature;
+
+    auto& netArr = j["network"] = nlohmann::json::array();
+    for (const auto& a : sysInfo.adapters) {
+        nlohmann::json net;
+        net["name"] = WinUtils::WstringToString(std::wstring(a.name));
+        net["mac"] = WinUtils::WstringToString(std::wstring(a.mac));
+        net["ip"] = WinUtils::WstringToString(std::wstring(a.ipAddress));
+        net["type"] = WinUtils::WstringToString(std::wstring(a.adapterType));
+        net["speed"] = a.speed;
+        net["download"] = a.downloadSpeed;
+        net["upload"] = a.uploadSpeed;
+        netArr.push_back(std::move(net));
+    }
+
+    auto& diskArr = j["disks"] = nlohmann::json::array();
+    for (const auto& d : sysInfo.disks) {
+        nlohmann::json disk;
+        disk["letter"] = std::string(1, d.letter);
+        disk["label"] = d.label;
+        disk["fileSystem"] = d.fileSystem;
+        disk["total"] = d.totalSize;
+        disk["used"] = d.usedSpace;
+        disk["free"] = d.freeSpace;
+        diskArr.push_back(std::move(disk));
+    }
+
+    j["timestamp"] = GetIsoTimestamp();
+
+    return j;
+}
+
+static SystemInfo CollectSystemInfo(WmiManager& wmiManager) {
+    SystemInfo sysInfo = {};
+
+    try {
+        CpuInfo cpuInfo;
+        sysInfo.cpuName = cpuInfo.GetName();
+        sysInfo.physicalCores = cpuInfo.GetLargeCores() + cpuInfo.GetSmallCores();
+        sysInfo.logicalCores = cpuInfo.GetTotalCores();
+        sysInfo.performanceCores = cpuInfo.GetLargeCores();
+        sysInfo.efficiencyCores = cpuInfo.GetSmallCores();
+        sysInfo.hyperThreading = cpuInfo.IsHyperThreadingEnabled();
+        sysInfo.virtualization = cpuInfo.IsVirtualizationEnabled();
+        sysInfo.cpuUsage = cpuInfo.GetUsage();
+        sysInfo.performanceCoreFreq = cpuInfo.GetLargeCoreSpeed();
+        sysInfo.efficiencyCoreFreq = cpuInfo.GetSmallCoreSpeed();
+    } catch (const std::exception& e) {
+        Logger::Error("CollectSystemInfo CPU: " + std::string(e.what()));
+    }
+
+    try {
+        MemoryInfo mem;
+        sysInfo.totalMemory = mem.GetTotalPhysical();
+        sysInfo.usedMemory = mem.GetTotalPhysical() - mem.GetAvailablePhysical();
+        sysInfo.availableMemory = mem.GetAvailablePhysical();
+    } catch (const std::exception& e) {
+        Logger::Error("CollectSystemInfo Memory: " + std::string(e.what()));
+    }
+
+    try {
+        GpuInfo gpuInfo(wmiManager);
+        const auto& gpus = gpuInfo.GetGpuData();
+        for (size_t i = 0; i < gpus.size(); ++i) {
+            GPUData gpuData = {};
+            std::wstring nameW(gpus[i].name);
+            wcsncpy_s(gpuData.name, nameW.c_str(), 128);
+            std::wstring brandW = WinUtils::StringToWstring(GetGpuBrand(gpus[i].name));
+            wcsncpy_s(gpuData.brand, brandW.c_str(), 64);
+            gpuData.memory = gpus[i].dedicatedMemory;
+            gpuData.coreClock = static_cast<double>(gpus[i].coreClock);
+            gpuData.isVirtual = gpus[i].isVirtual;
+            gpuData.usage = gpus[i].usage;
+            sysInfo.gpus.push_back(gpuData);
+        }
+    } catch (const std::exception& e) {
+        Logger::Error("CollectSystemInfo GPU: " + std::string(e.what()));
+    }
+
+    try {
+        NetworkAdapter netAdapter(wmiManager);
+        const auto& adapters = netAdapter.GetAdapters();
+        for (const auto& a : adapters) {
+            NetworkAdapterData data = {};
+            std::wstring nameW = WinUtils::StringToWstring(a.name);
+            std::wstring macW = WinUtils::StringToWstring(a.mac);
+            std::wstring ipW = WinUtils::StringToWstring(a.ip);
+            std::wstring typeW = WinUtils::StringToWstring(a.adapterType);
+            wcsncpy_s(data.name, nameW.c_str(), 128);
+            wcsncpy_s(data.mac, macW.c_str(), 32);
+            wcsncpy_s(data.ipAddress, ipW.c_str(), 64);
+            wcsncpy_s(data.adapterType, typeW.c_str(), 32);
+            data.speed = a.speed;
+            sysInfo.adapters.push_back(data);
+        }
+    } catch (const std::exception& e) {
+        Logger::Error("CollectSystemInfo Network: " + std::string(e.what()));
+    }
+
+    try {
+        auto temperatures = TemperatureWrapper::GetTemperatures();
+        sysInfo.temperatures = temperatures;
+        for (const auto& temp : temperatures) {
+            std::string nameLower = temp.first;
+            std::transform(nameLower.begin(), nameLower.end(), nameLower.begin(), ::tolower);
+            if (nameLower.find("gpu") != std::string::npos || nameLower.find("graphics") != std::string::npos) {
+                sysInfo.gpuTemperature = temp.second;
+            } else if (nameLower.find("cpu") != std::string::npos || nameLower.find("package") != std::string::npos) {
+                sysInfo.cpuTemperature = temp.second;
+            }
+        }
+    } catch (const std::exception& e) {
+        Logger::Error("CollectSystemInfo Temperature: " + std::string(e.what()));
+    }
+
+    try {
+        DiskInfo diskInfo;
+        auto disks = diskInfo.GetDisks();
+        if (disks.size() <= 8) {
+            sysInfo.disks = disks;
+        }
+    } catch (const std::exception& e) {
+        Logger::Error("CollectSystemInfo Disk: " + std::string(e.what()));
+    }
+
+    sysInfo.lastUpdate = Platform::SystemTime::Now();
+    return sysInfo;
+}
+
 int main(int argc, char* argv[]) {
     _set_se_translator(SEHTranslator);
     
@@ -617,6 +786,69 @@ int main(int argc, char* argv[]) {
         catch (const std::exception& e) {
             printf("Logging system initialization failed: %s\n", e.what());
             return 1;
+        }
+
+        // Parse CLI arguments
+        bool jsonMode = false;
+        bool daemonMode = false;
+        for (int i = 1; i < argc; ++i) {
+            std::string arg(argv[i]);
+            if (arg == "--json") jsonMode = true;
+            if (arg == "--daemon") daemonMode = true;
+        }
+
+        if (daemonMode) {
+            Logger::Info("--daemon mode requested: not yet implemented");
+            SafeExit(0);
+        }
+
+        if (jsonMode) {
+            Logger::Info("--json mode: collecting one round of data...");
+
+            // Skip admin elevation for --json mode.
+            // Init COM (needed for WMI).
+            HRESULT hr = CoInitializeEx(nullptr, COINIT_MULTITHREADED);
+            if (FAILED(hr)) {
+                if (hr == RPC_E_CHANGED_MODE) {
+                    Logger::Warn("COM init mode conflict, trying single-threaded");
+                    hr = CoInitializeEx(nullptr, COINIT_APARTMENTTHREADED);
+                }
+                if (FAILED(hr)) {
+                    Logger::Error("COM init failed for --json mode");
+                    return -1;
+                }
+            }
+            g_comInitialized = true;
+
+            // Create WMI manager
+            std::unique_ptr<WmiManager> wmiManager;
+            try {
+                wmiManager = std::make_unique<WmiManager>();
+                if (!wmiManager->IsInitialized()) {
+                    Logger::Error("WMI init failed for --json mode");
+                    SafeExit(1);
+                }
+            } catch (const std::exception& e) {
+                Logger::Error("WMI creation failed: " + std::string(e.what()));
+                SafeExit(1);
+            }
+
+            // Init temperature bridge
+            try {
+                TemperatureWrapper::Initialize();
+            } catch (...) {
+                Logger::Warn("TemperatureWrapper init failed for --json mode");
+            }
+
+            // Collect one round of data
+            SystemInfo sysInfo = CollectSystemInfo(*wmiManager);
+
+            // Serialize and print JSON to stdout
+            nlohmann::json j = SystemInfoToJson(sysInfo);
+            std::cout << j.dump(2) << std::endl;
+
+            Logger::Info("--json mode complete");
+            exit(0);
         }
 
         if (!IsRunAsAdmin()) {
@@ -1365,6 +1597,10 @@ int main(int argc, char* argv[]) {
 
                     // Broadcast IPC schema (re-register each loop for new clients)
                     pipeServer.UpdateSchema(ipcHdr, ipcFields);
+
+                    // Process frontend IPC commands from shared memory mailbox
+                    IpcCommandHandler::Instance().ProcessCommands(
+                        SharedMemoryManager::GetBuffer());
 
                     if (isDetailedLogging) {
                         Logger::Debug("System info updated to shared memory");

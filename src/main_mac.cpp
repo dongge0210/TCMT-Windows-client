@@ -32,8 +32,10 @@
 #include "core/temperature/TemperatureWrapper.h"
 #include "core/IPC/IPCServer.h"
 #include "core/IPC/IPCData.h"
+#include "core/IPC/IpcCommandHandler.h"
 #include "core/Utils/Logger.h"
 #include "tui/TuiApp.h"
+#include <nlohmann/json.hpp>
 
 // ======================== Signal Handling ========================
 static std::atomic<bool> g_shouldExit{false};
@@ -59,9 +61,210 @@ static std::string FormatSize(uint64_t bytes) {
     return ss.str();
 }
 
+// ======================== JSON Output ========================
+
+static std::string WcharToStr(const WCHAR* wstr) {
+    if (!wstr) return {};
+    std::string result;
+    for (const WCHAR* p = wstr; *p; ++p) {
+        result += static_cast<char>(*p);
+    }
+    return result;
+}
+
+static void StrToWchar(WCHAR* dest, size_t max, const std::string& src) {
+    size_t n = std::min(max - 1, src.size());
+    for (size_t i = 0; i < n; ++i) {
+        dest[i] = static_cast<WCHAR>(static_cast<unsigned char>(src[i]));
+    }
+    dest[n] = 0;
+}
+
+static std::string GetIsoTimestamp() {
+    auto now = std::chrono::system_clock::now();
+    auto time = std::chrono::system_clock::to_time_t(now);
+    std::tm tm;
+    gmtime_r(&time, &tm);
+    std::stringstream ss;
+    ss << std::put_time(&tm, "%Y-%m-%dT%H:%M:%SZ");
+    return ss.str();
+}
+
+static std::string GetBrandFromName(const std::string& name) {
+    if (name.find("NVIDIA") != std::string::npos) return "NVIDIA";
+    if (name.find("AMD") != std::string::npos) return "AMD";
+    if (name.find("Intel") != std::string::npos) return "Intel";
+    if (name.find("Apple") != std::string::npos) return "Apple";
+    return "Unknown";
+}
+
+static nlohmann::json SystemInfoToJson(const SystemInfo& sysInfo) {
+    nlohmann::json j;
+
+    j["cpu"]["name"] = sysInfo.cpuName.empty() ? nullptr : sysInfo.cpuName;
+    j["cpu"]["usage"] = sysInfo.cpuUsage;
+    j["cpu"]["temperature"] = sysInfo.cpuTemperature;
+    j["cpu"]["cores"]["physical"] = sysInfo.physicalCores;
+    j["cpu"]["cores"]["logical"] = sysInfo.logicalCores;
+    j["cpu"]["cores"]["performance"] = sysInfo.performanceCores;
+    j["cpu"]["cores"]["efficiency"] = sysInfo.efficiencyCores;
+    j["cpu"]["freq"]["pCore"] = sysInfo.performanceCoreFreq;
+    j["cpu"]["freq"]["eCore"] = sysInfo.efficiencyCoreFreq;
+
+    j["memory"]["total"] = sysInfo.totalMemory;
+    j["memory"]["used"] = sysInfo.usedMemory;
+    j["memory"]["available"] = sysInfo.availableMemory;
+    j["memory"]["compressed"] = sysInfo.compressedMemory;
+
+    if (!sysInfo.gpus.empty()) {
+        const auto& gpu = sysInfo.gpus[0];
+        j["gpu"]["name"] = WcharToStr(gpu.name);
+        j["gpu"]["brand"] = WcharToStr(gpu.brand);
+        j["gpu"]["usage"] = gpu.usage;
+        j["gpu"]["memory"] = gpu.memory;
+        j["gpu"]["coreClock"] = gpu.coreClock;
+    }
+    j["gpu"]["temperature"] = sysInfo.gpuTemperature;
+
+    auto& netArr = j["network"] = nlohmann::json::array();
+    for (const auto& a : sysInfo.adapters) {
+        nlohmann::json net;
+        net["name"] = WcharToStr(a.name);
+        net["mac"] = WcharToStr(a.mac);
+        net["ip"] = WcharToStr(a.ipAddress);
+        net["type"] = WcharToStr(a.adapterType);
+        net["speed"] = a.speed;
+        net["download"] = a.downloadSpeed;
+        net["upload"] = a.uploadSpeed;
+        netArr.push_back(std::move(net));
+    }
+
+    auto& diskArr = j["disks"] = nlohmann::json::array();
+    for (const auto& d : sysInfo.disks) {
+        nlohmann::json disk;
+        disk["letter"] = std::string(1, d.letter);
+        disk["label"] = d.label;
+        disk["fileSystem"] = d.fileSystem;
+        disk["total"] = d.totalSize;
+        disk["used"] = d.usedSpace;
+        disk["free"] = d.freeSpace;
+        diskArr.push_back(std::move(disk));
+    }
+
+    j["timestamp"] = GetIsoTimestamp();
+
+    return j;
+}
+
+static SystemInfo CollectSystemInfo() {
+    SystemInfo sysInfo = {};
+
+    try {
+        CpuInfo cpuInfo;
+        sysInfo.cpuName = cpuInfo.GetName();
+        int totalCores = cpuInfo.GetTotalCores();
+        int pCores = cpuInfo.GetLargeCores();
+        int eCores = cpuInfo.GetSmallCores();
+        sysInfo.physicalCores = pCores + eCores;
+        sysInfo.logicalCores = totalCores;
+        sysInfo.performanceCores = pCores;
+        sysInfo.efficiencyCores = eCores;
+        sysInfo.cpuUsage = cpuInfo.GetUsage();
+        sysInfo.performanceCoreFreq = cpuInfo.GetLargeCoreSpeed();
+        sysInfo.efficiencyCoreFreq = cpuInfo.GetSmallCoreSpeed();
+    } catch (const std::exception& e) {
+        Logger::Error("CollectSystemInfo CPU: " + std::string(e.what()));
+    }
+
+    try {
+        MemoryInfo mem;
+        sysInfo.totalMemory = mem.GetTotalPhysical();
+        sysInfo.usedMemory = mem.GetTotalPhysical() - mem.GetAvailablePhysical();
+        sysInfo.availableMemory = mem.GetAvailablePhysical();
+
+        vm_statistics64_data_t vmStats;
+        mach_msg_type_number_t count = HOST_VM_INFO64_COUNT;
+        if (host_statistics64(mach_host_self(), HOST_VM_INFO64,
+                              (host_info64_t)&vmStats, &count) == KERN_SUCCESS) {
+            sysInfo.compressedMemory = (uint64_t)vmStats.compressor_page_count * vm_kernel_page_size;
+        }
+    } catch (const std::exception& e) {
+        Logger::Error("CollectSystemInfo Memory: " + std::string(e.what()));
+    }
+
+    try {
+        GpuInfo gpuInfo;
+        gpuInfo.RefreshUsage();
+        const auto& gpus = gpuInfo.GetGpuData();
+        for (const auto& g : gpus) {
+            GPUData gpuData = {};
+            std::string gname(g.name.begin(), g.name.end());
+            StrToWchar(gpuData.name, 128, gname);
+            std::string brand = GetBrandFromName(gname);
+            StrToWchar(gpuData.brand, 64, brand);
+            gpuData.memory = g.dedicatedMemory;
+            gpuData.coreClock = static_cast<double>(g.coreClock);
+            gpuData.usage = g.usage;
+            gpuData.isVirtual = false;
+            sysInfo.gpus.push_back(gpuData);
+
+            if (sysInfo.gpuName.empty()) {
+                sysInfo.gpuName = gname;
+                sysInfo.gpuBrand = brand;
+                sysInfo.gpuMemory = g.dedicatedMemory;
+                sysInfo.gpuCoreFreq = static_cast<double>(g.coreClock);
+                sysInfo.gpuUsage = g.usage;
+            }
+        }
+    } catch (const std::exception& e) {
+        Logger::Error("CollectSystemInfo GPU: " + std::string(e.what()));
+    }
+
+    try {
+        NetworkAdapter net;
+        const auto& adapters = net.GetAdapters();
+        for (const auto& a : adapters) {
+            NetworkAdapterData data = {};
+            StrToWchar(data.name, 128, a.name);
+            StrToWchar(data.mac, 32, a.mac);
+            StrToWchar(data.ipAddress, 64, a.ip);
+            StrToWchar(data.adapterType, 32, a.adapterType);
+            data.speed = a.speed;
+            sysInfo.adapters.push_back(data);
+        }
+    } catch (const std::exception& e) {
+        Logger::Error("CollectSystemInfo Network: " + std::string(e.what()));
+    }
+
+    try {
+        auto temps = TemperatureWrapper::GetTemperatures();
+        sysInfo.temperatures = temps;
+        for (const auto& [name, temp] : temps) {
+            bool isGpu = (name.find("TG") != std::string::npos ||
+                          name.find("GPU") != std::string::npos);
+            if (isGpu && sysInfo.gpuTemperature == 0) sysInfo.gpuTemperature = temp;
+            else if (!isGpu && sysInfo.cpuTemperature == 0) sysInfo.cpuTemperature = temp;
+        }
+    } catch (const std::exception& e) {
+        Logger::Error("CollectSystemInfo Temperature: " + std::string(e.what()));
+    }
+
+    try {
+        DiskInfo disk;
+        auto volumes = disk.GetDisks();
+        if (volumes.size() <= 8) {
+            sysInfo.disks = volumes;
+        }
+    } catch (const std::exception& e) {
+        Logger::Error("CollectSystemInfo Disk: " + std::string(e.what()));
+    }
+
+    sysInfo.lastUpdate = Platform::SystemTime::Now();
+    return sysInfo;
+}
+
 // ======================== Main ========================
 int main(int argc, char* argv[]) {
-    (void)argc; (void)argv;
 
     std::signal(SIGINT, SignalHandler);
     std::signal(SIGTERM, SignalHandler);
@@ -77,6 +280,34 @@ int main(int argc, char* argv[]) {
     } catch (const std::exception& e) {
         std::cerr << "Logger init failed: " << e.what() << std::endl;
         return 1;
+    }
+
+    // Parse CLI arguments
+    bool jsonMode = false;
+    bool daemonMode = false;
+    for (int i = 1; i < argc; ++i) {
+        std::string arg(argv[i]);
+        if (arg == "--json") jsonMode = true;
+        if (arg == "--daemon") daemonMode = true;
+    }
+
+    if (daemonMode) {
+        Logger::Info("--daemon mode requested: not yet implemented");
+        return 0;
+    }
+
+    if (jsonMode) {
+        Logger::Info("--json mode: collecting one round of data...");
+
+        TemperatureWrapper::Initialize();
+
+        SystemInfo sysInfo = CollectSystemInfo();
+
+        nlohmann::json j = SystemInfoToJson(sysInfo);
+        std::cout << j.dump(2) << std::endl;
+
+        TemperatureWrapper::Cleanup();
+        return 0;
     }
 
     TemperatureWrapper::Initialize();
@@ -368,6 +599,13 @@ int main(int argc, char* argv[]) {
                 block->adapterCount = (uint8_t)std::min(data.adapters.size(), size_t(2));
 
                 // Schema was broadcast once at startup — no need to re-broadcast
+            }
+
+            // Process frontend IPC commands from shared memory mailbox
+            if (shmPtr && shmSize >= sizeof(tcmt::ipc::IPCDataBlock)) {
+                auto* block = static_cast<tcmt::ipc::IPCDataBlock*>(shmPtr);
+                IpcCommandHandler::Instance().ProcessCommands(
+                    &block->command, &block->commandAck);
             }
 
             // Update TUI (if running)

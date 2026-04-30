@@ -6,6 +6,20 @@
 // Platform abstraction
 #include "../Platform/Platform.h"
 
+// IPC Command struct — mailbox for frontend-to-backend commands
+struct IpcCommand {
+    uint32_t magic;         // must be 0x54434D54 for valid command
+    uint32_t id;            // monotonically increasing command ID
+    uint32_t type;          // command type (see IpcCommandType enum)
+    uint32_t param1;        // generic parameter
+    uint32_t param2;
+    uint32_t param3;
+    uint32_t param4;
+    char     message[64];   // text parameter
+    uint32_t status;        // 0=pending, 1=done, 2=error
+    uint32_t result;        // result code
+};
+
 // Cross-platform fixed-width wide character (always 2 bytes, UTF-16)
 // On Windows: wchar_t is already 2 bytes (UTF-16)
 // On macOS/Linux: wchar_t is 4 bytes (UTF-32), force 2-byte with char16_t
@@ -219,5 +233,19 @@ struct SharedMemoryBlock {
 
     PlatformSystemTime lastUpdate;
     PlatformCriticalSection lock;
+
+    // --- IPC Command channel — Frontend → Backend ---
+    IpcCommand command;
+    uint32_t commandAck;          // Backend sets to id when command processed
 };
 #pragma pack(pop)
+
+// IPC Command types
+enum class IpcCommandType : uint32_t {
+    None              = 0,
+    SetSampleInterval = 1,   // param1 = ms
+    TriggerSmartScan  = 2,
+    ToggleSensor      = 3,   // param1 = sensor ID
+    Shutdown          = 4,
+    SetLogLevel       = 5,   // param1 = log level
+};

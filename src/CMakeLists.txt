@@ -25,6 +25,14 @@ set(CORE_MODULES_SOURCES
     ${CMAKE_CURRENT_SOURCE_DIR}/core/disk/DiskInfo.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/core/network/NetworkAdapter.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/core/os/OSInfo.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/core/board/BoardInfo.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/core/power/PowerInfo.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/core/usb/UsbInfo.cpp
+)
+
+# History / SQLite database logger (cross-platform)
+set(HISTORY_SOURCES
+    ${CMAKE_CURRENT_SOURCE_DIR}/core/history/HistoryLogger.cpp
 )
 
 # DataStruct / SharedMemory
@@ -40,8 +48,14 @@ set(CONFIG_SOURCES
     ${CMAKE_CURRENT_SOURCE_DIR}/core/Config/ConfigManager.cpp
 )
 
-# IPC module (macOS only - uses Unix sockets)
+# IPC module
 set(IPC_SOURCES "")
+
+# IPC command handler (cross-platform)
+list(APPEND IPC_SOURCES
+    ${CMAKE_CURRENT_SOURCE_DIR}/core/IPC/IpcCommandHandler.cpp
+)
+
 if(TCMT_MACOS)
     list(APPEND IPC_SOURCES
         ${CMAKE_CURRENT_SOURCE_DIR}/core/IPC/IPCServer.cpp
@@ -102,6 +116,7 @@ add_library(TCMTCore STATIC
     ${CORE_MODULES_SOURCES}
     ${DATASTRUCT_SOURCES}
     ${CONFIG_SOURCES}
+    ${HISTORY_SOURCES}
     ${IPC_SOURCES}
     ${TEMP_SOURCES}
     ${TUI_SOURCES}
@@ -127,6 +142,14 @@ target_include_directories(TCMTCore PUBLIC
 
     # websocketpp (header-only, for future use)
     ${CMAKE_CURRENT_SOURCE_DIR}/third_party/websocketpp
+
+    # History / SQLite database logger
+    ${CMAKE_CURRENT_SOURCE_DIR}/core/history
+
+    # New hardware modules
+    ${CMAKE_CURRENT_SOURCE_DIR}/core/board
+    ${CMAKE_CURRENT_SOURCE_DIR}/core/power
+    ${CMAKE_CURRENT_SOURCE_DIR}/core/usb
 )
 
 # ASIO (standalone, header-only) — brew on macOS, submodule on Windows
@@ -222,6 +245,30 @@ if(TCMT_WINDOWS)
 elseif(TCMT_MACOS)
     target_link_libraries(TCMTCore PRIVATE ${CURSES_LIBRARIES})
     target_include_directories(TCMTCore PRIVATE ${CURSES_INCLUDE_DIR})
+endif()
+
+# SQLite3 - HistoryLogger (cross-platform, via vcpkg or system)
+# Install: vcpkg install sqlite3
+find_package(unofficial-sqlite3 CONFIG QUIET)
+if(NOT unofficial-sqlite3_FOUND)
+    find_package(SQLite3 QUIET)
+endif()
+if(unofficial-sqlite3_FOUND OR SQLite3_FOUND)
+    if(unofficial-sqlite3_FOUND)
+        target_link_libraries(TCMTCore PRIVATE unofficial::sqlite3::sqlite3)
+        target_compile_definitions(TCMTCore PRIVATE HAS_SQLITE3)
+    else()
+        target_link_libraries(TCMTCore PRIVATE SQLite::SQLite3)
+        target_compile_definitions(TCMTCore PRIVATE HAS_SQLITE3)
+    endif()
+    message(STATUS "SQLite3 found - HistoryLogger enabled")
+else()
+    message(WARNING "SQLite3 not found (vcpkg: sqlite3). HistoryLogger will be disabled.")
+    message(WARNING "Install via: vcpkg install sqlite3")
+    set_source_files_properties(
+        ${CMAKE_CURRENT_SOURCE_DIR}/core/history/HistoryLogger.cpp
+        PROPERTIES HEADER_FILE_ONLY TRUE
+    )
 endif()
 
 # ============================================================
