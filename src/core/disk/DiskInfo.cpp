@@ -408,7 +408,7 @@ void DiskInfo::CollectSmartData(SystemInfo& sysInfo) {
 
     if (rc != 0 || json.empty()) return;
 
-    // system_profiler JSON format: {"SPNVMeDataType": [{"_name": "disk0", "spnvme_model": "...", ...}]}
+    // system_profiler JSON: {"SPNVMeDataType": [{"_items": [{"device_model":"...", ...}]}]}
     auto j = nlohmann::json::parse(json, nullptr, false);
     if (j.is_discarded()) return;
 
@@ -424,28 +424,33 @@ void DiskInfo::CollectSmartData(SystemInfo& sysInfo) {
         dst[n] = 0;
     };
 
-    for (const auto& item : *arr) {
-        PhysicalDiskSmartData pd = {};
+    for (const auto& group : *arr) {
+        const nlohmann::json& items = group.contains("_items") ? group["_items"] : group;
+        if (!items.is_array()) continue;
 
-        std::string model = item.value("spnvme_model", item.value("spsata_model", item.value("_name", "")));
-        std::string serial = item.value("spnvme_serial", item.value("spsata_serial", ""));
-        std::string status = item.value("spnvme_smart_status", item.value("spsata_smart_status", ""));
-        std::string capacity = item.value("spnvme_capacity", item.value("spsata_capacity", ""));
-        std::string medium = item.value("spnvme_medium_type", item.value("spsata_medium_type", ""));
+        for (const auto& item : items) {
+            PhysicalDiskSmartData pd = {};
 
-        copyToWchar(pd.model, sizeof(pd.model)/sizeof(WCHAR), model);
-        copyToWchar(pd.serialNumber, sizeof(pd.serialNumber)/sizeof(WCHAR), serial);
-        copyToWchar(pd.diskType, sizeof(pd.diskType)/sizeof(WCHAR), medium);
+            std::string model = item.value("device_model", item.value("_name", ""));
+            std::string serial = item.value("device_serial", "");
+            std::string status = item.value("smart_status", "");
+            // size_in_bytes is a number
+            uint64_t sz = 0;
+            if (item.contains("size_in_bytes")) {
+                auto& sv = item["size_in_bytes"];
+                if (sv.is_number()) sz = sv.get<uint64_t>();
+                else if (sv.is_string()) sz = std::stoull(sv.get<std::string>());
+            }
+            copyToWchar(pd.model, sizeof(pd.model)/sizeof(WCHAR), model);
+            copyToWchar(pd.serialNumber, sizeof(pd.serialNumber)/sizeof(WCHAR), serial);
+            pd.capacity = sz;
 
-        pd.smartSupported = !status.empty();
-        pd.smartEnabled = (status == "Verified" || status == "Supported");
-        pd.healthPercentage = (status == "Verified") ? 100u : 0u;
+            pd.smartSupported = !status.empty();
+            pd.smartEnabled = (status == "Verified" || status == "Supported");
+            pd.healthPercentage = (status == "Verified") ? 100u : 0u;
 
-        if (!capacity.empty()) {
-            try { pd.capacity = std::stoull(capacity); } catch (...) {}
+            sysInfo.physicalDisks.push_back(pd);
         }
-
-        sysInfo.physicalDisks.push_back(pd);
     }
 
     Logger::Debug("DiskInfo: system_profiler SMART collected " +

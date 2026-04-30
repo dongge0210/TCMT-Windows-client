@@ -106,6 +106,17 @@ struct IPCDataBlock {
     NetSlot  adapters[2]             = {};
     uint8_t  adapterCount            = 0;
 
+    // --- Physical disk SMART (first disk) ---
+    struct PhysicalDiskSlot {
+        char model[64]         = {};
+        char serial[32]        = {};
+        char smartStatus[16]   = {};
+        uint64_t capacity       = 0;
+        uint8_t  healthPercent  = 100;
+        uint8_t  smartSupported = 0;
+    };
+    PhysicalDiskSlot physicalDisk;
+
     // --- IPC Command channel — Frontend → Backend ---
     ::IpcCommand command;
     uint32_t commandAck;          // Backend sets to id when command processed

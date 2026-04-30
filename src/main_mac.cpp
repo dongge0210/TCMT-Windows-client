@@ -402,6 +402,14 @@ int main(int argc, char* argv[]) {
         addField(("disk/" + std::to_string(d) + "/fs").c_str(),    tcmt::ipc::FieldType::String,  base + offsetof(tcmt::ipc::IPCDataBlock::DiskSlot, fs),        16);
     }
 
+    // ─── Physical disk SMART ───
+    addField("pdisk/model",   tcmt::ipc::FieldType::String, offsetof(tcmt::ipc::IPCDataBlock, physicalDisk.model),   64);
+    addField("pdisk/serial",  tcmt::ipc::FieldType::String, offsetof(tcmt::ipc::IPCDataBlock, physicalDisk.serial),  32);
+    addField("pdisk/status",  tcmt::ipc::FieldType::String, offsetof(tcmt::ipc::IPCDataBlock, physicalDisk.smartStatus), 16);
+    addField("pdisk/capacity", tcmt::ipc::FieldType::UInt64, offsetof(tcmt::ipc::IPCDataBlock, physicalDisk.capacity), 8, "B");
+    addField("pdisk/health",  tcmt::ipc::FieldType::UInt8,   offsetof(tcmt::ipc::IPCDataBlock, physicalDisk.healthPercent), 1);
+    addField("pdisk/supported", tcmt::ipc::FieldType::UInt8, offsetof(tcmt::ipc::IPCDataBlock, physicalDisk.smartSupported), 1);
+
     // ─── Network ───
     for (int n = 0; n < 2; ++n) {
         auto base = offsetof(tcmt::ipc::IPCDataBlock, adapters) + n * sizeof(tcmt::ipc::IPCDataBlock::NetSlot);
@@ -588,6 +596,24 @@ int main(int argc, char* argv[]) {
                     std::strncpy(block->disks[d].fs, data.disks[d].fileSystem.c_str(), 15);
                 }
                 block->diskCount = (uint8_t)std::min(data.disks.size(), size_t(2));
+
+                // Physical disk SMART (first disk only)
+                {
+                    SystemInfo si;
+                    DiskInfo::CollectSmartData(si);
+                    if (!si.physicalDisks.empty()) {
+                        auto& pd = si.physicalDisks[0];
+                        // WCHAR is char16_t on macOS; DMA data is ASCII in low byte
+                        for (size_t i = 0; i < 63 && pd.model[i] != 0; ++i)
+                            block->physicalDisk.model[i] = static_cast<char>(pd.model[i]);
+                        for (size_t i = 0; i < 31 && pd.serialNumber[i] != 0; ++i)
+                            block->physicalDisk.serial[i] = static_cast<char>(pd.serialNumber[i]);
+                        std::strncpy(block->physicalDisk.smartStatus, pd.smartEnabled ? "Verified" : "NotSupported", 15);
+                        block->physicalDisk.capacity = pd.capacity;
+                        block->physicalDisk.healthPercent = pd.healthPercentage;
+                        block->physicalDisk.smartSupported = pd.smartSupported ? 1 : 0;
+                    }
+                }
 
                 for (size_t n = 0; n < data.adapters.size() && n < 2; ++n) {
                     std::strncpy(block->adapters[n].name, data.adapters[n].name.c_str(), 31);

@@ -118,6 +118,23 @@ public static class IPCSystemInfoMapper
                 diskIdx++;
             }
 
+            // Physical disk SMART (first disk)
+            if (reader.HasField("pdisk/model"))
+            {
+                var status = reader.ReadString("pdisk/status") ?? "";
+                var pd = new PhysicalDiskSmartData
+                {
+                    Model = reader.ReadString("pdisk/model") ?? "",
+                    SerialNumber = reader.ReadString("pdisk/serial") ?? "",
+                    Capacity = reader.ReadUInt64("pdisk/capacity") ?? 0,
+                    HealthPercentage = reader.ReadUInt8("pdisk/health") ?? 0,
+                    SmartSupported = reader.ReadUInt8("pdisk/supported") != 0,
+                    SmartEnabled = (status == "Verified")
+                };
+                if (!string.IsNullOrEmpty(pd.Model))
+                    info.PhysicalDisks.Add(pd);
+            }
+
             info.CpuUsageSampleIntervalMs = reader.ReadFloat64("cpu/sampleIntervalMs") ?? 500;
             return info;
         }
