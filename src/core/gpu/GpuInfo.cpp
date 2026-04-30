@@ -152,6 +152,69 @@ void GpuInfo::QueryNvidiaGpuInfo(int index) {
 #endif
 }
 
+void GpuInfo::RefreshUsage() {
+    // 1. NVML for NVIDIA GPUs (fast, accurate live utilization)
+    bool nvmlUsed = false;
+#if defined(CUDA_SUPPORT) || defined(SUPPORT_NVIDIA_GPU)
+    nvmlReturn_t initResult = nvmlInit();
+    if (NVML_SUCCESS == initResult) {
+        for (size_t i = 0; i < gpuList.size(); ++i) {
+            if (gpuList[i].isNvidia && !gpuList[i].isVirtual) {
+                nvmlDevice_t device;
+                nvmlReturn_t result = nvmlDeviceGetHandleByIndex(0, &device);
+                if (NVML_SUCCESS == result) {
+                    nvmlUtilization_t util;
+                    result = nvmlDeviceGetUtilizationRates(device, &util);
+                    if (NVML_SUCCESS == result) {
+                        gpuList[i].usage = static_cast<double>(util.gpu);
+                        nvmlUsed = true;
+                    }
+                }
+            }
+        }
+        nvmlShutdown();
+        if (nvmlUsed) {
+            Logger::Debug("GPU usage refreshed via NVML");
+            return;
+        }
+    }
+#endif
+
+    // 2. WMI fallback for non-NVIDIA GPUs (Windows 10+ WDDM 2.0)
+    if (!pSvc) return;
+
+    IEnumWbemClassObject* pEnumerator = nullptr;
+    HRESULT hres = pSvc->ExecQuery(
+        bstr_t("WQL"),
+        bstr_t("SELECT Name, PercentGPUTime FROM Win32_PerfFormattedData_GPUPerformanceCounters_GPUAdapter"),
+        WBEM_FLAG_FORWARD_ONLY | WBEM_FLAG_RETURN_IMMEDIATELY,
+        nullptr, &pEnumerator);
+    if (FAILED(hres) || !pEnumerator) {
+        Logger::Debug("WMI GPU performance counters unavailable (Windows 10+ WDDM 2.0 required)");
+        return;
+    }
+
+    ULONG uReturn = 0;
+    IWbemClassObject* pclsObj = nullptr;
+    size_t idx = 0;
+    while (pEnumerator->Next(WBEM_INFINITE, 1, &pclsObj, &uReturn) == S_OK && idx < gpuList.size()) {
+        VARIANT vtUtil;
+        VariantInit(&vtUtil);
+        if (SUCCEEDED(pclsObj->Get(L"PercentGPUTime", 0, &vtUtil, 0, 0))) {
+            if (vtUtil.vt == VT_UI8) {
+                gpuList[idx].usage = static_cast<double>(vtUtil.ullVal);
+            } else if (vtUtil.vt == VT_UI4 || vtUtil.vt == VT_I4) {
+                gpuList[idx].usage = static_cast<double>((vtUtil.vt == VT_UI4) ? vtUtil.ulVal : vtUtil.lVal);
+            }
+        }
+        VariantClear(&vtUtil);
+        pclsObj->Release();
+        idx++;
+    }
+    pEnumerator->Release();
+    Logger::Debug("GPU usage refreshed via WMI");
+}
+
 const std::vector<GpuInfo::GpuData>& GpuInfo::GetGpuData() const { return gpuList; }
 
 #elif defined(TCMT_MACOS)

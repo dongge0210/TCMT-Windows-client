@@ -56,7 +56,9 @@ TEST(ConfigManagerTest, LoadFromFile) {
 
 // ── File not found => empty config, not crash ──
 TEST(ConfigManagerTest, FileNotFound) {
-    ConfigManager cfg("/tmp/__nonexistent_tcmt_test_config.json");
+    auto path = WriteTempFile("");
+    std::remove(path.c_str());
+    ConfigManager cfg(path);
     EXPECT_TRUE(cfg.Load()); // returns true with empty config
     EXPECT_TRUE(cfg.IsLoaded());
     EXPECT_EQ(cfg.GetString("anything", "fallback"), "fallback");
@@ -67,7 +69,7 @@ TEST(ConfigManagerTest, CorruptJson) {
     auto path = WriteTempFile("{invalid json!!!}");
     ConfigManager cfg(path);
     EXPECT_FALSE(cfg.Load()); // returns false on parse error
-    EXPECT_TRUE(cfg.IsLoaded());
+    EXPECT_FALSE(cfg.IsLoaded());
     // Should have empty data, all gets return defaults
     EXPECT_EQ(cfg.GetString("key", "default"), "default");
 
@@ -108,7 +110,8 @@ TEST(ConfigManagerTest, TypeSafety) {
 
 // ── Set / Get roundtrip ──
 TEST(ConfigManagerTest, SetGetRoundtrip) {
-    ConfigManager cfg("/tmp/__tcmt_test_roundtrip.json");
+    auto path = WriteTempFile("{}");
+    ConfigManager cfg(path);
     cfg.Load(); // start with empty config
 
     cfg.SetString("name", "TCMT");
@@ -124,11 +127,14 @@ TEST(ConfigManagerTest, SetGetRoundtrip) {
     // Overwrite
     cfg.SetString("name", "TCMT-M");
     EXPECT_EQ(cfg.GetString("name", ""), "TCMT-M");
+
+    std::remove(path.c_str());
 }
 
 // ── Nested set ──
 TEST(ConfigManagerTest, SetNestedKey) {
-    ConfigManager cfg("/tmp/__tcmt_test_nested.json");
+    auto path = WriteTempFile("{}");
+    ConfigManager cfg(path);
     cfg.Load();
 
     cfg.SetInt("display.refreshRate", 120);
@@ -136,6 +142,8 @@ TEST(ConfigManagerTest, SetNestedKey) {
 
     EXPECT_EQ(cfg.GetInt("display.refreshRate", 0), 120);
     EXPECT_EQ(cfg.GetString("display.theme.mode", ""), "dark");
+
+    std::remove(path.c_str());
 }
 
 // ── Save and reload ──

@@ -504,6 +504,8 @@ private:
     uint32_t cachedGpuCoreFreq_ = 0;
     bool cachedGpuIsVirtual_ = false;
     double cachedGpuUsage_ = 0.0;
+    std::unique_ptr<GpuInfo> gpuInfo_;
+    size_t selectedGpuIndex_ = 0;
 
 public:
     void Initialize(WmiManager& wmiManager) {
@@ -512,32 +514,35 @@ public:
         
         try {
             Logger::Info("Initializing GPU info");
-            
-            GpuInfo gpuInfo(wmiManager);
-            const auto& gpus = gpuInfo.GetGpuData();
-            
+
+            gpuInfo_ = std::make_unique<GpuInfo>(wmiManager);
+            const auto& gpus = gpuInfo_->GetGpuData();
+
             // Record all detected GPUs
             for (const auto& gpu : gpus) {
                 std::string gpuName = WinUtils::WstringToString(gpu.name);
-                Logger::Info("Detected GPU: " + gpuName + 
-                           " (Virtual: " + (gpu.isVirtual ? "Yes" : "No") + 
-                           ", NVIDIA: " + (gpuName.find("NVIDIA") != std::string::npos ? "Yes" : "No") + 
+                Logger::Info("Detected GPU: " + gpuName +
+                           " (Virtual: " + (gpu.isVirtual ? "Yes" : "No") +
+                           ", NVIDIA: " + (gpuName.find("NVIDIA") != std::string::npos ? "Yes" : "No") +
                            ", Integrated: " + (gpuName.find("Intel") != std::string::npos ||
                                        gpuName.find("AMD") != std::string::npos ? "Yes" : "No") + ")");
             }
-            
+
             const GpuInfo::GpuData* selectedGpu = nullptr;
-            for (const auto& gpu : gpus) {
-                if (!gpu.isVirtual) {
-                    selectedGpu = &gpu;
+            selectedGpuIndex_ = 0;
+            for (size_t i = 0; i < gpus.size(); ++i) {
+                if (!gpus[i].isVirtual) {
+                    selectedGpu = &gpus[i];
+                    selectedGpuIndex_ = i;
                     break;
                 }
             }
-            
+
             if (!selectedGpu && !gpus.empty()) {
                 selectedGpu = &gpus[0];
+                selectedGpuIndex_ = 0;
             }
-            
+
             if (selectedGpu) {
                 cachedGpuName_ = WinUtils::WstringToString(selectedGpu->name);
                 cachedGpuBrand_ = GetGpuBrand(selectedGpu->name);
@@ -545,15 +550,14 @@ public:
                 cachedGpuCoreFreq_ = static_cast<uint32_t>(selectedGpu->coreClock);
                 cachedGpuIsVirtual_ = selectedGpu->isVirtual;
                 cachedGpuUsage_ = selectedGpu->usage;  // Save GPU usage
-                
-                Logger::Info("Selected primary GPU: " + cachedGpuName_ + 
+
+                Logger::Info("Selected primary GPU: " + cachedGpuName_ +
                            " (Virtual: " + (cachedGpuIsVirtual_ ? "Yes" : "No") + ")");
             } else {
                 Logger::Warn("No GPU detected");
             }
-            
+
             initialized_ = true;
-            // Logger::Info("GPU info initialization complete, subsequent loops will use cached info");
         }
         catch (const std::exception& e) {
             Logger::Error("GPU info initialization failed: " + std::string(e.what()));
@@ -571,7 +575,17 @@ public:
         isVirtual = cachedGpuIsVirtual_;
         usage = cachedGpuUsage_;
     }
-    
+
+    void RefreshUsage() {
+        std::lock_guard<std::mutex> lock(mtx_);
+        if (!initialized_ || !gpuInfo_) return;
+        gpuInfo_->RefreshUsage();
+        const auto& gpus = gpuInfo_->GetGpuData();
+        if (selectedGpuIndex_ < gpus.size()) {
+            cachedGpuUsage_ = gpus[selectedGpuIndex_].usage;
+        }
+    }
+
     bool IsInitialized() const {
         std::lock_guard<std::mutex> lock(mtx_);
         return initialized_;
@@ -1011,7 +1025,9 @@ int main(int argc, char* argv[]) {
                         Logger::Error("GPU cache initialization failed: " + std::string(e.what()));
                     }
                 }
-                
+
+                gpuCache.RefreshUsage();
+
                 try {
                     std::string cachedGpuName, cachedGpuBrand;
                     uint64_t cachedGpuMemory;

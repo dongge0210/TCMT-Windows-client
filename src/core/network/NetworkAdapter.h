@@ -39,6 +39,8 @@ public:
         bool isConnected;
         uint64_t speed;
         std::string speedString;
+        uint64_t downloadSpeed = 0; // Download speed (bytes/sec)
+        uint64_t uploadSpeed = 0;   // Upload speed (bytes/sec)
     };
 
 #ifdef TCMT_WINDOWS
@@ -56,6 +58,7 @@ private:
     void Cleanup();
     void QueryAdapterInfo();
     void UpdateAdapterAddresses();
+    void UpdateThroughput();
     std::string FormatMacAddress(const unsigned char* address, size_t length) const;
     std::string FormatSpeed(uint64_t bitsPerSecond) const;
     bool IsVirtualAdapter(const std::string& name) const;

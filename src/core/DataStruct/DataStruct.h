@@ -105,6 +105,8 @@ struct NetworkAdapterData {
     WCHAR ipAddress[64]; // IP address
     WCHAR adapterType[32]; // Adapter type (wireless/wired)
     uint64_t speed;       // Speed (bps)
+    uint64_t downloadSpeed; // Download speed (bytes/sec)
+    uint64_t uploadSpeed;   // Upload speed (bytes/sec)
 };
 
 // Disk information

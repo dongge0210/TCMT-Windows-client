@@ -16,6 +16,8 @@
 #include <unknwn.h>  // IUnknown
 #include <iomanip>
 #include <algorithm>
+#include <map>
+#include <netioapi.h>
 #pragma comment(lib, "iphlpapi.lib")
 #pragma comment(lib, "ws2_32.lib")
 
@@ -48,6 +50,7 @@ void NetworkAdapter::Refresh() {
 void NetworkAdapter::QueryAdapterInfo() {
     QueryWmiAdapterInfo();
     UpdateAdapterAddresses();
+    UpdateThroughput();
 }
 
 bool NetworkAdapter::IsVirtualAdapter(const std::wstring& name) const {
@@ -201,6 +204,53 @@ std::string NetworkAdapter::DetermineAdapterType(const std::wstring& name, const
 
 void NetworkAdapter::SafeRelease(IUnknown* pInterface) {
     if (pInterface) pInterface->Release();
+}
+
+void NetworkAdapter::UpdateThroughput() {
+    static std::map<std::string, std::pair<uint64_t, uint64_t>> prevBytes; // mac -> (rx_bytes, tx_bytes)
+    static std::map<std::string, uint64_t> prevTick; // mac -> timestamp
+
+    PMIB_IF_TABLE2 ifTable = nullptr;
+    if (GetIfTable2(&ifTable) != NO_ERROR) {
+        Logger::Warn("NetworkAdapter::UpdateThroughput: GetIfTable2 failed");
+        return;
+    }
+
+    uint64_t now = GetTickCount64();
+
+    for (auto& ai : adapters) {
+        for (ULONG i = 0; i < ifTable->NumEntries; i++) {
+            MIB_IF_ROW2& row = ifTable->Table[i];
+            std::string mac = FormatMacAddress(row.PhysicalAddress, row.PhysicalAddressLength);
+            if (mac == ai.mac) {
+                uint64_t rxBytes = row.InOctets;
+                uint64_t txBytes = row.OutOctets;
+
+                auto it = prevBytes.find(ai.mac);
+                auto tickIt = prevTick.find(ai.mac);
+
+                if (it != prevBytes.end() && tickIt != prevTick.end()
+                    && now > tickIt->second) {
+                    uint64_t dt = now - tickIt->second;
+                    if (dt > 0) {
+                        ai.downloadSpeed = (rxBytes - it->second.first) * 1000 / dt;
+                        ai.uploadSpeed = (txBytes - it->second.second) * 1000 / dt;
+                    } else {
+                        ai.downloadSpeed = 0;
+                        ai.uploadSpeed = 0;
+                    }
+                } else {
+                    ai.downloadSpeed = 0;
+                    ai.uploadSpeed = 0;
+                }
+                prevBytes[ai.mac] = {rxBytes, txBytes};
+                prevTick[ai.mac] = now;
+                break;
+            }
+        }
+    }
+
+    FreeMibTable(ifTable);
 }
 
 const std::vector<NetworkAdapter::AdapterInfo>& NetworkAdapter::GetAdapters() const { return adapters; }
@@ -399,6 +449,55 @@ void NetworkAdapter::QueryAdapterInfo() {
     }
 
     Logger::Debug("NetworkAdapter: found " + std::to_string(adapters.size()) + " adapters");
+
+    UpdateThroughput();
+}
+
+void NetworkAdapter::UpdateThroughput() {
+    static std::map<std::string, std::pair<uint64_t, uint64_t>> prevBytes; // mac -> (rx_bytes, tx_bytes)
+    static std::map<std::string, uint64_t> prevTick; // mac -> timestamp
+
+    struct ifaddrs* ifaddr = nullptr;
+    if (getifaddrs(&ifaddr) != 0) return;
+
+    struct timeval tv;
+    gettimeofday(&tv, nullptr);
+    uint64_t now = static_cast<uint64_t>(tv.tv_sec) * 1000 + tv.tv_usec / 1000;
+
+    for (auto& ai : adapters) {
+        for (struct ifaddrs* ifa = ifaddr; ifa != nullptr; ifa = ifa->ifa_next) {
+            if (!ifa->ifa_addr || ifa->ifa_addr->sa_family != AF_LINK) continue;
+            if (ai.name != ifa->ifa_name) continue;
+            if (!ifa->ifa_data) continue;
+
+            struct if_data* ifData = reinterpret_cast<struct if_data*>(ifa->ifa_data);
+            uint64_t rxBytes = ifData->ifi_ibytes;
+            uint64_t txBytes = ifData->ifi_obytes;
+
+            auto it = prevBytes.find(ai.mac);
+            auto tickIt = prevTick.find(ai.mac);
+
+            if (it != prevBytes.end() && tickIt != prevTick.end()
+                && now > tickIt->second) {
+                uint64_t dt = now - tickIt->second;
+                if (dt > 0) {
+                    ai.downloadSpeed = (rxBytes - it->second.first) * 1000 / dt;
+                    ai.uploadSpeed = (txBytes - it->second.second) * 1000 / dt;
+                } else {
+                    ai.downloadSpeed = 0;
+                    ai.uploadSpeed = 0;
+                }
+            } else {
+                ai.downloadSpeed = 0;
+                ai.uploadSpeed = 0;
+            }
+            prevBytes[ai.mac] = {rxBytes, txBytes};
+            prevTick[ai.mac] = now;
+            break;
+        }
+    }
+
+    freeifaddrs(ifaddr);
 }
 
 void NetworkAdapter::UpdateAdapterAddresses() {

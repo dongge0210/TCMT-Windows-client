@@ -8,6 +8,19 @@
 #include <wbemidl.h>
 #pragma comment(lib, "wbemuuid.lib")
 
+// Managed bridge wrapper for SMART data collection via LibreHardwareMonitor
+#pragma managed(push, on)
+#include "../Utils/LibreHardwareMonitorBridge.h"
+static std::vector<PhysicalDiskSmartData> GetSmartDataFromBridge() {
+    try {
+        return LibreHardwareMonitorBridge::GetPhysicalDisks();
+    } catch (System::Exception^) {
+        Logger::Warn("DiskInfo::CollectSmartData - LibreHardwareMonitor bridge error");
+        return {};
+    }
+}
+#pragma managed(pop)
+
 DiskInfo::DiskInfo() { QueryDrives(); }
 
 void DiskInfo::QueryDrives() {
@@ -220,6 +233,32 @@ void DiskInfo::CollectPhysicalDisks(WmiManager& wmi, const std::vector<DiskData>
 
 void DiskInfo::CollectSmartData(SystemInfo& sysInfo) {
     Logger::Debug("DiskInfo::CollectSmartData - using LibreHardwareMonitor");
+    auto bridgeDisks = GetSmartDataFromBridge();
+    if (bridgeDisks.empty()) {
+        Logger::Debug("DiskInfo::CollectSmartData - bridge returned no disks");
+        return;
+    }
+
+    // Merge SMART data from bridge into WMI entries (matched by model name)
+    for (auto& bridgeDisk : bridgeDisks) {
+        bool matched = false;
+        for (auto& existing : sysInfo.physicalDisks) {
+            if (wcscmp(bridgeDisk.model, existing.model) == 0) {
+                existing.temperature = bridgeDisk.temperature;
+                existing.healthPercentage = bridgeDisk.healthPercentage;
+                existing.totalBytesWritten = bridgeDisk.totalBytesWritten;
+                existing.totalBytesRead = bridgeDisk.totalBytesRead;
+                existing.smartSupported = bridgeDisk.smartSupported;
+                existing.smartEnabled = bridgeDisk.smartEnabled;
+                matched = true;
+                break;
+            }
+        }
+        // If bridge found a disk not in the WMI list, add it
+        if (!matched) {
+            sysInfo.physicalDisks.push_back(bridgeDisk);
+        }
+    }
 }
 
 #elif defined(TCMT_MACOS)
@@ -348,17 +387,13 @@ std::vector<DiskData> DiskInfo::GetDisks() {
     return disks;
 }
 
-// Collect SMART data - available on all platforms
-// On macOS: uses LibreHardwareMonitor
-// On Windows: uses WMI + SMART
+// Collect SMART data
+// On Windows: uses LibreHardwareMonitor bridge
+// On macOS: not available
 void DiskInfo::CollectSmartData(SystemInfo& sysInfo) {
-#ifdef TCMT_WINDOWS
-    // Windows implementation would go here - currently uses LibreHardwareMonitor via TemperatureWrapper
-    Logger::Debug("DiskInfo::CollectSmartData - using LibreHardwareMonitor");
-#else
-    // macOS: SMART not available
+    // macOS: SMART data collection not available
+    (void)sysInfo;
     Logger::Debug("DiskInfo: SMART data collection skipped");
-#endif
 }
 
 #else
