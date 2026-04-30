@@ -750,9 +750,10 @@ public class SharedMemoryService : IDisposable
 
     public void Dispose()
     {
-        if (_disposed) return;
         lock (_lock)
         {
+            if (_disposed) return;
+
             // Windows cleanup
             _accessor?.Dispose();
             _mmf?.Dispose();

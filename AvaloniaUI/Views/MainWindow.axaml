@@ -4,6 +4,7 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:vm="clr-namespace:AvaloniaUI.ViewModels"
         xmlns:avc="clr-namespace:Avalonia.Controls.Converters;assembly=Avalonia.Controls"
+        xmlns:controls="clr-namespace:AvaloniaUI.Controls"
         mc:Ignorable="d"
         x:Class="AvaloniaUI.Views.MainWindow"
         x:DataType="vm:MainWindowViewModel"
@@ -119,6 +120,18 @@
                     </Border>
                 </Grid>
 
+                <!-- Memory History Chart -->
+                <Border Background="#FF222222" Margin="0,0,0,10" Padding="10">
+                    <StackPanel>
+                        <TextBlock Text="内存使用率历史" FontSize="12" Foreground="#FFB3B3B3" Margin="0,0,0,5"/>
+                        <controls:LineChart Values="{Binding MemoryHistory}"
+                                            Height="80"
+                                            Title="Memory %"
+                                            LineBrush="#FF4CAF50"
+                                            FillBrush="#334CAF50"/>
+                    </StackPanel>
+                </Border>
+
                 <!-- GPU信息 -->
                 <Border Margin="0,0,0,10" Background="#FF191919" Padding="15">
                     <StackPanel>
@@ -207,6 +220,23 @@
                             <TextBlock Grid.Column="1" Text="{Binding SelectedDisk.FreeSpaceDisplay, TargetNullValue='N/A', StringFormat='可用: {0}'}" Foreground="#FF666666" FontSize="11" Margin="10,0,0,0"/>
                             <TextBlock Grid.Column="2" Text="{Binding SelectedDisk.TotalSizeDisplay, TargetNullValue='N/A', StringFormat='总计: {0}'}" Foreground="#FF666666" FontSize="11" Margin="10,0,0,0"/>
                         </Grid>
+                    </StackPanel>
+                </Border>
+
+                <!-- Temperature History Charts -->
+                <Border Background="#FF222222" Margin="0,0,0,10" Padding="10">
+                    <StackPanel>
+                        <TextBlock Text="温度历史" FontSize="12" Foreground="#FFB3B3B3" Margin="0,0,0,5"/>
+                        <controls:LineChart Values="{Binding CpuTempData}"
+                                            Height="60"
+                                            Title="CPU"
+                                            LineBrush="#FFF44336"
+                                            FillBrush="#33F44336"/>
+                        <controls:LineChart Values="{Binding GpuTempData}"
+                                            Height="60"
+                                            Title="GPU"
+                                            LineBrush="#FFFF9800"
+                                            FillBrush="#33FF9800"/>
                     </StackPanel>
                 </Border>
 

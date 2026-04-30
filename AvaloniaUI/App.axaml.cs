@@ -50,6 +50,10 @@ public partial class App : Application
 
     private void OnMainWindowClosing(object? sender, WindowClosingEventArgs e)
     {
+        // Don't block system shutdown/logoff
+        if (e.CloseReason == WindowClosingReason.ApplicationShutdown)
+            return;
+
         // Cancel close and hide to tray instead
         e.Cancel = true;
         if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)

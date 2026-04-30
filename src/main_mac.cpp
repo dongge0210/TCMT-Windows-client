@@ -239,8 +239,8 @@ int main(int argc, char* argv[]) {
                 data.eCoreFreq = cpuInfo->GetSmallCoreSpeed();
             }
 
+            static MemoryInfo mem;
             try {
-                MemoryInfo mem;
                 data.totalMemory = mem.GetTotalPhysical();
                 data.usedMemory = mem.GetTotalPhysical() - mem.GetAvailablePhysical();
                 data.availableMemory = mem.GetAvailablePhysical();
@@ -367,8 +367,7 @@ int main(int argc, char* argv[]) {
                 }
                 block->adapterCount = (uint8_t)std::min(data.adapters.size(), size_t(2));
 
-                // Re-broadcast schema (for newly connected clients)
-                ipcServer.UpdateSchema(ipcHdr, ipcFields);
+                // Schema was broadcast once at startup — no need to re-broadcast
             }
 
             // Update TUI (if running)
