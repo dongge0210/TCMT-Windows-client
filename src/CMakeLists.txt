@@ -43,6 +43,11 @@ set(CONFIG_SOURCES
     ${CMAKE_CURRENT_SOURCE_DIR}/core/Config/ConfigManager.cpp
 )
 
+# HistoryLogger (SQLite sensor data logging)
+set(HISTORY_SOURCES
+    ${CMAKE_CURRENT_SOURCE_DIR}/core/history/HistoryLogger.cpp
+)
+
 # Temperature modules (Windows only for now)
 set(TEMP_SOURCES "")
 set(TEMP_SOURCES_WINDOWS "")
@@ -104,6 +109,7 @@ add_library(TCMTCore STATIC
     ${CORE_MODULES_SOURCES}
     ${DATASTRUCT_SOURCES}
     ${CONFIG_SOURCES}
+    ${HISTORY_SOURCES}
     ${TEMP_SOURCES}
     ${TUI_SOURCES}
 )
@@ -120,6 +126,7 @@ target_include_directories(TCMTCore PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}/core/board
     ${CMAKE_CURRENT_SOURCE_DIR}/core/power
     ${CMAKE_CURRENT_SOURCE_DIR}/core/usb
+    ${CMAKE_CURRENT_SOURCE_DIR}/core/history
 
     # CPP-parsers unified config interface
     ${CMAKE_CURRENT_SOURCE_DIR}/CPP-parsers/include
@@ -157,6 +164,17 @@ if(TCMT_WINDOWS)
 elseif(TCMT_MACOS)
     target_link_libraries(TCMTCore PRIVATE ${CURSES_LIBRARIES})
     target_include_directories(TCMTCore PRIVATE ${CURSES_INCLUDE_DIR})
+endif()
+
+# SQLite3 — macOS provides it via the system SDK (just -lsqlite3).
+# Windows users should install it via vcpkg (vcpkg install sqlite3) and
+# add find_package(SQLite3) to cmake/Dependencies.cmake.
+if(TCMT_MACOS)
+    target_link_libraries(TCMTCore PRIVATE sqlite3)
+    message(STATUS "  SQLite3: system library (-lsqlite3)")
+endif()
+if(TCMT_WINDOWS)
+    message(STATUS "  SQLite3: link manually via vcpkg (disabled for now)")
 endif()
 
 # ============================================================
