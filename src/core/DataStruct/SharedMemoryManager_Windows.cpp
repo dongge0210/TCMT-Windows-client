@@ -221,9 +221,12 @@ void SharedMemoryManager::WriteToSharedMemory(const SystemInfo& systemInfo) {
     }
 
     DWORD waitResult = WaitForSingleObject(g_hMutex, 5000);
-    if (waitResult != WAIT_OBJECT_0) {
+    if (waitResult != WAIT_OBJECT_0 && waitResult != WAIT_ABANDONED) {
         Logger::Critical("Failed to acquire shared memory mutex");
         return;
+    }
+    if (waitResult == WAIT_ABANDONED) {
+        Logger::Warn("Acquired abandoned shared memory mutex - previous owner may have crashed");
     }
     auto SafeCopyWideString = [](wchar_t* dest, size_t destSize, const std::wstring& src) {
         try {
@@ -411,9 +414,13 @@ void SharedMemoryManager::WriteToSharedMemory(const SystemInfo& systemInfo) {
     } catch (const std::exception& e) {
         lastError = std::string("Exception in WriteToSharedMemory: ") + e.what();
         Logger::Error(lastError);
+        ReleaseMutex(g_hMutex);
+        return;
     } catch (...) {
         lastError = "Unknown exception in WriteToSharedMemory";
         Logger::Error(lastError);
+        ReleaseMutex(g_hMutex);
+        return;
     }
     ReleaseMutex(g_hMutex);
 }
