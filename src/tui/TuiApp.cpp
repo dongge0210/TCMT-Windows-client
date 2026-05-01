@@ -47,7 +47,8 @@ void TuiApp::UpdateData(const TuiData& data) {
     std::lock_guard<std::mutex> lock(dataMutex_);
     data_ = data;
     if (++updateCount == 1) {
-        Logger::Info("[TUI-UPDATE] Received: cpu=" + data_.cpuName +
+        Logger::Info("[TUI-UPDATE] this=" + std::to_string(reinterpret_cast<uintptr_t>(this)) +
+            " cpu=" + data_.cpuName +
             " usage=" + std::to_string(data_.cpuUsage) +
             " mem=" + std::to_string(data_.totalMemory));
     }
@@ -406,7 +407,8 @@ void TuiApp::Run() {
         static int renderCount = 0;
         ++renderCount;
         if (renderCount == 5) {
-            Logger::Info("[TUI-RENDER] Frame 5: cpu=" + data.cpuName +
+            Logger::Info("[TUI-RENDER] this=" + std::to_string(reinterpret_cast<uintptr_t>(this)) +
+                " cpu=" + data.cpuName +
                 " usage=" + std::to_string(data.cpuUsage) +
                 " mem=" + std::to_string(data.totalMemory));
         }
