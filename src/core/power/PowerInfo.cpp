@@ -174,8 +174,8 @@ void PowerInfo::Detect() {
                 CFDictionaryRef psDict = (CFDictionaryRef)dict;
 
                 // AC Power
-                CFBooleanRef acVal = (CFBooleanRef)CFDictionaryGetValue(psDict, CFSTR(kIOPSExternalConnectedKey));
-                if (acVal && CFBooleanGetValue(acVal)) {
+                CFStringRef state = (CFStringRef)CFDictionaryGetValue(psDict, CFSTR(kIOPSPowerSourceStateKey));
+                if (state && CFStringCompare(state, CFSTR(kIOPSACPowerValue), 0) == kCFCompareEqualTo) {
                     acOnline = true;
                 }
 
@@ -221,13 +221,7 @@ void PowerInfo::Detect() {
                     bat.voltage = static_cast<uint32_t>(val);
                 }
 
-                // Cycle count
-                CFNumberRef cycleVal = (CFNumberRef)CFDictionaryGetValue(psDict, CFSTR(kIOPSCycleCountKey));
-                if (cycleVal && CFGetTypeID(cycleVal) == CFNumberGetTypeID()) {
-                    int val = 0;
-                    CFNumberGetValue(cycleVal, kCFNumberIntType, &val);
-                    bat.cycleCount = static_cast<uint32_t>(val);
-                }
+                // Cycle count — not available via IOPS; would need AppleSmartBattery IOKit
 
                 // Charge percent
                 if (bat.fullChargeCapacity > 0 && bat.currentCapacity <= bat.fullChargeCapacity) {
