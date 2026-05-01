@@ -782,7 +782,11 @@ int main(int argc, char* argv[]) {
             Logger::Initialize("system_monitor.log");
             Logger::SetLogLevel(LOG_INFO);
             Logger::Info("Program started");
+#ifdef TCMT_BUILD_TIMESTAMP
             Logger::Info("[DIAG] Logger OK; version=" + std::string(TCMT_VERSION) + " built=" + std::string(TCMT_BUILD_TIMESTAMP));
+#else
+            Logger::Info("[DIAG] Logger OK; version=" + std::string(TCMT_VERSION) + " built=" __DATE__ " " __TIME__);
+#endif
         }
         catch (const std::exception& e) {
             printf("Logging system initialization failed: %s\n", e.what());
