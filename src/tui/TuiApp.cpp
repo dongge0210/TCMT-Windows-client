@@ -43,8 +43,14 @@ bool TuiApp::IsRunning() const {
 }
 
 void TuiApp::UpdateData(const TuiData& data) {
+    static int updateCount = 0;
     std::lock_guard<std::mutex> lock(dataMutex_);
     data_ = data;
+    if (++updateCount == 1) {
+        Logger::Info("[TUI-UPDATE] Received: cpu=" + data_.cpuName +
+            " usage=" + std::to_string(data_.cpuUsage) +
+            " mem=" + std::to_string(data_.totalMemory));
+    }
 }
 
 LogBuffer& TuiApp::GetLogBuffer() {
