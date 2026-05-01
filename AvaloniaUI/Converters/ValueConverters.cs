@@ -27,13 +27,17 @@ public class NullToDefaultConverter : IValueConverter
 
 public class BoolToColorConverter : IValueConverter
 {
+    private static readonly SolidColorBrush GreenBrush = new SolidColorBrush(Color.Parse("#FF4CAF50"));
+    private static readonly SolidColorBrush RedBrush = new SolidColorBrush(Color.Parse("#FFF44336"));
+    private static readonly SolidColorBrush GrayBrush = new SolidColorBrush(Colors.Gray);
+
     public object? Convert(object? value, Type targetType, object? parameter, CultureInfo culture)
     {
         if (value is bool isConnected)
         {
-            return isConnected ? new SolidColorBrush(Color.Parse("#FF4CAF50")) : new SolidColorBrush(Color.Parse("#FFF44336"));
+            return isConnected ? GreenBrush : RedBrush;
         }
-        return new SolidColorBrush(Colors.Gray);
+        return GrayBrush;
     }
 
     public object? ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture)
@@ -47,6 +51,11 @@ public class BoolToColorConverter : IValueConverter
 /// </summary>
 public class PercentToWarningColorConverter : IValueConverter
 {
+    private static readonly SolidColorBrush GreenBrush = new SolidColorBrush(Color.Parse("#FF4CAF50"));
+    private static readonly SolidColorBrush OrangeBrush = new SolidColorBrush(Color.Parse("#FFFF9800"));
+    private static readonly SolidColorBrush RedBrush = new SolidColorBrush(Color.Parse("#FFF44336"));
+    private static readonly SolidColorBrush GrayBrush = new SolidColorBrush(Colors.Gray);
+
     public double WarningThreshold { get; set; } = 80;
     public double CriticalThreshold { get; set; } = 95;
 
@@ -55,12 +64,12 @@ public class PercentToWarningColorConverter : IValueConverter
         if (value is double percent)
         {
             if (percent >= CriticalThreshold)
-                return new SolidColorBrush(Color.Parse("#FFF44336")); // Red
+                return RedBrush;
             if (percent >= WarningThreshold)
-                return new SolidColorBrush(Color.Parse("#FFFF9800")); // Orange
-            return new SolidColorBrush(Color.Parse("#FF4CAF50")); // Green
+                return OrangeBrush;
+            return GreenBrush;
         }
-        return new SolidColorBrush(Colors.Gray);
+        return GrayBrush;
     }
 
     public object? ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture)
@@ -74,6 +83,11 @@ public class PercentToWarningColorConverter : IValueConverter
 /// </summary>
 public class TemperatureToWarningColorConverter : IValueConverter
 {
+    private static readonly SolidColorBrush GreenBrush = new SolidColorBrush(Color.Parse("#FF4CAF50"));
+    private static readonly SolidColorBrush OrangeBrush = new SolidColorBrush(Color.Parse("#FFFF9800"));
+    private static readonly SolidColorBrush RedBrush = new SolidColorBrush(Color.Parse("#FFF44336"));
+    private static readonly SolidColorBrush GrayBrush = new SolidColorBrush(Colors.Gray);
+
     public double WarningThreshold { get; set; } = 70;
     public double CriticalThreshold { get; set; } = 85;
 
@@ -82,12 +96,12 @@ public class TemperatureToWarningColorConverter : IValueConverter
         if (value is double temp)
         {
             if (temp >= CriticalThreshold)
-                return new SolidColorBrush(Color.Parse("#FFF44336")); // Red
+                return RedBrush;
             if (temp >= WarningThreshold)
-                return new SolidColorBrush(Color.Parse("#FFFF9800")); // Orange
-            return new SolidColorBrush(Color.Parse("#FF4CAF50")); // Green
+                return OrangeBrush;
+            return GreenBrush;
         }
-        return new SolidColorBrush(Colors.Gray);
+        return GrayBrush;
     }
 
     public object? ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture)
