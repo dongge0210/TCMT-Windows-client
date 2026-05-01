@@ -48,9 +48,6 @@
     <ClInclude Include="src\core\DataStruct\DataStruct.h">
       <Filter>头文件</Filter>
     </ClInclude>
-    <ClInclude Include="src\core\DataStruct\SharedMemoryManager.h">
-      <Filter>头文件</Filter>
-    </ClInclude>
     <ClInclude Include="src\core\Utils\stdafx.h">
       <Filter>头文件</Filter>
     </ClInclude>
@@ -58,6 +55,15 @@
       <Filter>头文件</Filter>
     </ClInclude>
     <ClInclude Include="src\core\Utils\LibreHardwareMonitorBridge.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="src\core\IPC\SharedMemoryManager.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="src\tui\LogBuffer.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="src\tui\TuiApp.h">
       <Filter>头文件</Filter>
     </ClInclude>
   </ItemGroup>
@@ -92,9 +98,6 @@
     <ClCompile Include="src\core\disk\DiskInfo.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
-    <ClCompile Include="src\core\DataStruct\SharedMemoryManager.cpp">
-      <Filter>源文件</Filter>
-    </ClCompile>
     <ClCompile Include="src\core\Utils\ComInitializationHelper.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
@@ -105,6 +108,24 @@
       <Filter>源文件</Filter>
     </ClCompile>
     <ClCompile Include="src\main.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="src\core\IPC\IpcCommandHandler.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="src\core\IPC\NamedPipeServer.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="src\core\Platform\Platform_Windows.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="src\core\IPC\SharedMemoryManager.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="src\core\Utils\TpmBridge.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="src\tui\TuiApp.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
   </ItemGroup>

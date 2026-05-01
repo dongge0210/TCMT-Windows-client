@@ -97,3 +97,4 @@ system_monitor.json
 TODO.md
 .remember/
 .remember/tmp/save-session.pid
+/.claude/settings.local.json
