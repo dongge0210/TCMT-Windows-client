@@ -782,6 +782,7 @@ int main(int argc, char* argv[]) {
             Logger::Initialize("system_monitor.log");
             Logger::SetLogLevel(LOG_INFO);
             Logger::Info("Program started");
+            Logger::Info("[DIAG] Logger OK; version=" + std::string(TCMT_VERSION) + " built=" + std::string(TCMT_BUILD_TIMESTAMP));
         }
         catch (const std::exception& e) {
             printf("Logging system initialization failed: %s\n", e.what());
@@ -886,10 +887,10 @@ int main(int argc, char* argv[]) {
                 }
             }
             g_comInitialized = true;
-            Logger::Debug("COM initialized successfully");
+            Logger::Info("[DIAG] COM init OK");
         }
         catch (const std::exception& e) {
-            Logger::Error("Exception during COM initialization: " + std::string(e.what()));
+            Logger::Fatal("[DIAG] COM init exception: " + std::string(e.what()));
             return -1;
         }
 
@@ -907,9 +908,10 @@ int main(int argc, char* argv[]) {
                 }
             }
             Logger::Info("Shared memory initialized successfully");
+            Logger::Info("[DIAG] SHM init OK, sizeof(SharedMemoryBlock)=" + std::to_string(sizeof(SharedMemoryBlock)));
         }
         catch (const std::exception& e) {
-            Logger::Error("Exception during shared memory initialization: " + std::string(e.what()));
+            Logger::Fatal("[DIAG] SHM init exception: " + std::string(e.what()));
             SafeExit(1);
         }
 
@@ -926,18 +928,18 @@ int main(int argc, char* argv[]) {
                 MessageBoxA(NULL, "WMI initialization failed, cannot retrieve system information.", "Error", MB_OK | MB_ICONERROR);
                 SafeExit(1);
             }
-            Logger::Debug("WMI manager initialized successfully");
+            Logger::Info("[DIAG] WMI init OK");
         }
         catch (const std::bad_alloc& e) {
-            Logger::Fatal("WMI manager creation failed - memory allocation failed: " + std::string(e.what()));
+            Logger::Fatal("[DIAG] WMI bad_alloc: " + std::string(e.what()));
             SafeExit(1);
         }
         catch (const std::exception& e) {
-            Logger::Error("WMI manager creation failed: " + std::string(e.what()));
+            Logger::Fatal("[DIAG] WMI exception: " + std::string(e.what()));
             SafeExit(1);
         }
         catch (...) {
-            Logger::Fatal("WMI manager creation failed - unknown exception");
+            Logger::Fatal("[DIAG] WMI unknown exception");
             SafeExit(1);
         }
 
@@ -952,6 +954,7 @@ int main(int argc, char* argv[]) {
         }
 
         Logger::Info("Program startup complete");
+        Logger::Info("[DIAG] Entering main monitoring loop...");
 
         // Start NamedPipe server for IPC schema broadcast
         tcmt::ipc::NamedPipeServer pipeServer;
@@ -1126,6 +1129,9 @@ int main(int argc, char* argv[]) {
                 if (isDetailedLogging) {
                     Logger::Debug("Starting main monitoring loop iteration #" + std::to_string(loopCounter));
                 }
+                if (loopCounter == 1) {
+                    Logger::Info("[DIAG] First loop iteration started");
+                }
                 
                 if (loopCounter == 5) {
                     g_monitoringStarted = true;
@@ -1162,7 +1168,7 @@ int main(int argc, char* argv[]) {
 
                 if (!systemInfoCached.load()) {
                     try {
-                        Logger::Info("Initializing system information");
+                        Logger::Info("[DIAG] Initializing system information...");
                         
                         OSInfo os;
                         cachedOsVersion = os.GetVersion();
@@ -1178,10 +1184,12 @@ int main(int argc, char* argv[]) {
                         }
                         
                         systemInfoCached = true;
-                        Logger::Info("System information initialized");
+                        Logger::Info("[DIAG] System info: cpu=" + cachedCpuName +
+                            " cores=" + std::to_string(cachedPhysicalCores) +
+                            " mem_total=" + std::to_string(sysInfo.totalMemory));
                     }
                     catch (const std::exception& e) {
-                        Logger::Error("System info initialization failed: " + std::string(e.what()));
+                        Logger::Error("[DIAG] System info init failed: " + std::string(e.what()));
                         cachedOsVersion = "Unknown";
                         cachedCpuName = "Unknown";
                         systemInfoCached = true;
@@ -1580,6 +1588,10 @@ int main(int argc, char* argv[]) {
                 try {
                     if (SharedMemoryManager::GetBuffer()) {
                         SharedMemoryManager::WriteToSharedMemory(sysInfo);
+                        if (isFirstRun) {
+                            Logger::Info("[DIAG] First SHM write OK: cpu=" + sysInfo.cpuName +
+                                " usage=" + std::to_string(sysInfo.cpuUsage) + "%");
+                        }
                         if (isDetailedLogging) {
                             Logger::Debug("Successfully updated shared memory");
                         }
