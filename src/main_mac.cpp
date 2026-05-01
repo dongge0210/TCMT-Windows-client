@@ -33,6 +33,7 @@
 
 // CPP-parsers + nlohmann/json — config management
 #include "core/Config/ConfigManager.h"
+#include <nlohmann/json.hpp>
 
 // ======================== Signal Handling ========================
 static std::atomic<bool> g_shouldExit{false};
@@ -61,7 +62,6 @@ static std::string FormatSize(uint64_t bytes) {
 
 // ======================== Main ========================
 int main(int argc, char* argv[]) {
-    (void)argc; (void)argv;
 
     // Setup signal handlers
     std::signal(SIGINT, SignalHandler);
@@ -96,6 +96,97 @@ int main(int argc, char* argv[]) {
         } else {
             Logger::Warn("No config file found, using defaults");
         }
+    }
+
+    // ======================== --json Mode ========================
+    bool jsonMode = false;
+    for (int i = 1; i < argc; ++i) {
+        if (std::string(argv[i]) == "--json") {
+            jsonMode = true;
+            break;
+        }
+    }
+
+    if (jsonMode) {
+        // One-shot JSON output for scripting
+        TemperatureWrapper::Initialize();
+
+        nlohmann::json j;
+
+        // OS
+        try {
+            OSInfo os;
+            j["os"]["version"] = os.GetVersion();
+        } catch (...) {}
+
+        // CPU
+        try {
+            auto cpu = std::make_unique<CpuInfo>();
+            j["cpu"]["name"] = cpu->GetName();
+            j["cpu"]["cores"]["physical"] = cpu->GetLargeCores() + cpu->GetSmallCores();
+            j["cpu"]["cores"]["logical"] = cpu->GetTotalCores();
+            j["cpu"]["usage"] = cpu->GetUsage();
+        } catch (...) {}
+
+        // Memory
+        try {
+            MemoryInfo mem;
+            j["memory"]["total"] = mem.GetTotalPhysical();
+            j["memory"]["available"] = mem.GetAvailablePhysical();
+            j["memory"]["used"] = mem.GetTotalPhysical() - mem.GetAvailablePhysical();
+        } catch (...) {}
+
+        // GPU
+        try {
+            auto gpu = std::make_unique<GpuInfo>();
+            const auto& gpus = gpu->GetGpuData();
+            if (!gpus.empty()) {
+                j["gpu"]["name"] = std::string(gpus[0].name.begin(), gpus[0].name.end());
+                j["gpu"]["dedicatedMemory"] = gpus[0].dedicatedMemory;
+                j["gpu"]["usage"] = gpus[0].usage;
+            }
+        } catch (...) {}
+
+        // Network
+        try {
+            NetworkAdapter net;
+            const auto& adapters = net.GetAdapters();
+            for (const auto& a : adapters) {
+                nlohmann::json na;
+                na["name"] = a.name;
+                na["ip"] = a.ip;
+                na["mac"] = a.mac;
+                na["type"] = a.adapterType;
+                na["speed"] = a.speed;
+                j["network"]["adapters"].push_back(na);
+            }
+        } catch (...) {}
+
+        // Disks
+        try {
+            DiskInfo disk;
+            auto volumes = disk.GetDisks();
+            for (const auto& v : volumes) {
+                nlohmann::json dj;
+                dj["label"] = v.label;
+                dj["fileSystem"] = v.fileSystem;
+                dj["total"] = v.totalSize;
+                dj["used"] = v.usedSpace;
+                j["disks"].push_back(dj);
+            }
+        } catch (...) {}
+
+        // Temperatures
+        try {
+            auto temps = TemperatureWrapper::GetTemperatures();
+            for (const auto& t : temps) {
+                j["temperatures"][t.first] = t.second;
+            }
+        } catch (...) {}
+
+        std::cout << j.dump(2) << std::endl;
+        TemperatureWrapper::Cleanup();
+        return 0;
     }
 
     // Initialize temperature wrapper (macOS: limited support)
