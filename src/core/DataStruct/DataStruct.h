@@ -6,6 +6,7 @@
 // Platform abstraction
 #include "../Platform/Platform.h"
 
+#pragma pack(push, 1)
 // IPC Command struct — mailbox for frontend-to-backend commands
 struct IpcCommand {
     uint32_t magic;         // must be 0x54434D54 for valid command
@@ -19,6 +20,7 @@ struct IpcCommand {
     uint32_t status;        // 0=pending, 1=done, 2=error
     uint32_t result;        // result code
 };
+#pragma pack(pop)
 
 // Cross-platform fixed-width wide character (always 2 bytes, UTF-16)
 // On Windows: wchar_t is already 2 bytes (UTF-16)
