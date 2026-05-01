@@ -1,5 +1,6 @@
 #include <curses.h>
 #include "TuiApp.h"
+#include "../core/Utils/Logger.h"
 #include <locale>
 #include <ctime>
 #include <cstring>
@@ -395,6 +396,12 @@ void TuiApp::Run() {
         {
             std::lock_guard<std::mutex> lock(dataMutex_);
             data = data_;
+        }
+        static int renderCount = 0;
+        if (++renderCount == 1) {
+            Logger::Info("[TUI-RENDER] First frame: cpu=" + data.cpuName +
+                " usage=" + std::to_string(data.cpuUsage) +
+                " mem=" + std::to_string(data.totalMemory));
         }
 
         erase();
