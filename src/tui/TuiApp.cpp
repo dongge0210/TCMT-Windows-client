@@ -404,8 +404,9 @@ void TuiApp::Run() {
             data = data_;
         }
         static int renderCount = 0;
-        if (++renderCount == 1) {
-            Logger::Info("[TUI-RENDER] First frame: cpu=" + data.cpuName +
+        ++renderCount;
+        if (renderCount == 5) {
+            Logger::Info("[TUI-RENDER] Frame 5: cpu=" + data.cpuName +
                 " usage=" + std::to_string(data.cpuUsage) +
                 " mem=" + std::to_string(data.totalMemory));
         }
