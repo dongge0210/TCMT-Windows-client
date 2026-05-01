@@ -108,7 +108,7 @@ bool SharedMemoryManager::InitSharedMemory() {
         PAGE_READWRITE,
         0,
         sizeof(SharedMemoryBlock),
-        L"Global\\SystemMonitorSharedMemory"
+        L"Global\\SystemMonitorSharedMemoryV2"
     );
     if (hMapFile == NULL) {
         DWORD errorCode = ::GetLastError();

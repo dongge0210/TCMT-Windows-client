@@ -69,9 +69,9 @@ public class IPCMemoryReader : IDisposable
     {
         string[] names =
         {
-            "Global\\SystemMonitorSharedMemory",
-            "Local\\SystemMonitorSharedMemory",
-            "SystemMonitorSharedMemory"
+            "Global\\SystemMonitorSharedMemoryV2",
+            "Local\\SystemMonitorSharedMemoryV2",
+            "SystemMonitorSharedMemoryV2"
         };
 
         foreach (string name in names)

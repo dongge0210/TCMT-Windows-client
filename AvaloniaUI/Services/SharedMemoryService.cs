@@ -21,9 +21,9 @@ public class SharedMemoryService : IDisposable
     private readonly object _lock = new();
     private bool _disposed = false;
 
-    private const string SHARED_MEMORY_NAME = "SystemMonitorSharedMemory";
-    private const string GLOBAL_SHARED_MEMORY_NAME = "Global\\SystemMonitorSharedMemory";
-    private const string LOCAL_SHARED_MEMORY_NAME = "Local\\SystemMonitorSharedMemory";
+    private const string SHARED_MEMORY_NAME = "SystemMonitorSharedMemoryV2";
+    private const string GLOBAL_SHARED_MEMORY_NAME = "Global\\SystemMonitorSharedMemoryV2";
+    private const string LOCAL_SHARED_MEMORY_NAME = "Local\\SystemMonitorSharedMemoryV2";
 
     // C++ sizeof(SharedMemoryBlock) on macOS (WCHAR=char16_t, pack=1)
     private const int MAC_SHM_SIZE = 129131;
