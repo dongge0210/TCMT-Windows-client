@@ -19,6 +19,7 @@ set(UTILS_SOURCES
 
 # Core modules
 set(CORE_MODULES_SOURCES
+    ${CMAKE_CURRENT_SOURCE_DIR}/core/board/BoardInfo.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/core/cpu/CpuInfo.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/core/gpu/GpuInfo.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/core/memory/MemoryInfo.cpp
@@ -114,6 +115,7 @@ set_target_properties(TCMTCore PROPERTIES
 target_include_directories(TCMTCore PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}
     ${CMAKE_CURRENT_SOURCE_DIR}/core
+    ${CMAKE_CURRENT_SOURCE_DIR}/core/board
 
     # CPP-parsers unified config interface
     ${CMAKE_CURRENT_SOURCE_DIR}/CPP-parsers/include
