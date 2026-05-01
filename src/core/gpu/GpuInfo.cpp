@@ -118,11 +118,10 @@ void GpuInfo::QueryNvidiaGpuInfo(int index) {
 
     nvmlMemory_t memory;
     result = nvmlDeviceGetMemoryInfo(device, &memory);
-    if (NVML_SUCCESS == result) gpuList[index].dedicatedMemory = memory.total;
-
-    unsigned int clockMHz = 0;
-    result = nvmlDeviceGetClockInfo(device, NVML_CLOCK_GRAPHICS, &clockMHz);
-    if (NVML_SUCCESS == result) gpuList[index].coreClock = static_cast<double>(clockMHz);
+    if (NVML_SUCCESS == result) {
+        gpuList[index].dedicatedMemory = memory.total;
+        gpuList[index].coreClock = (double)memory.used / (double)memory.total * 100.0; // VRAM % used
+    }
 
     #pragma warning(disable: 4996)
     unsigned int temp = 0;

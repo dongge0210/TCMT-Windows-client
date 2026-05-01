@@ -140,6 +140,8 @@
                         </Grid>
                         <ProgressBar Value="{Binding SelectedGpu.Usage, TargetNullValue=0}" Maximum="100" Height="6" Margin="0,8,0,0" Foreground="#FF4CAF50"/>
                         <TextBlock Text="{Binding SelectedGpu.Usage, TargetNullValue=0, StringFormat='GPU使用率: {0:F1}%'}" Foreground="#FFB3B3B3" FontSize="11"/>
+                        <ProgressBar Value="{Binding SelectedGpu.CoreClock, TargetNullValue=0}" Maximum="100" Height="6" Margin="0,4,0,0" Foreground="#FFFF9800"/>
+                        <TextBlock Text="{Binding SelectedGpu.CoreClock, TargetNullValue=0, StringFormat='显存占用: {0:F1}%'}" Foreground="#FFB3B3B3" FontSize="11"/>
                     </StackPanel>
                 </Border>
 
