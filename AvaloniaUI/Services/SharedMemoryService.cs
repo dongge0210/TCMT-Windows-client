@@ -94,6 +94,9 @@ public class SharedMemoryService : IDisposable
         public SYSTEMTIME lastUpdate;
         [MarshalAs(UnmanagedType.ByValArray, SizeConst = 64)]
         public byte[] lockData;
+        // IPC command mailbox (added in feat/backend-modules)
+        [MarshalAs(UnmanagedType.ByValArray, SizeConst = 104)]
+        public byte[] ipcCommand;
     }
 
     [StructLayout(LayoutKind.Sequential, Pack = 1)]
