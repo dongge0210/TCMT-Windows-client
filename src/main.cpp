@@ -1636,6 +1636,8 @@ int main(int argc, char* argv[]) {
                 
                 // Update TUI with current data
                 try {
+                    Logger::Fatal("[TUI-CALL] Entering TUI update section, loop=" +
+                        std::to_string(loopCounter));
                     tcmt::TuiData tuiData;
                     tuiData.cpuName = sysInfo.cpuName;
                     tuiData.cpuUsage = sysInfo.cpuUsage;
@@ -1697,7 +1699,10 @@ int main(int argc, char* argv[]) {
                             (unsigned long long)tuiData.totalMemory, tuiData.physicalCores);
                         fflush(stdout);
                     }
+                    Logger::Fatal("[TUI-CALL] About to call UpdateData, loop=" +
+                        std::to_string(loopCounter));
                     tuiApp.UpdateData(tuiData);
+                    Logger::Fatal("[TUI-CALL] UpdateData returned OK");
                 }
                 catch (const std::exception& e) {
                     Logger::Fatal("[DIAG] TUI update exception: " + std::string(e.what()));
