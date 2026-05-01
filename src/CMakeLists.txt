@@ -27,6 +27,7 @@ set(CORE_MODULES_SOURCES
     ${CMAKE_CURRENT_SOURCE_DIR}/core/network/NetworkAdapter.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/core/os/OSInfo.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/core/power/PowerInfo.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/core/usb/UsbInfo.cpp
 )
 
 # DataStruct / SharedMemory
@@ -118,6 +119,7 @@ target_include_directories(TCMTCore PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}/core
     ${CMAKE_CURRENT_SOURCE_DIR}/core/board
     ${CMAKE_CURRENT_SOURCE_DIR}/core/power
+    ${CMAKE_CURRENT_SOURCE_DIR}/core/usb
 
     # CPP-parsers unified config interface
     ${CMAKE_CURRENT_SOURCE_DIR}/CPP-parsers/include
