@@ -1692,9 +1692,10 @@ int main(int argc, char* argv[]) {
                     tuiData.timestamp = FormatDateTime(std::chrono::system_clock::now());
                     
                     if (isFirstRun) {
-                        Logger::Info("[DIAG] TUI update: cpu=" + tuiData.cpuName +
-                            " usage=" + std::to_string(tuiData.cpuUsage) +
-                            " mem=" + std::to_string(tuiData.totalMemory));
+                        printf("[RAW] cpu=%s usage=%.1f mem=%llu cores=%u\n",
+                            tuiData.cpuName.c_str(), tuiData.cpuUsage,
+                            (unsigned long long)tuiData.totalMemory, tuiData.physicalCores);
+                        fflush(stdout);
                     }
                     tuiApp.UpdateData(tuiData);
                 }
