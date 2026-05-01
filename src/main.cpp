@@ -47,6 +47,7 @@ Please ignore this warning - the project structure doesn't support this scenario
 #include "core/DataStruct/SharedMemoryManager.h"
 #include "core/temperature/TemperatureWrapper.h"
 #include "tui/TuiApp.h"
+#include <nlohmann/json.hpp>
 
 #pragma comment(lib, "kernel32.lib")
 #pragma comment(lib, "user32.lib")
@@ -600,6 +601,111 @@ int main(int argc, char* argv[]) {
         catch (const std::exception& e) {
             printf("Logging system initialization failed: %s\n", e.what());
             return 1;
+        }
+
+        // ======================== --json Mode ========================
+        bool jsonMode = false;
+        for (int i = 1; i < argc; ++i) {
+            if (std::string(argv[i]) == "--json") {
+                jsonMode = true;
+                break;
+            }
+        }
+
+        if (jsonMode) {
+            // One-shot JSON output for scripting
+            HRESULT hr = CoInitializeEx(nullptr, COINIT_MULTITHREADED);
+            if (FAILED(hr)) {
+                Logger::Error("COM init failed for --json mode");
+                return 1;
+            }
+
+            auto wmiManager = std::make_unique<WmiManager>();
+            if (!wmiManager || !wmiManager->IsInitialized()) {
+                Logger::Error("WMI init failed for --json mode");
+                CoUninitialize();
+                return 1;
+            }
+
+            TemperatureWrapper::Initialize();
+
+            nlohmann::json j;
+
+            // OS
+            try {
+                OSInfo os;
+                j["os"]["version"] = os.GetVersion();
+            } catch (...) {}
+
+            // CPU
+            try {
+                auto cpu = std::make_unique<CpuInfo>();
+                j["cpu"]["name"] = cpu->GetName();
+                j["cpu"]["cores"]["physical"] = cpu->GetLargeCores() + cpu->GetSmallCores();
+                j["cpu"]["cores"]["logical"] = cpu->GetTotalCores();
+                j["cpu"]["usage"] = cpu->GetUsage();
+            } catch (...) {}
+
+            // Memory
+            try {
+                MemoryInfo mem;
+                j["memory"]["total"] = mem.GetTotalPhysical();
+                j["memory"]["available"] = mem.GetAvailablePhysical();
+                j["memory"]["used"] = mem.GetTotalPhysical() - mem.GetAvailablePhysical();
+            } catch (...) {}
+
+            // GPU
+            try {
+                GpuInfo gpuInfo(*wmiManager);
+                const auto& gpus = gpuInfo.GetGpuData();
+                if (!gpus.empty()) {
+                    j["gpu"]["name"] = WinUtils::WstringToString(gpus[0].name);
+                    j["gpu"]["dedicatedMemory"] = gpus[0].dedicatedMemory;
+                    j["gpu"]["usage"] = gpus[0].usage;
+                }
+            } catch (...) {}
+
+            // Network
+            try {
+                NetworkAdapter netAdapter(*wmiManager);
+                const auto& adapters = netAdapter.GetAdapters();
+                for (const auto& a : adapters) {
+                    nlohmann::json na;
+                    na["name"] = a.name;
+                    na["ip"] = a.ip;
+                    na["mac"] = a.mac;
+                    na["type"] = a.adapterType;
+                    na["speed"] = a.speed;
+                    j["network"]["adapters"].push_back(na);
+                }
+            } catch (...) {}
+
+            // Disks
+            try {
+                DiskInfo disk;
+                auto volumes = disk.GetDisks();
+                for (const auto& v : volumes) {
+                    nlohmann::json dj;
+                    dj["label"] = v.label;
+                    dj["fileSystem"] = v.fileSystem;
+                    dj["total"] = v.totalSize;
+                    dj["used"] = v.usedSpace;
+                    j["disks"].push_back(dj);
+                }
+            } catch (...) {}
+
+            // Temperatures
+            try {
+                auto temps = TemperatureWrapper::GetTemperatures();
+                for (const auto& t : temps) {
+                    j["temperatures"][t.first] = t.second;
+                }
+            } catch (...) {}
+
+            std::cout << j.dump(2) << std::endl;
+            TemperatureWrapper::Cleanup();
+            CoUninitialize();
+            return 0;
         }
 
         if (!IsRunAsAdmin()) {
