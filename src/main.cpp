@@ -1593,7 +1593,9 @@ int main(int argc, char* argv[]) {
                     if (SharedMemoryManager::GetBuffer()) {
                         SharedMemoryManager::WriteToSharedMemory(sysInfo);
                         if (isFirstRun) {
-                            Logger::Info("[DIAG] First SHM write OK: cpu=" + sysInfo.cpuName +
+                            auto* buf = SharedMemoryManager::GetBuffer();
+                            Logger::Info("[DIAG] First SHM write: sysInfo.cpu=" + sysInfo.cpuName +
+                                " buf->cpuName[0]=" + std::to_string((int)static_cast<unsigned char>(static_cast<char>(buf->cpuName[0]))) +
                                 " usage=" + std::to_string(sysInfo.cpuUsage) + "%");
                         }
                         if (isDetailedLogging) {
@@ -1689,10 +1691,15 @@ int main(int argc, char* argv[]) {
                     }
                     tuiData.timestamp = FormatDateTime(std::chrono::system_clock::now());
                     
+                    if (isFirstRun) {
+                        Logger::Info("[DIAG] TUI update: cpu=" + tuiData.cpuName +
+                            " usage=" + std::to_string(tuiData.cpuUsage) +
+                            " mem=" + std::to_string(tuiData.totalMemory));
+                    }
                     tuiApp.UpdateData(tuiData);
                 }
                 catch (const std::exception& e) {
-                    Logger::Warn("TUI data update failed: " + std::string(e.what()));
+                    Logger::Fatal("[DIAG] TUI update exception: " + std::string(e.what()));
                 }
 
                 // Calculate loop execution time and adaptive sleep - optimize refresh speed, enhanced exception handling
