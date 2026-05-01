@@ -1616,10 +1616,6 @@ int main(int argc, char* argv[]) {
                     // Broadcast IPC schema (re-register each loop for new clients)
                     pipeServer.UpdateSchema(ipcHdr, ipcFields);
 
-                    // Process frontend IPC commands from shared memory mailbox
-                    IpcCommandHandler::Instance().ProcessCommands(
-                        SharedMemoryManager::GetBuffer());
-
                     if (isDetailedLogging) {
                         Logger::Debug("System info updated to shared memory");
                     }
@@ -1692,7 +1688,15 @@ int main(int argc, char* argv[]) {
                         tuiData.tpmInfo = "No TPM";
                     }
                     tuiData.timestamp = FormatDateTime(std::chrono::system_clock::now());
-                    
+
+                    // Process frontend IPC commands (after TUI, isolated from SHM write)
+                    try {
+                        IpcCommandHandler::Instance().ProcessCommands(
+                            SharedMemoryManager::GetBuffer());
+                    } catch (...) {
+                        // Ignore IPC command errors — not critical for display
+                    }
+
                     if (isFirstRun) {
                         printf("[RAW] cpu=%s usage=%.1f mem=%llu cores=%u\n",
                             tuiData.cpuName.c_str(), tuiData.cpuUsage,
