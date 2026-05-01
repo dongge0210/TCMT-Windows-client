@@ -245,6 +245,7 @@ void DiskInfo::CollectSmartData(SystemInfo& sysInfo) {
 #include <mach/mach.h>
 #include <IOKit/IOKitLib.h>
 #include <CoreFoundation/CoreFoundation.h>
+#include <nlohmann/json.hpp>
 
 #include <dirent.h>
 #include <algorithm>
@@ -366,16 +367,52 @@ std::vector<DiskData> DiskInfo::GetDisks() {
 }
 
 // Collect SMART data - available on all platforms
-// On macOS: uses LibreHardwareMonitor
-// On Windows: uses WMI + SMART
 void DiskInfo::CollectSmartData(SystemInfo& sysInfo) {
-#ifdef TCMT_WINDOWS
-    // Windows implementation would go here - currently uses LibreHardwareMonitor via TemperatureWrapper
-    Logger::Debug("DiskInfo::CollectSmartData - using LibreHardwareMonitor");
-#else
-    // macOS: SMART not available
-    Logger::Debug("DiskInfo: SMART data collection skipped");
-#endif
+    FILE* fp = popen("system_profiler SPNVMeDataType -json 2>/dev/null", "r");
+    if (!fp) { fp = popen("system_profiler SPSerialATADataType -json 2>/dev/null", "r"); if (!fp) return; }
+
+    std::string json;
+    char buf[4096];
+    while (fgets(buf, sizeof(buf), fp)) json += buf;
+    int rc = pclose(fp);
+    if (rc != 0 || json.empty()) return;
+
+    auto j = nlohmann::json::parse(json, nullptr, false);
+    if (j.is_discarded()) return;
+
+    const nlohmann::json* arr = nullptr;
+    if (j.contains("SPNVMeDataType")) arr = &j["SPNVMeDataType"];
+    else if (j.contains("SPSerialATADataType")) arr = &j["SPSerialATADataType"];
+    if (!arr || !arr->is_array()) return;
+
+    auto copyToWchar = [](WCHAR* dst, size_t dstLen, const std::string& src) {
+        size_t n = std::min(dstLen - 1, src.size());
+        for (size_t i = 0; i < n; ++i) dst[i] = static_cast<WCHAR>(src[i]);
+        dst[n] = 0;
+    };
+
+    for (const auto& group : *arr) {
+        const nlohmann::json& items = group.contains("_items") ? group["_items"] : group;
+        if (!items.is_array()) continue;
+        for (const auto& item : items) {
+            PhysicalDiskSmartData pd = {};
+            copyToWchar(pd.model, sizeof(pd.model)/sizeof(WCHAR), item.value("device_model", item.value("_name", "")));
+            copyToWchar(pd.serialNumber, sizeof(pd.serialNumber)/sizeof(WCHAR), item.value("device_serial", ""));
+
+            std::string status = item.value("smart_status", "");
+            pd.smartSupported = !status.empty();
+            pd.smartEnabled = (status == "Verified");
+            pd.healthPercentage = (status == "Verified") ? 100u : 0u;
+
+            if (item.contains("size_in_bytes")) {
+                auto& sv = item["size_in_bytes"];
+                if (sv.is_number()) pd.capacity = sv.get<uint64_t>();
+                else if (sv.is_string()) try { pd.capacity = std::stoull(sv.get<std::string>()); } catch(...) {}
+            }
+            sysInfo.physicalDisks.push_back(pd);
+        }
+    }
+    Logger::Debug("DiskInfo: SMART collected " + std::to_string(sysInfo.physicalDisks.size()) + " disks");
 }
 
 #else
