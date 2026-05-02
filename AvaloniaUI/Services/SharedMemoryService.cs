@@ -26,7 +26,7 @@ public class SharedMemoryService : IDisposable
     private const string LOCAL_SHARED_MEMORY_NAME = "Local\\SystemMonitorSharedMemory";
 
     // C++ sizeof(SharedMemoryBlock) on macOS (WCHAR=char16_t, pack=1)
-    private const int MAC_SHM_SIZE = 129131;
+    private const int MAC_SHM_SIZE = 129195;
 
     // Set to true to enable verbose layout diagnostics in InitializeMacOS
     private const bool DEBUG_DIAG = false;
