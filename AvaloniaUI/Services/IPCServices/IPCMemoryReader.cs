@@ -341,6 +341,28 @@ public class IPCMemoryReader : IDisposable
         return null;
     }
 
+    // --- WString 支持 ---
+
+    public string? ReadWString(string fieldName)
+    {
+        var field = FindField(fieldName); if (field == null) return null;
+        int maxBytes = (int)Math.Min(field.Size, _schema!.Header.TotalSize - field.Offset);
+        if (maxBytes <= 0) return null;
+
+        if (OperatingSystem.IsWindows() && _accessor != null)
+        {
+            var buf = new byte[maxBytes];
+            _accessor.ReadArray((int)field.Offset, buf, 0, maxBytes);
+            int len = 0;
+            while (len + 1 < maxBytes && (buf[len] != 0 || buf[len + 1] != 0)) len += 2;
+            if (len == 0) return string.Empty;
+            return Encoding.Unicode.GetString(buf, 0, len);
+        }
+
+        // macOS: IPCDataBlock uses char[] not WCHAR, fall through to String read
+        return ReadString(fieldName);
+    }
+
     // --- 按 FieldDef 读取 ---
     public object? ReadField(FieldDef field)
     {
@@ -358,6 +380,7 @@ public class IPCMemoryReader : IDisposable
             FieldType.Float64 => ReadFloat64(field.Name),
             FieldType.Bool    => ReadBool(field.Name),
             FieldType.String  => ReadString(field.Name),
+            FieldType.WString => ReadWString(field.Name),
             _ => null
         };
     }
