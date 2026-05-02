@@ -134,6 +134,8 @@ public class SharedMemoryService : IDisposable
         [MarshalAs(UnmanagedType.ByValArray, SizeConst = 64)] public ushort[] ipAddress;
         [MarshalAs(UnmanagedType.ByValArray, SizeConst = 32)] public ushort[] adapterType;
         public ulong speed;
+        public ulong downloadSpeed;
+        public ulong uploadSpeed;
     }
 
     [StructLayout(LayoutKind.Sequential, Pack = 1)]
@@ -528,7 +530,9 @@ public class SharedMemoryService : IDisposable
                         Mac = SafeWideCharArrayToString(a.mac) ?? "",
                         IpAddress = SafeWideCharArrayToString(a.ipAddress) ?? "",
                         AdapterType = SafeWideCharArrayToString(a.adapterType) ?? "",
-                        Speed = a.speed
+                        Speed = a.speed,
+                        DownloadSpeed = a.downloadSpeed,
+                        UploadSpeed = a.uploadSpeed
                     });
                 }
             }
