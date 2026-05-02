@@ -31,9 +31,10 @@
 #include "core/Utils/Logger.h"
 #include "tui/TuiApp.h"
 
-// CPP-parsers + nlohmann/json — config management
+// Config management (wraps CPP-parsers / nlohmann/json internally)
 #include "core/Config/ConfigManager.h"
-#include <nlohmann/json.hpp>
+#include <fstream>
+#include <cstdio>
 
 // ======================== Signal Handling ========================
 static std::atomic<bool> g_shouldExit{false};
@@ -111,29 +112,33 @@ int main(int argc, char* argv[]) {
         // One-shot JSON output for scripting
         TemperatureWrapper::Initialize();
 
-        nlohmann::json j;
+        // Build JSON via ConfigManager, then dump to stdout via temp file
+        const std::string tmpPath = "/tmp/tcmt_export.json";
+        std::remove(tmpPath.c_str());  // ensure clean start
+        ConfigManager cfg(tmpPath);
+        cfg.Load();  // starts with empty json::object
 
         // OS
         try {
             OSInfo os;
-            j["os"]["version"] = os.GetVersion();
+            cfg.SetString("os.version", os.GetVersion());
         } catch (...) {}
 
         // CPU
         try {
             auto cpu = std::make_unique<CpuInfo>();
-            j["cpu"]["name"] = cpu->GetName();
-            j["cpu"]["cores"]["physical"] = cpu->GetLargeCores() + cpu->GetSmallCores();
-            j["cpu"]["cores"]["logical"] = cpu->GetTotalCores();
-            j["cpu"]["usage"] = cpu->GetUsage();
+            cfg.SetString("cpu.name", cpu->GetName());
+            cfg.SetInt("cpu.cores.physical", cpu->GetLargeCores() + cpu->GetSmallCores());
+            cfg.SetInt("cpu.cores.logical", cpu->GetTotalCores());
+            cfg.SetDouble("cpu.usage", cpu->GetUsage());
         } catch (...) {}
 
         // Memory
         try {
             MemoryInfo mem;
-            j["memory"]["total"] = mem.GetTotalPhysical();
-            j["memory"]["available"] = mem.GetAvailablePhysical();
-            j["memory"]["used"] = mem.GetTotalPhysical() - mem.GetAvailablePhysical();
+            cfg.SetUint64("memory.total", mem.GetTotalPhysical());
+            cfg.SetUint64("memory.available", mem.GetAvailablePhysical());
+            cfg.SetUint64("memory.used", mem.GetTotalPhysical() - mem.GetAvailablePhysical());
         } catch (...) {}
 
         // GPU
@@ -141,9 +146,10 @@ int main(int argc, char* argv[]) {
             auto gpu = std::make_unique<GpuInfo>();
             const auto& gpus = gpu->GetGpuData();
             if (!gpus.empty()) {
-                j["gpu"]["name"] = std::string(gpus[0].name.begin(), gpus[0].name.end());
-                j["gpu"]["dedicatedMemory"] = gpus[0].dedicatedMemory;
-                j["gpu"]["usage"] = gpus[0].usage;
+                cfg.SetString("gpu.name",
+                    std::string(gpus[0].name.begin(), gpus[0].name.end()));
+                cfg.SetUint64("gpu.dedicatedMemory", gpus[0].dedicatedMemory);
+                cfg.SetDouble("gpu.usage", gpus[0].usage);
             }
         } catch (...) {}
 
@@ -158,7 +164,7 @@ int main(int argc, char* argv[]) {
                 na["mac"] = a.mac;
                 na["type"] = a.adapterType;
                 na["speed"] = a.speed;
-                j["network"]["adapters"].push_back(na);
+                cfg.AppendToArray("network.adapters", std::move(na));
             }
         } catch (...) {}
 
@@ -172,19 +178,30 @@ int main(int argc, char* argv[]) {
                 dj["fileSystem"] = v.fileSystem;
                 dj["total"] = v.totalSize;
                 dj["used"] = v.usedSpace;
-                j["disks"].push_back(dj);
+                cfg.AppendToArray("disks", std::move(dj));
             }
         } catch (...) {}
 
         // Temperatures
         try {
             auto temps = TemperatureWrapper::GetTemperatures();
+            nlohmann::json tempObj = nlohmann::json::object();
             for (const auto& t : temps) {
-                j["temperatures"][t.first] = t.second;
+                tempObj[t.first] = t.second;
             }
+            cfg.SetJson("temperatures", std::move(tempObj));
         } catch (...) {}
 
-        std::cout << j.dump(2) << std::endl;
+        // Save to temp file, read back, print to stdout
+        if (cfg.Save()) {
+            std::ifstream in(tmpPath);
+            if (in) {
+                std::cout << in.rdbuf();
+            }
+        }
+        std::cout << std::endl;
+        std::remove(tmpPath.c_str());
+
         TemperatureWrapper::Cleanup();
         return 0;
     }

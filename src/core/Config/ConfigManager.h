@@ -9,6 +9,7 @@
 #pragma once
 
 #include <string>
+#include <cstdint>
 #include <nlohmann/json.hpp>
 
 class ConfigManager {
@@ -41,8 +42,16 @@ public:
 
     void SetString(const std::string& key, const std::string& value);
     void SetInt(const std::string& key, int value);
+    void SetUint64(const std::string& key, uint64_t value);
     void SetDouble(const std::string& key, double value);
     void SetBool(const std::string& key, bool value);
+
+    /// Append an element (object, array, or scalar) to a JSON array at the given dotted key.
+    /// Creates the array as an empty array if it does not exist.
+    void AppendToArray(const std::string& arrayKey, nlohmann::json element);
+
+    /// Set an arbitrary JSON value (object, array, scalar) at the given dotted key.
+    void SetJson(const std::string& key, nlohmann::json value);
 
     /// Returns true if Load() has been called successfully.
     bool IsLoaded() const { return loaded_; }

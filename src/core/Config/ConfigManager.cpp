@@ -178,10 +178,45 @@ void ConfigManager::SetInt(const std::string& key, int value) {
     SetNested(data_, key, value);
 }
 
+void ConfigManager::SetUint64(const std::string& key, uint64_t value) {
+    SetNested(data_, key, value);
+}
+
 void ConfigManager::SetDouble(const std::string& key, double value) {
     SetNested(data_, key, value);
 }
 
 void ConfigManager::SetBool(const std::string& key, bool value) {
     SetNested(data_, key, value);
+}
+
+void ConfigManager::AppendToArray(const std::string& arrayKey,
+                                  nlohmann::json element) {
+    auto parts = SplitKey(arrayKey);
+    if (parts.empty()) return;
+
+    nlohmann::json* current = &data_;
+    for (size_t i = 0; i < parts.size(); ++i) {
+        if (!current->is_object()) {
+            *current = nlohmann::json::object();
+        }
+        auto it = current->find(parts[i]);
+        if (it == current->end()) {
+            if (i == parts.size() - 1) {
+                (*current)[parts[i]] = nlohmann::json::array();
+            } else {
+                (*current)[parts[i]] = nlohmann::json::object();
+            }
+        }
+        current = &(*current)[parts[i]];
+    }
+
+    if (!current->is_array()) {
+        *current = nlohmann::json::array();
+    }
+    current->push_back(std::move(element));
+}
+
+void ConfigManager::SetJson(const std::string& key, nlohmann::json value) {
+    SetNested(data_, key, std::move(value));
 }
