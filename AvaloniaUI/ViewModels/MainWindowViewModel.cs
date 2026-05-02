@@ -147,12 +147,32 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
             else
             {
                 _consecutiveErrors++;
-                if (_consecutiveErrors >= MaxConsecutiveErrors && IsConnected)
+                if (_consecutiveErrors >= MaxConsecutiveErrors)
                 {
-                    IsConnected = false;
-                    ConnectionStatus = "连接已断开";
-                    WindowTitle = "系统硬件监视器 - 已断开";
-                    ShowDisconnectedState();
+                    if (IsConnected)
+                    {
+                        IsConnected = false;
+                        ConnectionStatus = "连接已断开";
+                        WindowTitle = "系统硬件监视器 - 已断开";
+                        ShowDisconnectedState();
+                    }
+                    // Auto-reconnect: try to reinitialize shared memory
+                    try
+                    {
+                        _sharedMemory.Dispose();
+                        if (_sharedMemory.Initialize())
+                        {
+                            _consecutiveErrors = 0;
+                            IsConnected = true;
+                            ConnectionStatus = "已连接";
+                            WindowTitle = "系统硬件监视器";
+                            Log.Information("Auto-reconnected to shared memory");
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        Log.Debug("Auto-reconnect attempt failed: {Msg}", ex.Message);
+                    }
                 }
             }
         }
