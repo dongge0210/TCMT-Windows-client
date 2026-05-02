@@ -132,6 +132,7 @@ _WINSOCK_DEPRECATED_NO_WARNINGS;%(PreprocessorDefinitions)</PreprocessorDefiniti
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClInclude Include="src\core\Config\ConfigManager.h" />
     <ClInclude Include="src\core\cpu\CpuInfo.h" />
     <ClInclude Include="src\core\DataStruct\DataStruct.h" />
     <ClInclude Include="src\core\DataStruct\SharedMemoryManager.h" />
@@ -151,6 +152,7 @@ _WINSOCK_DEPRECATED_NO_WARNINGS;%(PreprocessorDefinitions)</PreprocessorDefiniti
     <ClInclude Include="src\tui\LogBuffer.h" />
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="src\core\Config\ConfigManager.cpp" />
     <ClCompile Include="src\core\cpu\CpuInfo.cpp" />
     <ClCompile Include="src\core\DataStruct\SharedMemoryManager.cpp" />
     <!-- SharedMemoryManager.cpp includes platform-specific implementation via #include -->
