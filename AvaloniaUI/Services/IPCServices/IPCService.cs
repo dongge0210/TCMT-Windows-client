@@ -131,7 +131,7 @@ public class IPCService : IDisposable
     public double? ReadFloat64(string name) => _memoryReader.ReadFloat64(name);
     public bool? ReadBool(string name) => _memoryReader.ReadBool(name);
     public string? ReadString(string name) => _memoryReader.ReadString(name);
-    public string? ReadWString(string name) => _memoryReader.ReadString(name);
+    public string? ReadWString(string name) => _memoryReader.ReadWString(name);
 
     /// <summary>
     /// 检查 Schema 中是否包含指定字段
@@ -144,7 +144,7 @@ public class IPCService : IDisposable
         _disposed = true;
         _cts?.Cancel();
         _cts?.Dispose();
-        _pipeClient.DisposeAsync().AsTask().Wait(TimeSpan.FromSeconds(2));
+        _pipeClient.DisposeAsync();
         _memoryReader.Dispose();
     }
 }
