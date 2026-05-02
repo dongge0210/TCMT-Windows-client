@@ -43,7 +43,7 @@
                     VerticalScrollBarVisibility="Auto" 
                     Padding="10,5,10,5">
             <StackPanel>
-                <!-- CPU和GPU信息行 -->
+                <!-- CPU和内存信息行 -->
                 <Grid>
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="*"/>
@@ -97,55 +97,55 @@
                         </StackPanel>
                     </Border>
 
-                    <!-- GPU信息 -->
+                    <!-- 内存信息 -->
                     <Border Grid.Column="1" Margin="5,0,0,10"
                             Background="#FF191919" Padding="15">
                         <StackPanel>
-                            <TextBlock Text="显卡信息" FontSize="16" FontWeight="Bold" Foreground="White" Margin="0,0,0,10"/>
-                            <ComboBox ItemsSource="{Binding GpuList}" SelectedItem="{Binding SelectedGpu}" DisplayMemberBinding="{Binding DisplayName}"
-                                    HorizontalAlignment="Stretch" Margin="0,0,0,10"/>
-                            <TextBlock Text="{Binding SelectedGpu.Name, TargetNullValue='未检测到'}" Foreground="White"/>
+                            <TextBlock Text="内存" FontSize="16" FontWeight="Bold" Foreground="White" Margin="0,0,0,10"/>
+                            <TextBlock Text="{Binding UsedMemory, StringFormat='已用: {0}'}" Foreground="White"/>
+                            <TextBlock Text="{Binding TotalMemory, StringFormat='总计: {0}'}" Foreground="#FFB3B3B3"/>
+                            <TextBlock Text="{Binding AvailableMemory, StringFormat='可用: {0}'}" Foreground="#FF666666" FontSize="11"/>
+                            <TextBlock Text="{Binding CompressedMemory, StringFormat='已压缩: {0}'}" Foreground="#FF666666" FontSize="11" IsVisible="{Binding CompressedMemory, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"/>
+                            <ProgressBar Value="{Binding MemoryPercent}" Maximum="100" Height="8" Margin="0,10,0,0"/>
                             <Grid Margin="0,5,0,0">
                                 <Grid.ColumnDefinitions>
                                     <ColumnDefinition Width="*"/>
-                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="Auto"/>
                                 </Grid.ColumnDefinitions>
-                                <StackPanel>
-                                    <TextBlock Text="{Binding SelectedGpu.MemoryDisplay, TargetNullValue='N/A', StringFormat='显存: {0}'}" Foreground="#FFB3B3B3"/>
-                                <TextBlock Text="{Binding SelectedGpu.MemoryUsedDisplay, TargetNullValue='N/A', StringFormat='已用: {0}'}" Foreground="#FF666666" FontSize="11"/>
-                                    <TextBlock Text="{Binding SelectedGpu.Brand, TargetNullValue='N/A', StringFormat='品牌: {0}'}" Foreground="#FF666666" FontSize="11"/>
-                                </StackPanel>
-                                <StackPanel Grid.Column="1">
-                                    <TextBlock Text="{Binding GpuTemperature, StringFormat='温度: {0:F0}°C'}" Foreground="#FFB3B3B3"/>
-                                </StackPanel>
+                                <TextBlock Text="{Binding MemoryPercent, StringFormat='使用率: {0:F1}%'}" Foreground="#FFB3B3B3"/>
+                                <TextBlock Grid.Column="1" Text="{Binding MemoryPercent, StringFormat='峰值: {0:F1}%'}" Foreground="#FF4CAF50" FontSize="11"/>
                             </Grid>
-                            <ProgressBar Value="{Binding SelectedGpu.Usage, TargetNullValue=0}" Maximum="100" Height="6" Margin="0,8,0,0" Foreground="#FF4CAF50"/>
-                            <TextBlock Text="{Binding SelectedGpu.Usage, TargetNullValue=0, StringFormat='GPU使用率: {0:F1}%'}" Foreground="#FFB3B3B3" FontSize="11"/>
-                            <ProgressBar Value="{Binding SelectedGpu.CoreClock, TargetNullValue=0}" Maximum="100" Height="6" Margin="0,4,0,0" Foreground="#FFFF9800"/>
-                            <TextBlock Text="{Binding SelectedGpu.CoreClock, TargetNullValue=0, StringFormat='显存占用: {0:F1}%'}" Foreground="#FFB3B3B3" FontSize="11"/>
+                            <controls:LineChart Values="{Binding MemoryHistory}" Height="60" Margin="0,8,0,0"
+                                                LineBrush="#FF4CAF50" FillBrush="#334CAF50"/>
                         </StackPanel>
                     </Border>
                 </Grid>
 
-                <!-- 内存信息 -->
+                <!-- GPU信息 -->
                 <Border Margin="0,0,0,10" Background="#FF191919" Padding="15">
                     <StackPanel>
-                        <TextBlock Text="内存" FontSize="16" FontWeight="Bold" Foreground="White" Margin="0,0,0,10"/>
-                        <TextBlock Text="{Binding UsedMemory, StringFormat='已用: {0}'}" Foreground="White"/>
-                        <TextBlock Text="{Binding TotalMemory, StringFormat='总计: {0}'}" Foreground="#FFB3B3B3"/>
-                        <TextBlock Text="{Binding AvailableMemory, StringFormat='可用: {0}'}" Foreground="#FF666666" FontSize="11"/>
-                        <TextBlock Text="{Binding CompressedMemory, StringFormat='已压缩: {0}'}" Foreground="#FF666666" FontSize="11" IsVisible="{Binding CompressedMemory, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"/>
-                        <ProgressBar Value="{Binding MemoryPercent}" Maximum="100" Height="8" Margin="0,10,0,0"/>
+                        <TextBlock Text="显卡信息" FontSize="16" FontWeight="Bold" Foreground="White" Margin="0,0,0,10"/>
+                        <ComboBox ItemsSource="{Binding GpuList}" SelectedItem="{Binding SelectedGpu}" DisplayMemberBinding="{Binding DisplayName}"
+                                HorizontalAlignment="Stretch" Margin="0,0,0,10"/>
+                        <TextBlock Text="{Binding SelectedGpu.Name, TargetNullValue='未检测到'}" Foreground="White"/>
                         <Grid Margin="0,5,0,0">
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="*"/>
-                                <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="*"/>
                             </Grid.ColumnDefinitions>
-                            <TextBlock Text="{Binding MemoryPercent, StringFormat='使用率: {0:F1}%'}" Foreground="#FFB3B3B3"/>
-                            <TextBlock Grid.Column="1" Text="{Binding MemoryPercent, StringFormat='峰值: {0:F1}%'}" Foreground="#FF4CAF50" FontSize="11"/>
+                            <StackPanel>
+                                <TextBlock Text="{Binding SelectedGpu.MemoryDisplay, TargetNullValue='N/A', StringFormat='显存: {0}'}" Foreground="#FFB3B3B3"/>
+                                <TextBlock Text="{Binding SelectedGpu.MemoryUsedDisplay, TargetNullValue='N/A', StringFormat='已用: {0}'}" Foreground="#FF666666" FontSize="11"/>
+                                <TextBlock Text="{Binding SelectedGpu.Brand, TargetNullValue='N/A', StringFormat='品牌: {0}'}" Foreground="#FF666666" FontSize="11"/>
+                            </StackPanel>
+                            <StackPanel Grid.Column="1">
+                                <TextBlock Text="{Binding GpuTemperature, StringFormat='温度: {0:F0}°C'}" Foreground="#FFB3B3B3"/>
+                            </StackPanel>
                         </Grid>
-                        <controls:LineChart Values="{Binding MemoryHistory}" Height="60" Margin="0,8,0,0"
-                                            LineBrush="#FF4CAF50" FillBrush="#334CAF50"/>
+                        <ProgressBar Value="{Binding SelectedGpu.Usage, TargetNullValue=0}" Maximum="100" Height="6" Margin="0,8,0,0" Foreground="#FF4CAF50"/>
+                        <TextBlock Text="{Binding SelectedGpu.Usage, TargetNullValue=0, StringFormat='GPU使用率: {0:F1}%'}" Foreground="#FFB3B3B3" FontSize="11"/>
+                        <ProgressBar Value="{Binding SelectedGpu.CoreClock, TargetNullValue=0}" Maximum="100" Height="6" Margin="0,4,0,0" Foreground="#FFFF9800"/>
+                        <TextBlock Text="{Binding SelectedGpu.CoreClock, TargetNullValue=0, StringFormat='显存占用: {0:F1}%'}" Foreground="#FFB3B3B3" FontSize="11"/>
                     </StackPanel>
                 </Border>
 

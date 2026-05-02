@@ -441,25 +441,25 @@ void TuiApp::Run() {
         // === Header ===
         DrawHeader(stdscr, data);
 
-        // === Left panels (CPU + GPU) ===
+        // === Left panels (CPU + GPU + Memory) ===
         int maxY = rows - 5;
         int ly = 2;
         if (ly < maxY) {
             int cpuLines = DrawCpuPanel(stdscr, data, ly, lx, leftW);
             ly += cpuLines + 1;
             if (ly < maxY) {
-                ly += DrawGpuPanel(stdscr, data, ly, lx, leftW);
+                ly += DrawGpuPanel(stdscr, data, ly, lx, leftW) + 1;
+            }
+            if (ly < maxY) {
+                ly += DrawMemoryPanel(stdscr, data, ly, lx, leftW);
             }
         }
         if (ly > maxY) ly = maxY;
 
-        // === Right panels (Memory, Disk, Net, TPM, Temp) ===
+        // === Right panels (Disk, Net, TPM, Temp) ===
         int ry = 2;
         if (ry < maxY) {
-            ry += DrawMemoryPanel(stdscr, data, ry, rx, rightW) + 1;
-            if (ry < maxY) {
-                ry += DrawDiskPanel(stdscr, data, ry, rx, rightW);
-            }
+            ry += DrawDiskPanel(stdscr, data, ry, rx, rightW);
             if (ry < maxY) {
                 ry += DrawNetworkPanel(stdscr, data, ry, rx, rightW);
             }
