@@ -296,13 +296,12 @@ int TuiApp::DrawNetworkPanel(WINDOW* win, const TuiData& data, int y, int x0, in
 
 int TuiApp::DrawTpmPanel(WINDOW* win, const TuiData& data, int y, int x0, int maxW) {
     if (maxW < 10) return 0;
+    if (data.tpmInfo.empty() || data.tpmInfo == "No TPM") return 0;
     wattron(win, COLOR_PAIR(5) | A_BOLD);
     mvwprintw(win, y, x0, "%.*s", maxW, "TPM");
     wattroff(win, COLOR_PAIR(5) | A_BOLD);
-    if (!data.tpmInfo.empty()) {
-        mvwprintw(win, y + 1, x0 + 2, "%.*s", maxW - 2, data.tpmInfo.c_str());
-    }
-    return data.tpmInfo.empty() ? 1 : 2;
+    mvwprintw(win, y + 1, x0 + 2, "%.*s", maxW - 2, data.tpmInfo.c_str());
+    return 2;
 }
 
 int TuiApp::DrawTempPanel(WINDOW* win, const TuiData& data, int y, int x0, int maxW) {
@@ -315,17 +314,13 @@ int TuiApp::DrawTempPanel(WINDOW* win, const TuiData& data, int y, int x0, int m
     int maxPairs = 4; // 8 sensors max, 2 per line
     int halfW = maxW / 2;
 
-    // Collect sensors to display: skip per-core CPU sensors, keep aggregate ones
+    // Collect sensors to display: skip per-core CPU sensors, keep everything else
     std::vector<std::pair<std::string, double>> displayTemps;
     for (const auto& [name, temp] : data.temperatures) {
-        // Keep if it's an aggregate sensor or non-CPU sensor
-        bool isCoreSensor = (name.find("CPU") != std::string::npos &&
-                            name.find("Core Max") == std::string::npos &&
-                            name.find("Core Average") == std::string::npos &&
-                            name.find("Package") == std::string::npos &&
-                            name.find("Tdie") == std::string::npos &&
-                            name.find("Tctl") == std::string::npos);
-        if (!isCoreSensor) {
+        // Skip only individual CPU core sensors (e.g. "CPU Core 1", "CPU Core 2")
+        bool isPerCoreSensor = (name.find("CPU Core ") != std::string::npos ||
+                                name.find("CPU Die") != std::string::npos);
+        if (!isPerCoreSensor) {
             displayTemps.push_back({name, temp});
         }
     }
