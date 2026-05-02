@@ -112,10 +112,11 @@
                                 </Grid.ColumnDefinitions>
                                 <StackPanel>
                                     <TextBlock Text="{Binding SelectedGpu.MemoryDisplay, TargetNullValue='N/A', StringFormat='显存: {0}'}" Foreground="#FFB3B3B3"/>
+                                <TextBlock Text="{Binding SelectedGpu.MemoryUsedDisplay, TargetNullValue='N/A', StringFormat='已用: {0}'}" Foreground="#FF666666" FontSize="11"/>
                                     <TextBlock Text="{Binding SelectedGpu.Brand, TargetNullValue='N/A', StringFormat='品牌: {0}'}" Foreground="#FF666666" FontSize="11"/>
                                 </StackPanel>
                                 <StackPanel Grid.Column="1">
-                                    <TextBlock Text="{Binding GpuTemperature, StringFormat='温度: {0}°C'}" Foreground="#FFB3B3B3"/>
+                                    <TextBlock Text="{Binding GpuTemperature, StringFormat='温度: {0:F0}°C'}" Foreground="#FFB3B3B3"/>
                                 </StackPanel>
                             </Grid>
                             <ProgressBar Value="{Binding SelectedGpu.Usage, TargetNullValue=0}" Maximum="100" Height="6" Margin="0,8,0,0" Foreground="#FF4CAF50"/>

@@ -125,6 +125,7 @@ namespace AvaloniaUI.Models
         public double Usage { get => _usage; set => SetProperty(ref _usage, value); }
         public string DisplayName => string.IsNullOrEmpty(Name) ? "未知显卡" : (IsVirtual ? $"{Name} (虚拟)" : Name);
         public string MemoryDisplay => FormatUtil.FormatBytes(Memory);
+        public string MemoryUsedDisplay => FormatUtil.FormatBytes((ulong)(Memory * CoreClock / 100.0));
         public override string ToString() => DisplayName;
     }
 

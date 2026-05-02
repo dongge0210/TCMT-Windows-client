@@ -225,6 +225,12 @@ int TuiApp::DrawGpuPanel(WINDOW* win, const TuiData& data, int y, int x0, int ma
     mvwprintw(win, y + lines, x0 + 9 + bw, "%.1f%%", data.gpuUsage);
     lines++;
 
+    if (data.gpuMemory > 0) {
+        auto memStr = FormatSize(data.gpuMemory);
+        mvwprintw(win, y + lines, x0 + 2, "VRAM: %.*s", maxW - 8, memStr.c_str());
+        lines++;
+    }
+
     if (data.gpuTemp > 0) {
         mvwprintw(win, y + lines, x0 + 2, "Temp: %.0f C", data.gpuTemp);
         lines++;
@@ -270,17 +276,18 @@ int TuiApp::DrawNetworkPanel(WINDOW* win, const TuiData& data, int y, int x0, in
 
     for (const auto& n : data.adapters) {
         if (n.ip.empty()) continue;
-        auto name = TrimRight(n.name, 10);
-        auto ip = TrimRight(n.ip, maxW - 14);
-        mvwprintw(win, y + lines, x0 + 2, "%-10s %.*s", name.c_str(), maxW - 14, ip.c_str());
+        auto name = TrimRight(n.name, maxW - 4);
+        mvwprintw(win, y + lines, x0 + 2, "%.*s", maxW - 4, name.c_str());
+        lines++;
+        mvwprintw(win, y + lines, x0 + 4, "%.*s", maxW - 6, n.ip.c_str());
         lines++;
         if (!n.mac.empty() && n.mac != "00:00:00:00:00:00") {
-            mvwprintw(win, y + lines, x0 + 4, "%.*s", maxW - 4, n.mac.c_str());
+            mvwprintw(win, y + lines, x0 + 4, "%.*s", maxW - 6, n.mac.c_str());
             lines++;
         }
         if (n.speed > 0) {
             auto speedStr = FormatSpeed(n.speed);
-            mvwprintw(win, y + lines, x0 + 4, "%.*s", maxW - 4, speedStr.c_str());
+            mvwprintw(win, y + lines, x0 + 4, "%.*s", maxW - 6, speedStr.c_str());
             lines++;
         }
     }
@@ -434,23 +441,22 @@ void TuiApp::Run() {
         // === Header ===
         DrawHeader(stdscr, data);
 
-        // === Left panels (stop before log area) ===
+        // === Left panels (CPU + GPU) ===
         int maxY = rows - 5;
         int ly = 2;
         if (ly < maxY) {
             int cpuLines = DrawCpuPanel(stdscr, data, ly, lx, leftW);
-            ly += cpuLines + 1; // +1 blank line after CPU
+            ly += cpuLines + 1;
             if (ly < maxY) {
-                ly += DrawMemoryPanel(stdscr, data, ly, lx, leftW);
+                ly += DrawGpuPanel(stdscr, data, ly, lx, leftW);
             }
         }
         if (ly > maxY) ly = maxY;
 
-        // === Right panels (stop before log area) ===
+        // === Right panels (Memory, Disk, Net, TPM, Temp) ===
         int ry = 2;
         if (ry < maxY) {
-            int gpuLines = DrawGpuPanel(stdscr, data, ry, rx, rightW);
-            ry += gpuLines + 1; // +1 blank line after GPU
+            ry += DrawMemoryPanel(stdscr, data, ry, rx, rightW) + 1;
             if (ry < maxY) {
                 ry += DrawDiskPanel(stdscr, data, ry, rx, rightW);
             }
