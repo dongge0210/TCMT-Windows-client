@@ -3,6 +3,7 @@
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:vm="clr-namespace:AvaloniaUI.ViewModels"
+        xmlns:controls="clr-namespace:AvaloniaUI.Controls"
         mc:Ignorable="d"
         x:Class="AvaloniaUI.Views.MainWindow"
         x:DataType="vm:MainWindowViewModel"
@@ -114,6 +115,8 @@
                                 <TextBlock Text="{Binding MemoryPercent, StringFormat='使用率: {0:F1}%'}" Foreground="#FFB3B3B3"/>
                                 <TextBlock Grid.Column="1" Text="{Binding MemoryPercent, StringFormat='峰值: {0:F1}%'}" Foreground="#FF4CAF50" FontSize="11"/>
                             </Grid>
+                            <controls:LineChart Values="{Binding MemoryHistory}" Height="60" Margin="0,8,0,0"
+                                                LineBrush="#FF4CAF50" FillBrush="#334CAF50"/>
                         </StackPanel>
                     </Border>
                 </Grid>
