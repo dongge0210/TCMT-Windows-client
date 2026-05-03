@@ -10,12 +10,14 @@ using CommunityToolkit.Mvvm.Input;
 using Serilog;
 using AvaloniaUI.Models;
 using AvaloniaUI.Services;
+using AvaloniaUI.Services.IPC;
 
 namespace AvaloniaUI.ViewModels;
 
 public partial class MainWindowViewModel : ObservableObject, IDisposable
 {
     private readonly SharedMemoryService _sharedMemory;
+    private readonly IPCService? _ipcService;
     private readonly DispatcherTimer _timer;
     private bool _disposed = false;
     private const int MaxChartPoints = 60;
@@ -29,6 +31,42 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
     public MainWindowViewModel()
     {
         _sharedMemory = new SharedMemoryService();
+        try
+        {
+            _ipcService = new IPCService();
+            _ipcService.DataReady += () =>
+            {
+                if (_ipcService != null && _ipcService.IsMemoryOpen)
+                {
+                    var info = IPCSystemInfoMapper.Read(_ipcService);
+                    if (info != null)
+                    {
+                        _consecutiveErrors = 0;
+                        IsConnected = true;
+                        ConnectionStatus = "已连接 (IPC)";
+                        WindowTitle = "系统硬件监视器";
+                        UpdateSystemData(info);
+                        LastUpdate = DateTime.Now;
+                    }
+                }
+            };
+            _ipcService.ConnectionStateChanged += (connected, msg) =>
+            {
+                if (connected)
+                {
+                    Log.Information("IPC connected: {Msg}", msg);
+                }
+                else
+                {
+                    Log.Warning("IPC disconnected: {Msg}", msg);
+                }
+            };
+            _ipcService.Start();
+        }
+        catch (Exception ex)
+        {
+            Log.Warning(ex, "IPC service init failed, falling back to SharedMemory");
+        }
         _timer = new DispatcherTimer
         {
             Interval = TimeSpan.FromMilliseconds(500)
@@ -570,6 +608,7 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
         if (_disposed) return;
         _timer.Stop();
         _sharedMemory.Dispose();
+        _ipcService?.Dispose();
         _disposed = true;
         GC.SuppressFinalize(this);
     }
