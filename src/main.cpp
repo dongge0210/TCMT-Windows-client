@@ -1162,11 +1162,16 @@ int main(int argc, char* argv[]) {
                         std::string nameLower = temp.first;
                         std::transform(nameLower.begin(), nameLower.end(), nameLower.begin(), ::tolower);
                         if (nameLower.find("gpu") != std::string::npos || nameLower.find("graphics") != std::string::npos) {
-                            sysInfo.gpuTemperature = temp.second;
+                            if (sysInfo.gpuTemperature == 0)
+                                sysInfo.gpuTemperature = temp.second;
                             sysInfo.temperatures.push_back({"GPU", temp.second});
-                        } else if (nameLower.find("cpu") != std::string::npos || nameLower.find("package") != std::string::npos) {
+                        } else if (nameLower.find("package") != std::string::npos ||
+                                   nameLower.find("cpu temperature") != std::string::npos ||
+                                   nameLower == "cpu") {
                             sysInfo.cpuTemperature = temp.second;
-                            sysInfo.temperatures.push_back({"CPU", temp.second});
+                            sysInfo.temperatures.push_back({"CPU Package", temp.second});
+                        } else if (nameLower.find("cpu core") != std::string::npos) {
+                            sysInfo.temperatures.push_back({temp.first, temp.second});
                         } else {
                             sysInfo.temperatures.push_back(temp);
                         }
