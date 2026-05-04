@@ -269,6 +269,8 @@ const std::vector<NetworkAdapter::AdapterInfo>& NetworkAdapter::GetAdapters() co
 
 #elif defined(TCMT_MACOS)
 // ======================== macOS Implementation ========================
+// Forward declarations for macOS
+static void UpdateThroughput(std::vector<NetworkAdapter::AdapterInfo>& adapters);
 #include <ifaddrs.h>
 #include <net/if.h>
 #include <net/if_dl.h>
@@ -466,8 +468,7 @@ void NetworkAdapter::QueryAdapterInfo() {
     UpdateThroughput(this->adapters);
 }
 
-// Static cache for macOS throughput delta calculation (key: interface name)
-// Stores {prev_rx_bytes, prev_tx_bytes, timestamp_ms}
+// macOS throughput delta static cache
 static std::map<std::string, std::tuple<uint64_t, uint64_t, uint64_t>> g_throughputCacheMac;
 
 static void UpdateThroughput(std::vector<NetworkAdapter::AdapterInfo>& adapters) {
