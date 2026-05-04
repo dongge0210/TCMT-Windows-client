@@ -225,6 +225,7 @@ int TuiApp::DrawGpuPanel(WINDOW* win, const TuiData& data, int y, int x0, int ma
     mvwprintw(win, y + lines, x0 + 9 + bw, "%.1f%%", data.gpuUsage);
     lines++;
 
+#ifndef TCMT_MACOS
     if (data.gpuMemory > 0) {
         auto memStr = FormatSize(data.gpuMemory);
         mvwprintw(win, y + lines, x0 + 2, "VRAM: %.*s", maxW - 8, memStr.c_str());
@@ -238,6 +239,7 @@ int TuiApp::DrawGpuPanel(WINDOW* win, const TuiData& data, int y, int x0, int ma
             maxW - 8, usedStr.c_str(), maxW - 14, totalStr.c_str());
         lines++;
     }
+#endif
 
     if (data.gpuTemp > 0) {
         mvwprintw(win, y + lines, x0 + 2, "Temp: %.0f C", data.gpuTemp);
