@@ -30,6 +30,7 @@ Please ignore this warning - the project structure doesn't support this scenario
 #include <atomic>
 #include <locale>
 #include <new>
+#include <memory>
 #include <stdexcept>
 
 #include "core/cpu/CpuInfo.h"
@@ -45,6 +46,7 @@ Please ignore this warning - the project structure doesn't support this scenario
 #include "core/utils/TpmBridge.h"
 #include "core/DataStruct/DataStruct.h"
 #include "core/DataStruct/SharedMemoryManager.h"
+#include "core/IPC/NamedPipeServer.h"
 #include "core/temperature/TemperatureWrapper.h"
 #include "tui/TuiApp.h"
 #include "core/Config/ConfigManager.h"
@@ -769,6 +771,9 @@ int main(int argc, char* argv[]) {
             return -1;
         }
 
+#ifdef _WIN32
+        std::unique_ptr<tcmt::ipc::NamedPipeServer> pipeServer;
+#endif
         try {
             if (!SharedMemoryManager::InitSharedMemory()) {
                 std::string error = SharedMemoryManager::GetLastError();
@@ -783,6 +788,60 @@ int main(int argc, char* argv[]) {
                 }
             }
             Logger::Info("Shared memory initialized successfully");
+
+            // Named pipe IPC server — sends schema to C# Avalonia
+#ifdef _WIN32
+            pipeServer = std::make_unique<tcmt::ipc::NamedPipeServer>();
+            // Build schema describing SharedMemoryBlock fields
+            {
+                tcmt::ipc::SchemaHeader schemaHdr;
+                schemaHdr.totalSize = sizeof(SharedMemoryBlock);
+                std::vector<tcmt::ipc::FieldDef> fields;
+                // CPU
+                auto addField = [&](const char* name, uint32_t offset, uint16_t size,
+                                    uint8_t type = (uint8_t)tcmt::ipc::FieldType::Float64,
+                                    uint32_t count = 0) {
+                    tcmt::ipc::FieldDef f{};
+                    f.offset = offset; f.size = size; f.type = type; f.count = count;
+                    std::strncpy(f.name, name, tcmt::ipc::IPC_FIELD_NAME_LEN - 1);
+                    fields.push_back(f);
+                };
+                addField("cpu/name", offsetof(SharedMemoryBlock, cpuName), 128 * sizeof(WCHAR), (uint8_t)tcmt::ipc::FieldType::WString);
+                addField("cpu/cores/physical", offsetof(SharedMemoryBlock, physicalCores), 4, (uint8_t)tcmt::ipc::FieldType::Int32);
+                addField("cpu/cores/logical", offsetof(SharedMemoryBlock, logicalCores), 4, (uint8_t)tcmt::ipc::FieldType::Int32);
+                addField("cpu/usage", offsetof(SharedMemoryBlock, cpuUsage), 8);
+                addField("cpu/cores/performance", offsetof(SharedMemoryBlock, performanceCores), 4, (uint8_t)tcmt::ipc::FieldType::Int32);
+                addField("cpu/cores/efficiency", offsetof(SharedMemoryBlock, efficiencyCores), 4, (uint8_t)tcmt::ipc::FieldType::Int32);
+                addField("cpu/freq/pCore", offsetof(SharedMemoryBlock, pCoreFreq), 8);
+                addField("cpu/freq/eCore", offsetof(SharedMemoryBlock, eCoreFreq), 8);
+                addField("cpu/hyperThreading", offsetof(SharedMemoryBlock, hyperThreading), 1, (uint8_t)tcmt::ipc::FieldType::Bool);
+                addField("cpu/virtualization", offsetof(SharedMemoryBlock, virtualization), 1, (uint8_t)tcmt::ipc::FieldType::Bool);
+                addField("cpu/temperature", offsetof(SharedMemoryBlock, cpuTemperature), 8);
+                addField("memory/total", offsetof(SharedMemoryBlock, totalMemory), 8, (uint8_t)tcmt::ipc::FieldType::UInt64);
+                addField("memory/used", offsetof(SharedMemoryBlock, usedMemory), 8, (uint8_t)tcmt::ipc::FieldType::UInt64);
+                addField("memory/available", offsetof(SharedMemoryBlock, availableMemory), 8, (uint8_t)tcmt::ipc::FieldType::UInt64);
+                addField("memory/compressed", offsetof(SharedMemoryBlock, compressedMemory), 8, (uint8_t)tcmt::ipc::FieldType::UInt64);
+                addField("gpu/temperature", offsetof(SharedMemoryBlock, gpuTemperature), 8);
+                for (int i = 0; i < 2; i++) {
+                    char prefix[32]; snprintf(prefix, sizeof(prefix), "gpu/%d/", i);
+                    uint32_t base = offsetof(SharedMemoryBlock, gpus) + i * sizeof(GPUData);
+                    addField((std::string(prefix)+"name").c_str(), base + offsetof(GPUData, name), 128*(int)sizeof(WCHAR), (uint8_t)tcmt::ipc::FieldType::WString);
+                    addField((std::string(prefix)+"brand").c_str(), base + offsetof(GPUData, brand), 64*(int)sizeof(WCHAR), (uint8_t)tcmt::ipc::FieldType::WString);
+                    addField((std::string(prefix)+"memory").c_str(), base + offsetof(GPUData, memory), 8, (uint8_t)tcmt::ipc::FieldType::UInt64);
+                    addField((std::string(prefix)+"usage").c_str(), base + offsetof(GPUData, usage), 8);
+                    addField((std::string(prefix)+"isVirtual").c_str(), base + offsetof(GPUData, isVirtual), 1, (uint8_t)tcmt::ipc::FieldType::Bool);
+                }
+                addField("battery/percent", offsetof(SharedMemoryBlock, batteryPercent), 4, (uint8_t)tcmt::ipc::FieldType::Int32);
+                addField("battery/acOnline", offsetof(SharedMemoryBlock, acOnline), 1, (uint8_t)tcmt::ipc::FieldType::Bool);
+                addField("os/version", offsetof(SharedMemoryBlock, osVersion), 128*(int)sizeof(WCHAR), (uint8_t)tcmt::ipc::FieldType::WString);
+                pipeServer->UpdateSchema(schemaHdr, fields);
+            }
+            if (pipeServer->Start()) {
+                Logger::Info("NamedPipe IPC server started");
+            } else {
+                Logger::Warn("NamedPipe IPC failed: " + pipeServer->LastError());
+            }
+#endif
         }
         catch (const std::exception& e) {
             Logger::Error("Exception during shared memory initialization: " + std::string(e.what()));
