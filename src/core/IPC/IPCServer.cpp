@@ -20,7 +20,7 @@ IPCServer::~IPCServer() {
 
 bool IPCServer::Start() {
     // 1. Create shared memory file + mmap
-    shmFd_ = shm_open("/tcmt_ipc", O_CREAT | O_RDWR, 0666);
+    shmFd_ = shm_open(IPC_SHM_PATH, O_CREAT | O_RDWR, 0666);
     if (shmFd_ == -1) {
         lastError_ = "shm_open failed: " + std::string(std::strerror(errno));
         return false;

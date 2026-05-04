@@ -42,10 +42,13 @@ set(CONFIG_SOURCES
     ${CMAKE_CURRENT_SOURCE_DIR}/core/Config/ConfigManager.cpp
 )
 
-# IPC module (schema-based shared memory pipeline)
-set(IPC_SOURCES
-    ${CMAKE_CURRENT_SOURCE_DIR}/core/IPC/IPCServer.cpp
-)
+# IPC module (schema-based shared memory pipeline, macOS for now)
+set(IPC_SOURCES "")
+if(TCMT_MACOS)
+    list(APPEND IPC_SOURCES
+        ${CMAKE_CURRENT_SOURCE_DIR}/core/IPC/IPCServer.cpp
+    )
+endif()
 
 # HistoryLogger (SQLite sensor data logging)
 set(HISTORY_SOURCES

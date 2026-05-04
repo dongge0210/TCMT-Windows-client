@@ -28,6 +28,7 @@
 #include "core/disk/DiskInfo.h"
 #include "core/DataStruct/DataStruct.h"
 #include "core/DataStruct/SharedMemoryManager.h"
+#include "core/IPC/IPCServer.h"
 #include "core/temperature/TemperatureWrapper.h"
 #include "core/Utils/Logger.h"
 #include "tui/TuiApp.h"
@@ -243,6 +244,72 @@ int main(int argc, char* argv[]) {
         Logger::Debug("SharedMemory initialized");
     } else {
         Logger::Warn("SharedMemory init failed: " + SharedMemoryManager::GetLastError());
+    }
+
+    // Initialize IPC server (schema-driven pipeline for C# Avalonia)
+    tcmt::ipc::IPCServer ipcServer;
+    {
+        tcmt::ipc::SchemaHeader schemaHdr;
+        schemaHdr.totalSize = sizeof(tcmt::ipc::IPCDataBlock);
+        std::vector<tcmt::ipc::FieldDef> fields;
+        auto addField32 = [&](const char* name, uint32_t offset, const char* units = "") {
+            tcmt::ipc::FieldDef f{};
+            f.offset = offset;
+            f.type = static_cast<uint8_t>(tcmt::ipc::FieldType::Float64);
+            std::strncpy(f.name, name, tcmt::ipc::IPC_FIELD_NAME_LEN - 1);
+            std::strncpy(f.units, units, tcmt::ipc::IPC_FIELD_UNITS_LEN - 1);
+            fields.push_back(f);
+        };
+        auto addFieldStr = [&](const char* name, uint32_t offset, uint16_t size) {
+            tcmt::ipc::FieldDef f{};
+            f.offset = offset;
+            f.type = static_cast<uint8_t>(tcmt::ipc::FieldType::String);
+            f.size = size;
+            std::strncpy(f.name, name, tcmt::ipc::IPC_FIELD_NAME_LEN - 1);
+            fields.push_back(f);
+        };
+        // Build schema for all IPCDataBlock fields
+        addFieldStr("cpu/name",       offsetof(tcmt::ipc::IPCDataBlock, cpuName), 64);
+        addField32("cpu/cores/physical",   offsetof(tcmt::ipc::IPCDataBlock, physicalCores));
+        addField32("cpu/cores/performance", offsetof(tcmt::ipc::IPCDataBlock, performanceCores));
+        addField32("cpu/cores/efficiency",  offsetof(tcmt::ipc::IPCDataBlock, efficiencyCores));
+        addField32("cpu/usage",        offsetof(tcmt::ipc::IPCDataBlock, cpuUsage));
+        addField32("cpu/freq/pCore",   offsetof(tcmt::ipc::IPCDataBlock, pCoreFreq));
+        addField32("cpu/freq/eCore",   offsetof(tcmt::ipc::IPCDataBlock, eCoreFreq));
+        addField32("cpu/temperature",  offsetof(tcmt::ipc::IPCDataBlock, cpuTemp));
+        addField32("memory/total",     offsetof(tcmt::ipc::IPCDataBlock, totalMemory));
+        addField32("memory/used",      offsetof(tcmt::ipc::IPCDataBlock, usedMemory));
+        addField32("memory/available", offsetof(tcmt::ipc::IPCDataBlock, availableMemory));
+        addField32("memory/compressed", offsetof(tcmt::ipc::IPCDataBlock, compressedMemory));
+        addFieldStr("gpu/0/name",      offsetof(tcmt::ipc::IPCDataBlock, gpuName), 48);
+        addField32("gpu/0/memory",     offsetof(tcmt::ipc::IPCDataBlock, gpuMemory));
+        addField32("gpu/0/usage",      offsetof(tcmt::ipc::IPCDataBlock, gpuUsage));
+        addField32("gpu/0/temperature", offsetof(tcmt::ipc::IPCDataBlock, gpuTemp));
+        for (int i = 0; i < 2; ++i) {
+            char prefix[32];
+            snprintf(prefix, sizeof(prefix), "disk/%d/", i);
+            uint32_t base = offsetof(tcmt::ipc::IPCDataBlock, disks) + i * sizeof(tcmt::ipc::IPCDataBlock::DiskSlot);
+            addFieldStr((std::string(prefix) + "label").c_str(), base + offsetof(tcmt::ipc::IPCDataBlock::DiskSlot, label), 32);
+            addField32((std::string(prefix) + "total").c_str(), base + offsetof(tcmt::ipc::IPCDataBlock::DiskSlot, totalSize));
+            addField32((std::string(prefix) + "used").c_str(),  base + offsetof(tcmt::ipc::IPCDataBlock::DiskSlot, usedSpace));
+            addFieldStr((std::string(prefix) + "fs").c_str(),    base + offsetof(tcmt::ipc::IPCDataBlock::DiskSlot, fs), 16);
+        }
+        for (int i = 0; i < 2; ++i) {
+            char prefix[32];
+            snprintf(prefix, sizeof(prefix), "net/%d/", i);
+            uint32_t base = offsetof(tcmt::ipc::IPCDataBlock, adapters) + i * sizeof(tcmt::ipc::IPCDataBlock::NetSlot);
+            addFieldStr((std::string(prefix) + "name").c_str(), base + offsetof(tcmt::ipc::IPCDataBlock::NetSlot, name), 32);
+            addFieldStr((std::string(prefix) + "ip").c_str(),   base + offsetof(tcmt::ipc::IPCDataBlock::NetSlot, ip), 16);
+            addFieldStr((std::string(prefix) + "mac").c_str(),  base + offsetof(tcmt::ipc::IPCDataBlock::NetSlot, mac), 18);
+            addFieldStr((std::string(prefix) + "type").c_str(), base + offsetof(tcmt::ipc::IPCDataBlock::NetSlot, type), 16);
+            addField32((std::string(prefix) + "speed").c_str(), base + offsetof(tcmt::ipc::IPCDataBlock::NetSlot, speed));
+        }
+        ipcServer.UpdateSchema(schemaHdr, fields);
+    }
+    if (ipcServer.Start()) {
+        Logger::Info("IPC server started on " + std::string(tcmt::ipc::IPC_SOCK_PATH));
+    } else {
+        Logger::Warn("IPC server start failed: " + ipcServer.GetLastError());
     }
 
     // Start TUI
@@ -469,6 +536,53 @@ int main(int argc, char* argv[]) {
                 sysInfo.temperatures = data.temperatures;
 
                 SharedMemoryManager::WriteToSharedMemory(sysInfo);
+
+                // Write to IPC shared memory (schema-driven, for C# Avalonia)
+                if (ipcServer.IsRunning()) {
+                    auto* ipcBlock = static_cast<tcmt::ipc::IPCDataBlock*>(ipcServer.GetShmPtr());
+                    if (ipcBlock) {
+                        std::strncpy(ipcBlock->cpuName, data.cpuName.c_str(), 63);
+                        ipcBlock->cpuName[63] = '\0';
+                        ipcBlock->physicalCores = static_cast<uint8_t>(data.physicalCores);
+                        ipcBlock->performanceCores = static_cast<uint8_t>(data.performanceCores);
+                        ipcBlock->efficiencyCores = static_cast<uint8_t>(data.efficiencyCores);
+                        ipcBlock->cpuUsage = static_cast<float>(data.cpuUsage);
+                        ipcBlock->pCoreFreq = static_cast<float>(data.pCoreFreq);
+                        ipcBlock->eCoreFreq = static_cast<float>(data.eCoreFreq);
+                        ipcBlock->cpuTemp = static_cast<float>(data.cpuTemp);
+                        ipcBlock->totalMemory = data.totalMemory;
+                        ipcBlock->usedMemory = data.usedMemory;
+                        ipcBlock->availableMemory = data.availableMemory;
+                        ipcBlock->compressedMemory = data.compressedMemory;
+                        std::strncpy(ipcBlock->gpuName, data.gpuName.c_str(), 47);
+                        ipcBlock->gpuName[47] = '\0';
+                        ipcBlock->gpuMemory = data.gpuMemory;
+                        ipcBlock->gpuUsage = static_cast<float>(data.gpuUsage);
+                        ipcBlock->gpuTemp = static_cast<float>(data.gpuTemp);
+                        // Disks
+                        ipcBlock->diskCount = 0;
+                        for (size_t di = 0; di < std::min(data.disks.size(), size_t(2)); ++di) {
+                            std::strncpy(ipcBlock->disks[di].label, data.disks[di].label.c_str(), 31);
+                            ipcBlock->disks[di].label[31] = '\0';
+                            ipcBlock->disks[di].totalSize = data.disks[di].totalSize;
+                            ipcBlock->disks[di].usedSpace = data.disks[di].usedSpace;
+                            std::strncpy(ipcBlock->disks[di].fs, data.disks[di].fileSystem.c_str(), 15);
+                            ipcBlock->disks[di].fs[15] = '\0';
+                            ipcBlock->diskCount++;
+                        }
+                        // Network adapters (only connected ones)
+                        ipcBlock->adapterCount = 0;
+                        for (size_t ai = 0; ai < data.adapters.size() && ipcBlock->adapterCount < 2; ++ai) {
+                            if (data.adapters[ai].ip.empty()) continue;
+                            std::strncpy(ipcBlock->adapters[ipcBlock->adapterCount].name, data.adapters[ai].name.c_str(), 31);
+                            std::strncpy(ipcBlock->adapters[ipcBlock->adapterCount].ip, data.adapters[ai].ip.c_str(), 15);
+                            std::strncpy(ipcBlock->adapters[ipcBlock->adapterCount].mac, data.adapters[ai].mac.c_str(), 17);
+                            std::strncpy(ipcBlock->adapters[ipcBlock->adapterCount].type, data.adapters[ai].type.c_str(), 15);
+                            ipcBlock->adapters[ipcBlock->adapterCount].speed = data.adapters[ai].speed;
+                            ipcBlock->adapterCount++;
+                        }
+                    }
+                }
             }
 
             // Sleep
@@ -495,6 +609,8 @@ int main(int argc, char* argv[]) {
     Logger::Info("Exiting, cleaning up...");
     tuiApp.Stop();
     TemperatureWrapper::Cleanup();
+    ipcServer.Stop();
+    Logger::Info("IPC server stopped");
     SharedMemoryManager::CleanupSharedMemory();
     Logger::Info("Done.");
     return 0;
