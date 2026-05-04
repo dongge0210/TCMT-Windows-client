@@ -22,7 +22,7 @@ namespace AvaloniaUI.Models
         // 网络速度格式化 (值已经是 bps，直接格式化)
         public static string FormatNetworkSpeed(ulong bitsPerSec)
         {
-            if (bitsPerSec == 0) return "N/A";
+            if (bitsPerSec == 0) return "0 B/s";
             string[] sizes = { "bps", "Kbps", "Mbps", "Gbps", "Tbps" };
             double len = bitsPerSec;
             int order = 0;
@@ -148,8 +148,8 @@ namespace AvaloniaUI.Models
         public ulong UploadSpeed { get => _uploadSpeed; set => SetProperty(ref _uploadSpeed, value); }
         public string DisplayName => string.IsNullOrEmpty(Name) ? "未知网卡" : $"{Name} ({IpAddress})";
         public string SpeedDisplay => FormatUtil.FormatNetworkSpeed(Speed);
-        public string DownloadDisplay => DownloadSpeed > 0 ? FormatUtil.FormatNetworkSpeed(DownloadSpeed) : "---";
-        public string UploadDisplay => UploadSpeed > 0 ? FormatUtil.FormatNetworkSpeed(UploadSpeed) : "---";
+        public string DownloadDisplay => FormatUtil.FormatNetworkSpeed(DownloadSpeed);
+        public string UploadDisplay => FormatUtil.FormatNetworkSpeed(UploadSpeed);
         public override string ToString() => DisplayName;
     }
 
