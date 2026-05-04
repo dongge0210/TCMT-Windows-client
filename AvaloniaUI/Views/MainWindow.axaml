@@ -131,7 +131,7 @@
                         <ComboBox ItemsSource="{Binding GpuList}" SelectedItem="{Binding SelectedGpu}" DisplayMemberBinding="{Binding DisplayName}"
                                 HorizontalAlignment="Stretch" Margin="0,0,0,10"/>
                         <TextBlock Text="{Binding SelectedGpu.Name, TargetNullValue='未检测到'}" Foreground="White"/>
-                        <Grid Margin="0,5,0,0">
+                        <Grid Margin="0,5,0,0" IsVisible="{Binding IsNotMacOS}">
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="*"/>
                                 <ColumnDefinition Width="*"/>
@@ -190,7 +190,6 @@
                         </Grid>
                         <StackPanel Orientation="Horizontal" Margin="0,3,0,0">
                             <TextBlock Text="标称速率: " Foreground="#FF666666" FontSize="11"/>
-                            <TextBlock Text="{Binding SelectedNetwork.SpeedDisplay, TargetNullValue='N/A', StringFormat='链路: {0}'}" Foreground="#FF666666" FontSize="11"/>
                             <TextBlock Text="{Binding SelectedNetwork.DownloadDisplay, TargetNullValue='N/A', StringFormat='下载: {0}'}" Foreground="#FF4CAF50" FontSize="11"/>
                             <TextBlock Text="{Binding SelectedNetwork.UploadDisplay, TargetNullValue='N/A', StringFormat='上传: {0}'}" Foreground="#FFFF9800" FontSize="11"/>
                         </StackPanel>
