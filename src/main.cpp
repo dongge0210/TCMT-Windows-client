@@ -1112,6 +1112,8 @@ int main(int argc, char* argv[]) {
                             wcsncpy_s(data.ipAddress, ipW.c_str(), 64);
                             wcsncpy_s(data.adapterType, typeW.c_str(), 32);
                             data.speed = adapter.speed;
+                            data.downloadSpeed = adapter.downloadSpeed;
+                            data.uploadSpeed = adapter.uploadSpeed;
                             sysInfo.adapters.push_back(data);
                         }
                         sysInfo.networkAdapterName = adapters[0].name;
