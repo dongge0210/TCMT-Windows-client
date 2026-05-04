@@ -1,6 +1,5 @@
 #include <curses.h>
 #include "TuiApp.h"
-#include <locale>
 #include <ctime>
 #include <cstring>
 #include <algorithm>
