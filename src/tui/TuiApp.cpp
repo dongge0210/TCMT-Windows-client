@@ -295,7 +295,17 @@ int TuiApp::DrawNetworkPanel(WINDOW* win, const TuiData& data, int y, int x0, in
         }
         if (n.speed > 0) {
             auto speedStr = FormatSpeed(n.speed);
-            mvwprintw(win, y + lines, x0 + 4, "%.*s", maxW - 6, speedStr.c_str());
+            mvwprintw(win, y + lines, x0 + 4, "L: %.*s", maxW - 8, speedStr.c_str());
+            lines++;
+        }
+        if (n.downloadSpeed > 0) {
+            auto d = FormatSize(n.downloadSpeed);
+            mvwprintw(win, y + lines, x0 + 4, "D: %.*s/s", maxW - 8, d.c_str());
+            lines++;
+        }
+        if (n.uploadSpeed > 0) {
+            auto u = FormatSize(n.uploadSpeed);
+            mvwprintw(win, y + lines, x0 + 4, "U: %.*s/s", maxW - 8, u.c_str());
             lines++;
         }
     }

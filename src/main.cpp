@@ -1382,6 +1382,8 @@ int main(int argc, char* argv[]) {
                         ni.mac = WinUtils::WstringToString(adapter.mac);
                         ni.type = WinUtils::WstringToString(adapter.adapterType);
                         ni.speed = adapter.speed;
+                        ni.downloadSpeed = adapter.downloadSpeed;
+                        ni.uploadSpeed = adapter.uploadSpeed;
                         tuiData.adapters.push_back(ni);
                     }
                     

@@ -57,6 +57,8 @@ struct TuiData {
         std::string mac;
         std::string type;
         uint64_t speed = 0;
+        uint64_t downloadSpeed = 0;
+        uint64_t uploadSpeed = 0;
     };
     std::vector<NetInfo> adapters;
 

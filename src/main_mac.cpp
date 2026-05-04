@@ -338,6 +338,8 @@ int main(int argc, char* argv[]) {
                     ni.mac = adapter.mac;
                     ni.type = adapter.adapterType;
                     ni.speed = adapter.speed;
+                    ni.downloadSpeed = adapter.downloadSpeed;
+                    ni.uploadSpeed = adapter.uploadSpeed;
                     data.adapters.push_back(ni);
                 }
             } catch (const std::exception& e) {
