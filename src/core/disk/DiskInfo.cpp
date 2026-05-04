@@ -274,10 +274,11 @@ void DiskInfo::QueryDrives() {
         std::string fstype(fs.f_fstypename);
         std::string devname(fs.f_mntfromname);
 
-        // Skip non-physical volumes and macOS system snapshots
+        // Skip non-physical volumes, root, and macOS system snapshots
         if (fstype == "autofs" || fstype == "devfs" || fstype == "fdesc"
             || fstype == "procfs" || fstype == "devpts" || fstype == "overlay"
             || fstype == "nullfs" || fstype == "simfs"
+            || mountpoint == "/"  // root is not a user-facing volume
             || mountpoint == "/System/Volumes/VM"
             || mountpoint == "/System/Volumes/Preboot"
             || mountpoint == "/System/Volumes/Update"
@@ -285,7 +286,8 @@ void DiskInfo::QueryDrives() {
             || mountpoint == "/System/Volumes/iSCPreboot"
             || mountpoint == "/System/Volumes/Hardware"
             || mountpoint.find("/System/Volumes/Update/") == 0
-            || mountpoint.find("/private/var/folders/") == 0) {
+            || mountpoint.find("/private/var/folders/") == 0
+            || mountpoint.find("/Volumes/ProNTFSDrive") == 0) {
             continue;
         }
 
