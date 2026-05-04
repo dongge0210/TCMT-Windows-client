@@ -38,6 +38,7 @@ struct TuiData {
     std::string gpuName;
     uint64_t gpuMemory = 0;
     double gpuUsage = 0.0;
+    double gpuMemoryPercent = 0.0;
     double gpuTemp = 0.0;
 
     // Disk

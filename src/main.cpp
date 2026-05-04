@@ -1359,6 +1359,7 @@ int main(int argc, char* argv[]) {
                         tuiData.gpuName = sysInfo.gpuName;
                         tuiData.gpuMemory = sysInfo.gpuMemory;
                         tuiData.gpuUsage = sysInfo.gpuUsage;
+                        tuiData.gpuMemoryPercent = sysInfo.gpuCoreFreq;
                     }
                     tuiData.gpuTemp = sysInfo.gpuTemperature;
                     

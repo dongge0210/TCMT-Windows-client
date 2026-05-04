@@ -230,6 +230,14 @@ int TuiApp::DrawGpuPanel(WINDOW* win, const TuiData& data, int y, int x0, int ma
         mvwprintw(win, y + lines, x0 + 2, "VRAM: %.*s", maxW - 8, memStr.c_str());
         lines++;
     }
+    if (data.gpuMemoryPercent > 1) {
+        mvwprintw(win, y + lines, x0 + 2, "VRAM:");
+        wattron(win, COLOR_PAIR(6));
+        mvwprintw(win, y + lines, x0 + 8, "%.*s", maxW - 8, FormatBar(data.gpuMemoryPercent, bw).c_str());
+        wattroff(win, COLOR_PAIR(6));
+        mvwprintw(win, y + lines, x0 + 9 + bw, "%.1f%%", data.gpuMemoryPercent);
+        lines++;
+    }
 
     if (data.gpuTemp > 0) {
         mvwprintw(win, y + lines, x0 + 2, "Temp: %.0f C", data.gpuTemp);
