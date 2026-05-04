@@ -291,6 +291,11 @@ int TuiApp::DrawNetworkPanel(WINDOW* win, const TuiData& data, int y, int x0, in
         lines++;
         mvwprintw(win, y + lines, x0 + 4, "%.*s", maxW - 6, n.ip.c_str());
         lines++;
+        if (!n.type.empty()) {
+            auto typeStr = TrimRight(n.type, maxW - 6);
+            mvwprintw(win, y + lines, x0 + 4, "%.*s", maxW - 6, typeStr.c_str());
+            lines++;
+        }
         if (!n.mac.empty() && n.mac != "00:00:00:00:00:00") {
             mvwprintw(win, y + lines, x0 + 4, "%.*s", maxW - 6, n.mac.c_str());
             lines++;
