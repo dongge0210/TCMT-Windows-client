@@ -164,6 +164,8 @@ int main(int argc, char* argv[]) {
                 na["mac"] = a.mac;
                 na["type"] = a.adapterType;
                 na["speed"] = a.speed;
+                na["downloadSpeed"] = a.downloadSpeed;
+                na["uploadSpeed"] = a.uploadSpeed;
                 cfg.AppendToArray("network.adapters", std::move(na));
             }
         } catch (...) {}
@@ -428,6 +430,8 @@ int main(int argc, char* argv[]) {
                     for (size_t i = 0; i < copyLen; ++i) nad.adapterType[i] = u16type[i];
                     nad.adapterType[copyLen] = u'\0';
                     nad.speed = adapter.speed;
+                    nad.downloadSpeed = adapter.downloadSpeed;
+                    nad.uploadSpeed = adapter.uploadSpeed;
                     sysInfo.adapters.push_back(nad);
                 }
 
