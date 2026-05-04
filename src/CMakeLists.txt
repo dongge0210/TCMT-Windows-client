@@ -42,6 +42,11 @@ set(CONFIG_SOURCES
     ${CMAKE_CURRENT_SOURCE_DIR}/core/Config/ConfigManager.cpp
 )
 
+# IPC module (schema-based shared memory pipeline)
+set(IPC_SOURCES
+    ${CMAKE_CURRENT_SOURCE_DIR}/core/IPC/IPCServer.cpp
+)
+
 # HistoryLogger (SQLite sensor data logging)
 set(HISTORY_SOURCES
     ${CMAKE_CURRENT_SOURCE_DIR}/core/history/HistoryLogger.cpp
@@ -108,6 +113,7 @@ add_library(TCMTCore STATIC
     ${CORE_MODULES_SOURCES}
     ${DATASTRUCT_SOURCES}
     ${CONFIG_SOURCES}
+    ${IPC_SOURCES}
     ${HISTORY_SOURCES}
     ${TEMP_SOURCES}
     ${TUI_SOURCES}

@@ -1,0 +1,114 @@
+#pragma once
+#include <cstdint>
+#include <cstring>
+
+namespace tcmt::ipc {
+
+// === Protocol Constants ===
+constexpr uint32_t IPC_MAGIC          = 0x54434D54; // "TCMT"
+constexpr uint8_t  IPC_VERSION        = 1;
+constexpr uint32_t IPC_MAX_FIELDS     = 64;
+constexpr uint32_t IPC_FIELD_NAME_LEN = 32;
+constexpr uint32_t IPC_FIELD_UNITS_LEN = 16;
+constexpr uint32_t IPC_SCHEMA_HEADER_SIZE = 16;
+constexpr uint32_t IPC_FIELD_DEF_SIZE = 80;
+constexpr int      IPC_MAX_CLIENTS    = 8;
+constexpr const char* IPC_SHM_PATH   = "/tmp/tcmt_shm.dat";
+constexpr const char* IPC_SOCK_PATH  = "/tmp/tcmt_ipc.sock";
+
+// === Wire Types ===
+enum class FieldType : uint8_t {
+    UInt8   = 1,
+    Int8    = 2,
+    UInt16  = 3,
+    Int16   = 4,
+    UInt32  = 5,
+    Int32   = 6,
+    UInt64  = 7,
+    Int64   = 8,
+    Float32 = 9,
+    Float64 = 10,
+    Bool    = 11,
+    String  = 12,
+    WString = 13,
+};
+
+#pragma pack(push, 1)
+
+struct SchemaHeader {
+    uint32_t magic      = IPC_MAGIC;
+    uint8_t  version    = IPC_VERSION;
+    uint8_t  flags      = 0;
+    uint16_t fieldCount = 0;
+    uint32_t totalSize  = 0;
+    uint32_t stringBlockSize = 0;
+};
+
+struct FieldDef {
+    uint32_t id       = 0;
+    uint8_t  type     = 0;      // FieldType
+    uint8_t  reserved = 0;
+    uint16_t size     = 0;
+    uint32_t offset   = 0;
+    uint32_t count    = 0;
+    uint32_t strOffset = 0;
+    uint32_t flags    = 0;
+    float    minVal   = 0;
+    float    maxVal   = 0;
+    char     name[IPC_FIELD_NAME_LEN]  = {};
+    char     units[IPC_FIELD_UNITS_LEN] = {};
+};
+
+// IPC data block — shared via mmap file, read by C# AvaloniaUI
+struct IPCDataBlock {
+    // CPU
+    char     cpuName[64]             = {};
+    uint8_t  physicalCores           = 0;
+    uint8_t  performanceCores        = 0;
+    uint8_t  efficiencyCores         = 0;
+    float    cpuUsage                = 0;
+    float    pCoreFreq               = 0;
+    float    eCoreFreq               = 0;
+    float    cpuTemp                 = 0;
+    char     timestamp[16]           = {};
+
+    // Memory
+    uint64_t totalMemory             = 0;
+    uint64_t usedMemory              = 0;
+    uint64_t availableMemory         = 0;
+    uint64_t compressedMemory        = 0;
+
+    // GPU
+    char     gpuName[48]             = {};
+    uint64_t gpuMemory               = 0;
+    float    gpuUsage                = 0;
+    float    gpuTemp                 = 0;
+
+    // Disks (up to 2)
+    struct DiskSlot {
+        char     label[32]           = {};
+        uint64_t totalSize           = 0;
+        uint64_t usedSpace           = 0;
+        char     fs[16]              = {};
+    };
+    DiskSlot disks[2]                = {};
+    uint8_t  diskCount               = 0;
+
+    // Network adapters (up to 2)
+    struct NetSlot {
+        char     name[32]            = {};
+        char     ip[16]              = {};
+        char     mac[18]             = {};
+        char     type[16]            = {};
+        uint64_t speed               = 0;
+    };
+    NetSlot  adapters[2]             = {};
+    uint8_t  adapterCount            = 0;
+};
+
+#pragma pack(pop)
+
+static_assert(sizeof(FieldDef) == IPC_FIELD_DEF_SIZE, "FieldDef size mismatch");
+static_assert(sizeof(SchemaHeader) == IPC_SCHEMA_HEADER_SIZE, "SchemaHeader size mismatch");
+
+} // namespace tcmt::ipc
