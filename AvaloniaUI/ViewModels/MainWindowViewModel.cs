@@ -331,6 +331,7 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
         BatteryPercent = info.BatteryPercent;
         AcOnline = info.AcOnline;
         OnPropertyChanged(nameof(HasBattery));
+        OnPropertyChanged(nameof(BatteryLabel));
         Log.Debug("TPM 更新: {Manuf}, {Status}", TpmInfo.Manufacturer, TpmInfo.Status);
     }
 
@@ -600,6 +601,7 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
     private bool _acOnline;
 
     public bool HasBattery => BatteryPercent >= 0;
+    public string BatteryLabel => AcOnline ? "AC" : "BAT";
 
     // Last update
     [ObservableProperty]

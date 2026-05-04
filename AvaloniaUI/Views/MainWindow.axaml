@@ -302,7 +302,7 @@
                             VerticalAlignment="Center" Margin="10,0,0,0">
                     <TextBlock Text="{Binding BatteryPercent, StringFormat={}{0}%}"
                                Foreground="#FF4CAF50" FontSize="11"/>
-                    <TextBlock Text=" AC" Foreground="#FF666666" FontSize="11"/>
+                    <TextBlock Text="{Binding BatteryLabel, StringFormat=' {0}'}" Foreground="#FF666666" FontSize="11"/>
                 </StackPanel>
 
                 <TextBlock Grid.Column="3" Text="{Binding LastUpdate, StringFormat='更新时间: {0:HH:mm:ss}'}"
