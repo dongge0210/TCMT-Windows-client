@@ -33,7 +33,6 @@ set(CORE_MODULES_SOURCES
 # DataStruct / SharedMemory
 set(DATASTRUCT_SOURCES
     ${CMAKE_CURRENT_SOURCE_DIR}/core/DataStruct/DataStruct.h
-    ${CMAKE_CURRENT_SOURCE_DIR}/core/DataStruct/Producer.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/core/DataStruct/SharedMemoryManager.cpp
 )
 

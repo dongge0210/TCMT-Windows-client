@@ -108,7 +108,7 @@ function(tcmt_set_platform_libraries target)
         find_library(CORESERVICES_LIB CoreServices)
 
         # 创建要链接的库列表
-        set(MACOS_LIBS pthread dl)
+        set(MACOS_LIBS)
 
         if(IOKIT_LIB)
             list(APPEND MACOS_LIBS ${IOKIT_LIB})
