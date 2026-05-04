@@ -16,6 +16,8 @@ namespace AvaloniaUI.ViewModels;
 
 public partial class MainWindowViewModel : ObservableObject, IDisposable
 {
+    public bool IsMacOS => OperatingSystem.IsMacOS();
+    public bool IsNotMacOS => !OperatingSystem.IsMacOS();
     private readonly SharedMemoryService _sharedMemory;
     private readonly IPCService? _ipcService;
     private readonly DispatcherTimer _timer;
