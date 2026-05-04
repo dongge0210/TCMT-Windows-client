@@ -490,35 +490,35 @@ void TuiApp::Run() {
         }
         if (ry > maxY) ry = maxY;
 
-        // === Log panel ===
-        int contentEnd = ly > ry ? ly : ry;
-        int logTop = contentEnd + 1;
-
-        // Log separator
+        // === OS / System frame (always shown at bottom) ===
+        int osTop = rows - 3;
         std::string logSep(cols - 2, '-');
-        mvwprintw(stdscr, logTop - 1, 1, "%s", logSep.c_str());
 
-        mvwprintw(stdscr, logTop, 1, "Log");
-
-        int logLinesAvail = rows - logTop - 3; // reserve 2 rows below logs for OS frame
-        if (logLinesAvail > 0) {
-            auto logEntries = logBuf_->GetRecent(logLinesAvail);
-            for (size_t i = 0; i < logEntries.size() && static_cast<int>(i) < logLinesAvail; ++i) {
-                const auto& entry = logEntries[i];
-                int color = 2;
-                if (entry.find("[ERROR]") != std::string::npos) color = 4;
-                else if (entry.find("[WARN]") != std::string::npos) color = 3;
-                else if (entry.find("[DEBUG]") != std::string::npos) color = 6;
-                wattron(stdscr, COLOR_PAIR(color));
-                mvwprintw(stdscr, logTop + 1 + static_cast<int>(i), 2, "%.*s",
-                          cols - 4, entry.c_str());
-                wattroff(stdscr, COLOR_PAIR(color));
+        // === Log panel (sacrificial — only if space between content and OS) ===
+        int contentEnd = ly > ry ? ly : ry;
+        int logSpace = osTop - contentEnd - 2; // rows between content and OS frame
+        if (logSpace > 1) {
+            int logTop = contentEnd + 1;
+            mvwprintw(stdscr, logTop - 1, 1, "%.*s", cols - 2, logSep.c_str());
+            mvwprintw(stdscr, logTop, 1, "Log");
+            int logLinesAvail = std::max(0, osTop - logTop - 1);
+            if (logLinesAvail > 0) {
+                auto logEntries = logBuf_->GetRecent(logLinesAvail);
+                for (size_t i = 0; i < logEntries.size() && static_cast<int>(i) < logLinesAvail; ++i) {
+                    const auto& entry = logEntries[i];
+                    int color = 2;
+                    if (entry.find("[ERROR]") != std::string::npos) color = 4;
+                    else if (entry.find("[WARN]") != std::string::npos) color = 3;
+                    else if (entry.find("[DEBUG]") != std::string::npos) color = 6;
+                    wattron(stdscr, COLOR_PAIR(color));
+                    mvwprintw(stdscr, logTop + 1 + static_cast<int>(i), 2, "%.*s",
+                              cols - 4, entry.c_str());
+                    wattroff(stdscr, COLOR_PAIR(color));
+                }
             }
         }
 
-        // === OS / System frame (reserved bottom 2 rows, below logs) ===
-        int osTop = rows - 3;
-        // Separator between logs and OS frame
+        // OS frame separator
         mvwprintw(stdscr, osTop - 1, 1, "%.*s", cols - 2, logSep.c_str());
         // System label
         wattron(stdscr, COLOR_PAIR(5) | A_BOLD);
