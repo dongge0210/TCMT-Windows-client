@@ -296,6 +296,8 @@ void SharedMemoryManager::WriteToSharedMemory(const SystemInfo& systemInfo) {
             SafeCopyFromWideArray(pBuffer->adapters[i].ipAddress, 64, src.ipAddress, 64);
             SafeCopyFromWideArray(pBuffer->adapters[i].adapterType, 32, src.adapterType, 32);
             pBuffer->adapters[i].speed = src.speed;
+            pBuffer->adapters[i].downloadSpeed = src.downloadSpeed;
+            pBuffer->adapters[i].uploadSpeed = src.uploadSpeed;
         }
         pBuffer->adapterCount = adapterWriteCount;
         if (adapterWriteCount == 0 && !systemInfo.networkAdapterName.empty()) {
