@@ -161,6 +161,10 @@ void SharedMemoryManager::WriteToSharedMemory(const SystemInfo& systemInfo) {
             memset(pBuffer->temperatures[i].sensorName, 0, sizeof(pBuffer->temperatures[i].sensorName));
         }
 
+        // Battery / power
+        pBuffer->batteryPercent = systemInfo.batteryPercent;
+        pBuffer->acOnline = systemInfo.acOnline;
+
         // OS version
         SafeCopyWideString(pBuffer->osVersion, 128,
                           Platform::StringConverter::Utf8ToChar16(systemInfo.osVersion));

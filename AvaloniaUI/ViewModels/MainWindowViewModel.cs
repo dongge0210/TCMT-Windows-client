@@ -328,6 +328,9 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
         // TPM - 确保不为 null
         TpmInfo = info.Tpm ?? new TpmData { Manufacturer = "", Status = "未检测到" };
         OsVersion = string.IsNullOrWhiteSpace(info.OsVersion) ? "未知" : info.OsVersion;
+        BatteryPercent = info.BatteryPercent;
+        AcOnline = info.AcOnline;
+        OnPropertyChanged(nameof(HasBattery));
         Log.Debug("TPM 更新: {Manuf}, {Status}", TpmInfo.Manufacturer, TpmInfo.Status);
     }
 
@@ -588,6 +591,15 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
     // OS Version
     [ObservableProperty]
     private string _osVersion = string.Empty;
+
+    // Battery
+    [ObservableProperty]
+    private int _batteryPercent = -1;
+
+    [ObservableProperty]
+    private bool _acOnline;
+
+    public bool HasBattery => BatteryPercent >= 0;
 
     // Last update
     [ObservableProperty]

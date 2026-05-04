@@ -24,6 +24,7 @@
 #include "core/memory/MemoryInfo.h"
 #include "core/network/NetworkAdapter.h"
 #include "core/os/OSInfo.h"
+#include "core/power/PowerInfo.h"
 #include "core/disk/DiskInfo.h"
 #include "core/DataStruct/DataStruct.h"
 #include "core/DataStruct/SharedMemoryManager.h"
@@ -272,9 +273,23 @@ int main(int argc, char* argv[]) {
         try {
             auto loopStart = std::chrono::high_resolution_clock::now();
 
+            // === Battery / power (shared between TUI and SHM) ===
+            int cachedBatteryPercent = -1;
+            bool cachedAcOnline = false;
+            try {
+                PowerInfo power;
+                power.Detect();
+                if (!power.batteries.empty()) {
+                    cachedBatteryPercent = static_cast<int>(power.batteries[0].chargePercent);
+                }
+                cachedAcOnline = power.acOnline;
+            } catch (...) {}
+
             // === Build TuiData snapshot ===
             tcmt::TuiData data;
             data.osVersion = os.GetVersion();
+            data.batteryPercent = cachedBatteryPercent;
+            data.acOnline = cachedAcOnline;
             data.cpuName = cachedCpuName;
             data.physicalCores = cachedTotalCores;
             data.performanceCores = cachedPCores;
@@ -395,6 +410,8 @@ int main(int argc, char* argv[]) {
             if (shmOk) {
                 SystemInfo sysInfo{};
                 sysInfo.osVersion = os.GetVersion();
+                sysInfo.batteryPercent = cachedBatteryPercent;
+                sysInfo.acOnline = cachedAcOnline;
                 sysInfo.cpuName = data.cpuName;
                 sysInfo.cpuUsage = data.cpuUsage;
                 sysInfo.performanceCoreFreq = data.pCoreFreq;

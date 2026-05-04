@@ -26,7 +26,7 @@ public class SharedMemoryService : IDisposable
     private const string LOCAL_SHARED_MEMORY_NAME = "Local\\SystemMonitorSharedMemory";
 
     // C++ sizeof(SharedMemoryBlock) on macOS (WCHAR=char16_t, pack=1)
-    private const int MAC_SHM_SIZE = 129451;
+    private const int MAC_SHM_SIZE = 129456;
 
     // Set to true to enable verbose layout diagnostics in InitializeMacOS
     private const bool DEBUG_DIAG = false;
@@ -91,6 +91,8 @@ public class SharedMemoryService : IDisposable
         public int physicalDiskCount;
         public TpmInfoStruct tpm;
         public byte tpmCount;
+        public int batteryPercent;
+        [MarshalAs(UnmanagedType.I1)] public bool acOnline;
         [MarshalAs(UnmanagedType.ByValArray, SizeConst = 128)]
         public ushort[] osVersion;
         public SYSTEMTIME lastUpdate;
@@ -714,6 +716,8 @@ public class SharedMemoryService : IDisposable
                 };
             }
 
+            systemInfo.BatteryPercent = sharedData.batteryPercent;
+            systemInfo.AcOnline = sharedData.acOnline;
             systemInfo.OsVersion = SafeWideCharArrayToString(sharedData.osVersion) ?? string.Empty;
 
             systemInfo.LastUpdate = ToDateTime(sharedData.lastUpdate);

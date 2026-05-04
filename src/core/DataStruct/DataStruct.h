@@ -148,6 +148,8 @@ struct SystemInfo {
     std::vector<std::pair<std::string, double>> temperatures;
     std::vector<TpmInfo> tpms;           // TPM info
     std::string osVersion;
+    int batteryPercent = -1;        // -1 = no battery
+    bool acOnline = false;
     std::string gpuName;            // Added
     std::string gpuBrand;           // Added
     uint64_t gpuMemory;             // Added
@@ -216,6 +218,10 @@ struct SharedMemoryBlock {
     // TPM info (1 TPM supported)
     TpmInfo tpm;
     uint8_t tpmCount;               // TPM count
+
+    // Battery / power info
+    int batteryPercent;             // 0-100, -1 = no battery
+    bool acOnline;                  // AC power connected
 
     // OS version info
     WCHAR osVersion[128];           // e.g. "macOS 15.6 (MacBookPro18,1)"

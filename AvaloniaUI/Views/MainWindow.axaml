@@ -286,6 +286,7 @@
                     <ColumnDefinition Width="Auto"/>
                     <ColumnDefinition Width="*"/>
                     <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="Auto"/>
                 </Grid.ColumnDefinitions>
                 
                 <StackPanel Orientation="Horizontal">
@@ -297,7 +298,14 @@
                 <TextBlock Grid.Column="1" Text="{Binding OsVersion}"
                           Foreground="#FF666666" FontSize="11" VerticalAlignment="Center" HorizontalAlignment="Center"/>
 
-                <TextBlock Grid.Column="2" Text="{Binding LastUpdate, StringFormat='更新时间: {0:HH:mm:ss}'}"
+                <StackPanel Grid.Column="2" Orientation="Horizontal" IsVisible="{Binding HasBattery}"
+                            VerticalAlignment="Center" Margin="10,0,0,0">
+                    <TextBlock Text="{Binding BatteryPercent, StringFormat={}{0}%}"
+                               Foreground="#FF4CAF50" FontSize="11"/>
+                    <TextBlock Text=" AC" Foreground="#FF666666" FontSize="11"/>
+                </StackPanel>
+
+                <TextBlock Grid.Column="3" Text="{Binding LastUpdate, StringFormat='更新时间: {0:HH:mm:ss}'}"
                           Foreground="#FF666666" FontSize="11" VerticalAlignment="Center"/>
             </Grid>
         </Border>

@@ -495,7 +495,7 @@ void TuiApp::Run() {
 
         mvwprintw(stdscr, logTop, 1, "Log");
 
-        int logLinesAvail = rows - logTop - 2;
+        int logLinesAvail = rows - logTop - 3; // reserve 2 rows below logs for OS frame
         if (logLinesAvail > 0) {
             auto logEntries = logBuf_->GetRecent(logLinesAvail);
             for (size_t i = 0; i < logEntries.size() && static_cast<int>(i) < logLinesAvail; ++i) {
@@ -511,11 +511,27 @@ void TuiApp::Run() {
             }
         }
 
-        // OS version below log area on bottom border line
+        // === OS / System frame (reserved bottom 2 rows, below logs) ===
+        int osTop = rows - 3;
+        // Separator between logs and OS frame
+        mvwprintw(stdscr, osTop - 1, 1, "%.*s", cols - 2, logSep.c_str());
+        // System label
+        wattron(stdscr, COLOR_PAIR(5) | A_BOLD);
+        mvwprintw(stdscr, osTop, 1, "System");
+        wattroff(stdscr, COLOR_PAIR(5) | A_BOLD);
+        // OS version
         if (!data.osVersion.empty()) {
-            wattron(stdscr, COLOR_PAIR(5));
-            mvwprintw(stdscr, rows - 2, 2, "%.*s", cols - 4, data.osVersion.c_str());
-            wattroff(stdscr, COLOR_PAIR(5));
+            mvwprintw(stdscr, osTop, 10, "%.*s", cols - 30, data.osVersion.c_str());
+        } else {
+            mvwprintw(stdscr, osTop, 10, "Unknown OS");
+        }
+        // Battery
+        if (data.batteryPercent >= 0 && data.batteryPercent <= 100) {
+            auto batStr = (data.acOnline ? "AC" : "BAT") + std::string(" ") + std::to_string(data.batteryPercent) + "%";
+            int color = data.batteryPercent < 20 ? 4 : (data.batteryPercent < 50 ? 3 : 2);
+            wattron(stdscr, COLOR_PAIR(color));
+            mvwprintw(stdscr, osTop, cols - static_cast<int>(batStr.size()) - 2, "%s", batStr.c_str());
+            wattroff(stdscr, COLOR_PAIR(color));
         }
 
         refresh();

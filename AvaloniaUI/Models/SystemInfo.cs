@@ -87,6 +87,8 @@ namespace AvaloniaUI.Models
         public List<TemperatureData> Temperatures { get; set; } = new();
         public TpmData? Tpm { get; set; }
         public string OsVersion { get; set; } = string.Empty;
+        public int BatteryPercent { get; set; } = -1;
+        public bool AcOnline { get; set; }
         public double CpuTemperature { get; set; }
         public double GpuTemperature { get; set; }
         public double CpuUsageSampleIntervalMs { get; set; }

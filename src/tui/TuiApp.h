@@ -64,6 +64,8 @@ struct TuiData {
 
     // OS
     std::string osVersion;
+    int batteryPercent = -1;  // -1 = no battery
+    bool acOnline = false;
 
     // TPM
     std::string tpmInfo;
