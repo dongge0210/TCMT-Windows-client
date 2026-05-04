@@ -255,6 +255,9 @@ void SharedMemoryManager::WriteToSharedMemory(const SystemInfo& systemInfo) {
         for (int i = 0; i < 8; ++i) { memset(&pBuffer->disks[i], 0, sizeof(pBuffer->disks[i])); memset(&pBuffer->physicalDisks[i], 0, sizeof(pBuffer->physicalDisks[i])); }
         for (int i = 0; i < 10; ++i) { memset(pBuffer->temperatures[i].sensorName, 0, sizeof(pBuffer->temperatures[i].sensorName)); }
 
+        // OS version
+        SafeCopyWideString(pBuffer->osVersion, 128, WinUtils::StringToWstring(systemInfo.osVersion));
+
         // CPU
         SafeCopyWideString(pBuffer->cpuName, 128, WinUtils::StringToWstring(systemInfo.cpuName));
         pBuffer->physicalCores = systemInfo.physicalCores;

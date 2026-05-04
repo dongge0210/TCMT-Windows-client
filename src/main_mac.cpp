@@ -274,6 +274,7 @@ int main(int argc, char* argv[]) {
 
             // === Build TuiData snapshot ===
             tcmt::TuiData data;
+            data.osVersion = os.GetVersion();
             data.cpuName = cachedCpuName;
             data.physicalCores = cachedTotalCores;
             data.performanceCores = cachedPCores;
@@ -393,6 +394,7 @@ int main(int argc, char* argv[]) {
             // Also write to shared memory (optional)
             if (shmOk) {
                 SystemInfo sysInfo{};
+                sysInfo.osVersion = os.GetVersion();
                 sysInfo.cpuName = data.cpuName;
                 sysInfo.cpuUsage = data.cpuUsage;
                 sysInfo.performanceCoreFreq = data.pCoreFreq;

@@ -327,6 +327,7 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
 
         // TPM - 确保不为 null
         TpmInfo = info.Tpm ?? new TpmData { Manufacturer = "", Status = "未检测到" };
+        OsVersion = string.IsNullOrWhiteSpace(info.OsVersion) ? "未知" : info.OsVersion;
         Log.Debug("TPM 更新: {Manuf}, {Status}", TpmInfo.Manufacturer, TpmInfo.Status);
     }
 
@@ -583,6 +584,10 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
     // TPM
     [ObservableProperty]
     private TpmData? _tpmInfo;
+
+    // OS Version
+    [ObservableProperty]
+    private string _osVersion = string.Empty;
 
     // Last update
     [ObservableProperty]

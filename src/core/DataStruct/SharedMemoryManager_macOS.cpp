@@ -161,6 +161,10 @@ void SharedMemoryManager::WriteToSharedMemory(const SystemInfo& systemInfo) {
             memset(pBuffer->temperatures[i].sensorName, 0, sizeof(pBuffer->temperatures[i].sensorName));
         }
 
+        // OS version
+        SafeCopyWideString(pBuffer->osVersion, 128,
+                          Platform::StringConverter::Utf8ToChar16(systemInfo.osVersion));
+
         // CPU information
         SafeCopyWideString(pBuffer->cpuName, 128,
                           Platform::StringConverter::Utf8ToChar16(systemInfo.cpuName));

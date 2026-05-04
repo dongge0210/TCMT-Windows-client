@@ -217,6 +217,9 @@ struct SharedMemoryBlock {
     TpmInfo tpm;
     uint8_t tpmCount;               // TPM count
 
+    // OS version info
+    WCHAR osVersion[128];           // e.g. "macOS 15.6 (MacBookPro18,1)"
+
     PlatformSystemTime lastUpdate;
     PlatformCriticalSection lock;
 };

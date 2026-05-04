@@ -294,7 +294,10 @@
                     <TextBlock Text="{Binding ConnectionStatus}" Foreground="#FFB3B3B3" VerticalAlignment="Center"/>
                 </StackPanel>
                 
-                <TextBlock Grid.Column="2" Text="{Binding LastUpdate, StringFormat='更新时间: {0:HH:mm:ss}'}" 
+                <TextBlock Grid.Column="1" Text="{Binding OsVersion}"
+                          Foreground="#FF666666" FontSize="11" VerticalAlignment="Center" HorizontalAlignment="Center"/>
+
+                <TextBlock Grid.Column="2" Text="{Binding LastUpdate, StringFormat='更新时间: {0:HH:mm:ss}'}"
                           Foreground="#FF666666" FontSize="11" VerticalAlignment="Center"/>
             </Grid>
         </Border>

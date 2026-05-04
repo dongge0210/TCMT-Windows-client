@@ -121,6 +121,13 @@ void TuiApp::DrawHeader(WINDOW* win, const TuiData& data) {
     int x = (cols - static_cast<int>(title.size())) / 2;
     mvwprintw(win, 0, std::max(0, x), "%s", title.c_str());
     wattroff(win, COLOR_PAIR(1) | A_BOLD);
+
+    // OS version on the right side of header
+    if (!data.osVersion.empty()) {
+        auto osStr = TrimRight(data.osVersion, cols / 3);
+        mvwprintw(win, 0, std::max(cols - static_cast<int>(osStr.size()) - 1, 1),
+                  "%.*s", cols / 3, osStr.c_str());
+    }
 }
 
 int TuiApp::DrawCpuPanel(WINDOW* win, const TuiData& data, int y, int x0, int maxW) {
