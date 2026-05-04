@@ -144,8 +144,8 @@ namespace AvaloniaUI.Models
         public string IpAddress { get => _ipAddress; set => SetProperty(ref _ipAddress, value); }
         public string AdapterType { get => _adapterType; set => SetProperty(ref _adapterType, value); }
         public ulong Speed { get => _speed; set => SetProperty(ref _speed, value); }
-        public ulong DownloadSpeed { get => _downloadSpeed; set => SetProperty(ref _downloadSpeed, value); }
-        public ulong UploadSpeed { get => _uploadSpeed; set => SetProperty(ref _uploadSpeed, value); }
+        public ulong DownloadSpeed { get => _downloadSpeed; set { if (SetProperty(ref _downloadSpeed, value)) NotifyPropertyChanged(nameof(DownloadDisplay)); } }
+        public ulong UploadSpeed { get => _uploadSpeed; set { if (SetProperty(ref _uploadSpeed, value)) NotifyPropertyChanged(nameof(UploadDisplay)); } }
         public string DisplayName => string.IsNullOrEmpty(Name) ? "未知网卡" : $"{Name} ({IpAddress})";
         public string SpeedDisplay => FormatUtil.FormatNetworkSpeed(Speed);
         public string DownloadDisplay => FormatUtil.FormatNetworkSpeed(DownloadSpeed);

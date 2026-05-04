@@ -144,7 +144,7 @@ public class IPCService : IDisposable
         _disposed = true;
         _cts?.Cancel();
         _cts?.Dispose();
-        _pipeClient.DisposeAsync();
+        _ = _pipeClient.DisposeAsync();
         _memoryReader.Dispose();
     }
 }

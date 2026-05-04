@@ -81,7 +81,9 @@ public class IPCMemoryReader : IDisposable
         try
         {
             var size = (long)_schema!.Header.TotalSize;
-            _mmf = MemoryMappedFile.OpenExisting("Global\\TCMT_IPC_SharedMemory", MemoryMappedFileRights.Read);
+            _mmf = OperatingSystem.IsWindows()
+                ? MemoryMappedFile.OpenExisting("Global\\TCMT_IPC_SharedMemory", MemoryMappedFileRights.Read)
+                : throw new PlatformNotSupportedException("Windows shared memory not available");
             _accessor = _mmf.CreateViewAccessor(0, size, MemoryMappedFileAccess.Read);
             Log.Information("IPC Memory: Opened Windows shared memory, size={Size}", size);
             return true;

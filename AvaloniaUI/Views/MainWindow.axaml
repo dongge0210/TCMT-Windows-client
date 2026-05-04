@@ -147,8 +147,10 @@
                         </Grid>
                         <ProgressBar Value="{Binding SelectedGpu.Usage, TargetNullValue=0}" Maximum="100" Height="6" Margin="0,8,0,0" Foreground="#FF4CAF50"/>
                         <TextBlock Text="{Binding SelectedGpu.Usage, TargetNullValue=0, StringFormat='GPU使用率: {0:F1}%'}" Foreground="#FFB3B3B3" FontSize="11"/>
-                        <ProgressBar Value="{Binding SelectedGpu.CoreClock, TargetNullValue=0}" Maximum="100" Height="6" Margin="0,4,0,0" Foreground="#FFFF9800"/>
-                        <TextBlock Text="{Binding SelectedGpu.CoreClock, TargetNullValue=0, StringFormat='显存占用: {0:F1}%'}" Foreground="#FFB3B3B3" FontSize="11"/>
+                        <StackPanel IsVisible="{Binding IsNotMacOS}">
+                            <ProgressBar Value="{Binding SelectedGpu.CoreClock, TargetNullValue=0}" Maximum="100" Height="6" Margin="0,4,0,0" Foreground="#FFFF9800"/>
+                            <TextBlock Text="{Binding SelectedGpu.CoreClock, TargetNullValue=0, StringFormat='显存占用: {0:F1}%'}" Foreground="#FFB3B3B3" FontSize="11"/>
+                        </StackPanel>
                     </StackPanel>
                 </Border>
 
@@ -181,17 +183,16 @@
                             </Grid.ColumnDefinitions>
                             <StackPanel Orientation="Horizontal">
                                 <TextBlock Text="↓ " Foreground="#FF4CAF50" FontSize="11"/>
-                                <TextBlock Text="{Binding NetworkDownloadSpeed}" Foreground="#FF4CAF50"/>
+                                <TextBlock Text="{Binding SelectedNetwork.DownloadDisplay, TargetNullValue='N/A'}" Foreground="#FF4CAF50"/>
                             </StackPanel>
                             <StackPanel Grid.Column="1" Orientation="Horizontal">
                                 <TextBlock Text="↑ " Foreground="#FF2196F3" FontSize="11"/>
-                                <TextBlock Text="{Binding NetworkUploadSpeed}" Foreground="#FF2196F3"/>
+                                <TextBlock Text="{Binding SelectedNetwork.UploadDisplay, TargetNullValue='N/A'}" Foreground="#FF2196F3"/>
                             </StackPanel>
                         </Grid>
                         <StackPanel Orientation="Horizontal" Margin="0,3,0,0">
                             <TextBlock Text="标称速率: " Foreground="#FF666666" FontSize="11"/>
-                            <TextBlock Text="{Binding SelectedNetwork.DownloadDisplay, TargetNullValue='N/A', StringFormat='下载: {0}'}" Foreground="#FF4CAF50" FontSize="11"/>
-                            <TextBlock Text="{Binding SelectedNetwork.UploadDisplay, TargetNullValue='N/A', StringFormat='上传: {0}'}" Foreground="#FFFF9800" FontSize="11"/>
+                            <TextBlock Text="{Binding SelectedNetwork.SpeedDisplay, TargetNullValue='N/A'}" Foreground="#FFB3B3B3" FontSize="11"/>
                         </StackPanel>
                     </StackPanel>
                 </Border>

@@ -566,12 +566,6 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
     [ObservableProperty]
     private NetworkAdapterData? _selectedNetwork;
 
-    [ObservableProperty]
-    private string _networkDownloadSpeed = "N/A";
-
-    [ObservableProperty]
-    private string _networkUploadSpeed = "N/A";
-
     // Disk
     [ObservableProperty]
     private ObservableCollection<DiskData> _diskList = new();
