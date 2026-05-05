@@ -18,6 +18,7 @@
 #include <mach/mach_time.h>
 #include <mach/mach.h>
 #include <mach/vm_statistics.h>
+#include <sys/stat.h>
 
 #include "core/cpu/CpuInfo.h"
 #include "core/gpu/GpuInfo.h"
@@ -368,6 +369,10 @@ int main(int argc, char* argv[]) {
     HistoryLogger historyLogger;
     historyLogger.SetRetentionDays(30);
     std::string dbPath = getenv("HOME") ? std::string(getenv("HOME")) + "/.tcmt/history.db" : "/tmp/tcmt_history.db";
+    {
+        std::string dir = dbPath.substr(0, dbPath.find_last_of('/'));
+        mkdir(dir.c_str(), 0755);
+    }
     if (historyLogger.Initialize(dbPath)) {
         Logger::Info("HistoryLogger started: " + dbPath);
     } else {
