@@ -329,7 +329,6 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
                 if (!alive.Contains(PhysicalDiskList[i].Disk?.SerialNumber ?? ""))
                     PhysicalDiskList.RemoveAt(i);
             }
-            if (SelectedPhysicalDisk == null && PhysicalDiskList.Count == 0)
             if (SelectedPhysicalDisk == null && PhysicalDiskList.Count > 0)
                 SelectedPhysicalDisk = PhysicalDiskList.First();
         }
