@@ -17,7 +17,6 @@ public class IPCPipeClient : IAsyncDisposable
 {
     private CancellationTokenSource? _cts;
     private bool _disposed;
-    private bool _schemaReceived;
 
     /// <summary>
     /// 收到 Schema 时的回调。返回 true 表示接受，false 表示拒绝（版本不匹配等）
@@ -39,8 +38,6 @@ public class IPCPipeClient : IAsyncDisposable
 
         while (!_cts.Token.IsCancellationRequested)
         {
-            if (_schemaReceived) break;
-
             try
             {
                 if (OperatingSystem.IsWindows())
@@ -173,10 +170,8 @@ public class IPCPipeClient : IAsyncDisposable
                     var ack = new byte[] { 4, 0, 0, 1, schema.Header.Version, 0, 0, 0 };
                     await stream.WriteAsync(ack, ct);
                     await stream.FlushAsync(ct);
+                    // Schema received, connection stays open for future updates
                 }
-                // Schema received — done with pipe. Data flows via shared memory.
-                _schemaReceived = true;
-                break;
             }
             catch (IOException) { break; }
             catch (OperationCanceledException) { break; }

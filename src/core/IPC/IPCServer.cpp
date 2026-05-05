@@ -1,4 +1,5 @@
 #include "IPCServer.h"
+#include "../Utils/Logger.h"
 #include <sys/socket.h>
 #include <sys/un.h>
 #include <sys/mman.h>
@@ -108,14 +109,18 @@ void IPCServer::AcceptLoop() {
 }
 
 void IPCServer::HandleClient(int clientFd) {
-    // Send schema immediately on connect, then close
+    // Send schema, keep connection alive for future updates
     SendSchema(clientFd);
-    close(clientFd);
-    {
-        std::lock_guard<std::mutex> lock(clientsMutex_);
-        auto it = std::find(clients_.begin(), clients_.end(), clientFd);
-        if (it != clients_.end()) clients_.erase(it);
-    }
+    Logger::Info("IPC: client connected, " + std::to_string(GetClientCount()) + " client(s) total");
+}
+
+int IPCServer::GetClientCount() const {
+    std::lock_guard<std::mutex> lock(clientsMutex_);
+    return static_cast<int>(clients_.size());
+}
+
+bool IPCServer::HasClients() const {
+    return GetClientCount() > 0;
 }
 
 void IPCServer::SendSchema(int fd) {

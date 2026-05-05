@@ -22,6 +22,10 @@ public:
     void* GetShmPtr() const { return shmPtr_; }
     size_t GetShmSize() const { return sizeof(IPCDataBlock); }
 
+    // Client tracking
+    int GetClientCount() const;
+    bool HasClients() const;
+
     // Broadcast schema to all connected clients
     void UpdateSchema(const SchemaHeader& header, const std::vector<FieldDef>& fields);
 
@@ -44,7 +48,7 @@ private:
 
     // Connected clients
     std::vector<int> clients_;
-    std::mutex clientsMutex_;
+    mutable std::mutex clientsMutex_;
 
     // Current schema
     SchemaHeader schemaHeader_;
