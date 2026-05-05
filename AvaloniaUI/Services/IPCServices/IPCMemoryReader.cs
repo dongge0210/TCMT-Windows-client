@@ -98,7 +98,7 @@ public class IPCMemoryReader : IDisposable
     private bool OpenMacOS()
     {
         // C++ IPCServer creates shm via shm_open("/tcmt_ipc", O_CREAT | O_RDWR, 0666) + mmap
-        _shmFd = shm_open("/tcmt_ipc", O_RDONLY, 0);
+        _shmFd = shm_open("/tcmt_ipc_shm", O_RDONLY, 0);
         if (_shmFd != -1)
         {
             _shmSize = (int)_schema!.Header.TotalSize;

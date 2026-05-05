@@ -13,7 +13,7 @@ constexpr uint32_t IPC_FIELD_UNITS_LEN = 16;
 constexpr uint32_t IPC_SCHEMA_HEADER_SIZE = 16;
 constexpr uint32_t IPC_FIELD_DEF_SIZE = 80;
 constexpr int      IPC_MAX_CLIENTS    = 8;
-constexpr const char* IPC_SHM_PATH   = "/tmp/tcmt_shm.dat";
+constexpr const char* IPC_SHM_PATH   = "/tcmt_ipc_shm";
 constexpr const char* IPC_SOCK_PATH  = "/tmp/tcmt_ipc.sock";
 
 // === Wire Types ===
