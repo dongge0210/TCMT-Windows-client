@@ -83,7 +83,7 @@
                                     <TextBlock Text="频率: " Foreground="#FF666666" FontSize="11"/>
                                     <TextBlock Text="{Binding CpuFrequency}" Foreground="#FF666666" FontSize="11"/>
                                 </StackPanel>
-                                <StackPanel Grid.Column="1" Orientation="Horizontal">
+                                <StackPanel Grid.Column="1" Orientation="Horizontal" IsVisible="{Binding IsNotMacOS}">
                                     <TextBlock Text="超线程: " Foreground="#FF666666" FontSize="11"/>
                                     <TextBlock Text="{Binding HyperThreading}" Foreground="{Binding HyperThreading, Converter={StaticResource BoolToColorConverter}}" FontSize="11"/>
                                 </StackPanel>
