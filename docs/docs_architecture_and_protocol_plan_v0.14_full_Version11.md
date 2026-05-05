@@ -6,8 +6,6 @@
 ## 目录
 1. 目标与阶段路线总览  
 2. 当前模块状态一览  
-3. 共享内存结构与扩展策略（含完整结构声明 & 位标 & 哈希规范）  
-4. 共享内存全量偏移表（理论 + 生成流程 + 获取指引）  
 5. 写入完整性：writeSequence 奇偶 + 报警机制  
 6. 指令系统设计与实施步骤  
 7. 指令清单（现有 / 预留 / 占位）  
@@ -42,6 +40,7 @@
 35. 历史与保留策略（快照/事件/Aging 持久化）  
 36. 安全与权限初步（角色/RBAC/哈希链占位）  
 37. 构建与工具脚本命名（偏移/自检/打包）
+38. 开发路线图（源自 plan.md 合并，状态未更新）
 
 ---
 
@@ -95,139 +94,6 @@
 
 ---
 
-## 3. 共享内存结构与扩展策略
-### 3.1 结构演进准则
-- 仅尾部追加，不在中间插入；移除字段需保留占位长度或 bump abiVersion + 标记弃用。
-- 所有字段 POD；禁止动态分配、指针、std::string。
-- 对齐：`#pragma pack(push,1)`。
-
-### 3.2 SharedMemoryBlock 完整声明（示意，最终以头文件为准）
-```
-struct TemperatureSensor {
-  char name[32];          // UTF-8，不足填0
-  int16_t valueC_x10;     // 温度*10 (0.1°C)，不可用 -1
-  uint8_t flags;          // bit0=valid, bit1=urgentLast
-};
-
-struct SmartDiskScore {
-  char diskId[32];
-  int16_t score;          // 0-100，-1 不可用
-  int32_t hoursOn;
-  int16_t wearPercent;    // 0-100，-1 不可用
-  uint16_t reallocated;
-  uint16_t pending;
-  uint16_t uncorrectable;
-  int16_t temperatureC;   // -1 不可用
-  uint8_t recentGrowthFlags; // bit0=reallocated增, bit1=wear突增
-};
-
-struct SharedMemoryBlock {
-  uint32_t abiVersion;          // 0x00010014
-  uint32_t writeSequence;       // 奇偶协议：启动0
-  uint32_t snapshotVersion;     // 完整刷新+1
-  uint32_t reservedHeader;      // 对齐
-
-  uint16_t cpuLogicalCores;
-  int16_t  cpuUsagePercent_x10; // 未实现 -1
-  uint64_t memoryTotalMB;
-  uint64_t memoryUsedMB;
-
-  TemperatureSensor tempSensors[32];
-  uint16_t tempSensorCount;
-
-  SmartDiskScore smartDisks[16];
-  uint8_t smartDiskCount;
-
-  char baseboardManufacturer[128];
-  char baseboardProduct[64];
-  char baseboardVersion[64];
-  char baseboardSerial[64];
-  char biosVendor[64];
-  char biosVersion[64];
-  char biosDate[32];
-  uint8_t secureBootEnabled;
-  uint8_t tpmPresent;
-  uint16_t memorySlotsTotal;
-  uint16_t memorySlotsUsed;
-
-  uint8_t futureReserved[64]; // bit0=degradeMode bit1=hashMismatch bit2=sequenceStallWarn
-  uint8_t sharedmemHash[32];  // SHA256(结构除自身)
-
-  uint8_t extensionPad[128];  // 预留
-};
-```
-说明：最终以编译生成 offsets JSON 为准。
-
-### 3.3 futureReserved 位标定义
-| 位 | 名称 | 含义 | 触发条件 |
-|----|------|------|----------|
-| bit0 | degradeMode | 结构/哈希/版本不匹配降级 | size/hash/version mismatch |
-| bit1 | hashMismatch | sha256 与偏移 JSON 不符（abiVersion 相同） | 校验发现差异 |
-| bit2 | sequenceStallWarn | 连续奇数序列≥阈值 | 写线程阻塞 |
-| bit3-7 | 保留 | 未来扩展 | - |
-
-### 3.4 writeSequence 行为与溢出
-- uint32 递增，溢出→0（偶数稳定）。
-- 奇偶判断：奇数=写进行中；偶数=稳定。
-- 初始 0；写开始 seq=1；写结束 seq=2。
-
-### 3.5 sharedmemSha256 计算规范
-- 范围：结构全部字节，先将 sharedmemHash 置 0，再计算。
-- 算法：SHA256，无盐（v0.14）；v0.15 计划增加 salt。
-- 生成：启动后一次；偏移 JSON 写入。
-- CLI 可重新计算（后续可加缓存）。
-
-### 3.6 snapshotVersion 定义
-- 每次完整硬件刷新成功 +1（CPU/温度/SMART 至少一项更新）。
-- 连续相同 snapshotVersion ≥5：趋势缓冲暂停追加。
-
-### 3.7 并发与访问
-- 单写多读；写线程标记奇数→写→hash→偶数。
-- 自检遇奇数使用上次稳定快照。
-
-### 3.8 结构升级流程
-1. 尾部追加字段。
-2. 更新 abiVersion。
-3. 生成新的 offsets JSON + hash。
-4. 更新文档。
-5. 校验通过后发布。
-
----
-
-## 4. 共享内存全量偏移表
-### 4.1 生成脚本
-- 名称：generate_offsets.exe
-- 输出：docs/runtime/offsets_sharedmem_v0_14.json
-- 字段：name/offset/size/flags
-
-### 4.2 示例
-```
-{
-  "abiVersion":"0x00010014",
-  "sizeof":125818,
-  "generatedTs":1697890000123,
-  "sharedmemSha256":"<64hex>",
-  "fields":[
-    {"name":"abiVersion","offset":0,"size":4},
-    {"name":"writeSequence","offset":4,"size":4},
-    {"name":"snapshotVersion","offset":8,"size":4},
-    ...
-  ]
-}
-```
-
-### 4.3 校验优先级
-version mismatch > size mismatch > hash mismatch > field offset mismatch
-
-### 4.4 差异处理策略
-- version mismatch：置 bit0（degradeMode）
-- size/hash mismatch：置 bit0 & bit1
-- 字段偏移差异：WARN + differences 列表
-
-### 4.5 Offset Table Retrieval Instructions
-运行 generate_offsets.exe 获取最新偏移表并写入 docs/runtime/offsets_sharedmem_v0_14.json。禁止手工硬编码偏移值；任何实现若未通过该工具生成的偏移文件即视为不可信。测试阶段先实现工具，后引入 CLI 校验。
-
----
 
 ## 5. 写入完整性：writeSequence 奇偶 + 报警机制
 | 阶段 | seq | 描述 |
