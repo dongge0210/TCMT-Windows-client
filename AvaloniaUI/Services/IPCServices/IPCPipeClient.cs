@@ -144,14 +144,15 @@ public class IPCPipeClient : IAsyncDisposable
 
         ushort fieldCount = BitConverter.ToUInt16(headerBuf, 6);
         uint totalSize = BitConverter.ToUInt32(headerBuf, 8);
-        int fieldsSize = Math.Min(fieldCount, maxFields) * fieldDefSize;
-        var fieldBuf = new byte[fieldsSize];
-        if (fieldsSize > 0)
-            await ReadFullAsync(stream, fieldBuf, fieldsSize, ct);
+        int allFieldsSize = fieldCount * fieldDefSize;
+        // Read ALL field bytes from socket (drain buffer), cache up to maxFields
+        var fieldBuf = new byte[allFieldsSize];
+        if (allFieldsSize > 0)
+            await ReadFullAsync(stream, fieldBuf, allFieldsSize, ct);
 
-        var raw = new byte[schemaHeaderSize + fieldsSize];
+        var raw = new byte[schemaHeaderSize + allFieldsSize];
         Buffer.BlockCopy(headerBuf, 0, raw, 0, schemaHeaderSize);
-        if (fieldsSize > 0) Buffer.BlockCopy(fieldBuf, 0, raw, schemaHeaderSize, fieldsSize);
+        if (allFieldsSize > 0) Buffer.BlockCopy(fieldBuf, 0, raw, schemaHeaderSize, allFieldsSize);
         var schema = SchemaMessage.Parse(raw);
 
         if (schema.Header.Magic != IPCConstants.Magic)
@@ -200,11 +201,11 @@ public class IPCPipeClient : IAsyncDisposable
                     n = await ReadFullAsync(stream, headerBuf, schemaHeaderSize, ct);
                     if (n < schemaHeaderSize) break;
                     fieldCount = BitConverter.ToUInt16(headerBuf, 6);
-                    fieldsSize = Math.Min(fieldCount, maxFields) * fieldDefSize;
-                    if (fieldsSize > 0) await ReadFullAsync(stream, fieldBuf, fieldsSize, ct);
-                    raw = new byte[schemaHeaderSize + fieldsSize];
+                    allFieldsSize = Math.Min(fieldCount, maxFields) * fieldDefSize;
+                    if (allFieldsSize > 0) await ReadFullAsync(stream, fieldBuf, allFieldsSize, ct);
+                    raw = new byte[schemaHeaderSize + allFieldsSize];
                     Buffer.BlockCopy(headerBuf, 0, raw, 0, schemaHeaderSize);
-                    if (fieldsSize > 0) Buffer.BlockCopy(fieldBuf, 0, raw, schemaHeaderSize, fieldsSize);
+                    if (allFieldsSize > 0) Buffer.BlockCopy(fieldBuf, 0, raw, schemaHeaderSize, allFieldsSize);
                     var newSchema = SchemaMessage.Parse(raw);
                     if (newSchema.IsValid)
                         OnSchemaReceived?.Invoke(newSchema);
