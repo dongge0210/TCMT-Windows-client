@@ -223,15 +223,7 @@
                 <!-- 物理磁盘 SMART 信息 -->
                 <Border Margin="0,0,0,10" Background="#FF191919" Padding="15">
                     <StackPanel>
-                        <Grid>
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="*"/>
-                                <ColumnDefinition Width="Auto"/>
-                            </Grid.ColumnDefinitions>
-                            <TextBlock Text="物理磁盘 (SMART)" FontSize="16" FontWeight="Bold" Foreground="White"/>
-                            <Button Grid.Column="1" Content="刷新" Command="{Binding ReconnectCommand}"
-                                    FontSize="11" Padding="6,2" Margin="5,0,0,0"/>
-                        </Grid>
+                        <TextBlock Text="物理磁盘 (SMART)" FontSize="16" FontWeight="Bold" Foreground="White" Margin="0,0,0,10"/>
                         <ComboBox ItemsSource="{Binding PhysicalDiskList}" SelectedItem="{Binding SelectedPhysicalDisk}" DisplayMemberBinding="{Binding DisplayName}" 
                                 HorizontalAlignment="Stretch" Margin="0,0,0,10"/>
                         <TextBlock Text="{Binding SelectedPhysicalDisk.DisplayName, TargetNullValue='未检测到'}" Foreground="White"/>
