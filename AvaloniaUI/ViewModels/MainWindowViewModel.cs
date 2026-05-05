@@ -227,7 +227,6 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
                 if (restored != null) SelectedGpu = restored;
             }
         }
-        // Ensure selected is never null - create dummy if needed
         if (SelectedGpu == null && GpuList.Count == 0)
         {
             GpuList.Add(new GpuData { Name = "等待数据..." });
@@ -254,7 +253,6 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
                 ?? NetworkList.FirstOrDefault(a => !string.IsNullOrEmpty(a.IpAddress))
                 ?? NetworkList[0];
         }
-        // Ensure selected is never null - create dummy if needed
         if (SelectedNetwork == null && NetworkList.Count == 0)
         {
             NetworkList.Add(new NetworkAdapterData { Name = "等待数据..." });
@@ -277,7 +275,6 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
         }
         if (SelectedDisk == null && DiskList.Count > 0)
             SelectedDisk = DiskList[0];
-        // Ensure selected is never null - create dummy if needed
         if (SelectedDisk == null && DiskList.Count == 0)
         {
             DiskList.Add(new DiskData { Letter = '?' });
@@ -325,13 +322,8 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
                 if (!alive.Contains(PhysicalDiskList[i].Disk?.SerialNumber ?? ""))
                     PhysicalDiskList.RemoveAt(i);
             }
-// Ensure selected is never null - create dummy if needed
             if (SelectedPhysicalDisk == null && PhysicalDiskList.Count == 0)
-            {
-                PhysicalDiskList.Add(new PhysicalDiskView());
-                SelectedPhysicalDisk = PhysicalDiskList.First();
-            }
-            else if (SelectedPhysicalDisk == null && PhysicalDiskList.Count > 0)
+            if (SelectedPhysicalDisk == null && PhysicalDiskList.Count > 0)
                 SelectedPhysicalDisk = PhysicalDiskList.First();
         }
         catch (Exception ex)
