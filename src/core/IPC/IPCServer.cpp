@@ -153,8 +153,13 @@ void IPCServer::HandleClient(int clientFd) {
 
     Logger::Info("IPC: client connected, " + std::to_string(GetClientCount()) + " client(s) total");
 
-    // Keep-alive loop: handle PING/PONG/BYE
+    // Keep-alive loop: handle PING/PONG/BYE with non-blocking poll
     while (running_) {
+        struct pollfd pfd = {clientFd, POLLIN, 0};
+        int ret = poll(&pfd, 1, 1000);  // 1-second timeout
+        if (ret < 0) break;
+        if (ret == 0) continue;  // timeout, check running_
+
         n = read(clientFd, &msg, PIPE_MSG_HEADER_SIZE);
         if (n <= 0) break;
         if (msg.type == static_cast<uint8_t>(PipeMsgType::Ping)) {
