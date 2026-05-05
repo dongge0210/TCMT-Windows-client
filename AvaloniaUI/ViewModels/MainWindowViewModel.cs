@@ -80,30 +80,14 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
     {
         try
         {
-            // Prefer IPC path first, then fall back to SharedMemory
-            if (_ipcService != null && _ipcService.IsMemoryOpen)
-            {
-                IsConnected = true;
-                ConnectionStatus = "已连接 (IPC)";
-                WindowTitle = "系统硬件监视器";
-                _timer.Start();
-                Log.Information("Started monitoring via IPC");
-            }
-            else if (_sharedMemory.Initialize())
-            {
-                IsConnected = true;
-                ConnectionStatus = "已连接";
-                WindowTitle = "系统硬件监视器";
-                _timer.Start();
-                Log.Information("Started monitoring (SharedMemory fallback)");
-            }
-            else
-            {
-                IsConnected = false;
-                ConnectionStatus = $"连接失败: {_sharedMemory.LastError}";
-                WindowTitle = "系统硬件监视器 - 未连接";
-                ShowDisconnectedState();
-            }
+            // Try shared memory init as fallback; IPC kicks in when pipe connects
+            // Timer always runs — it prefers IPC when available
+            _sharedMemory.Initialize();
+            IsConnected = true;
+            ConnectionStatus = "连接中...";
+            WindowTitle = "系统硬件监视器";
+            _timer.Start();
+            Log.Information("Started monitoring (IPC preferred, SharedMemory fallback)");
         }
         catch (Exception ex)
         {
