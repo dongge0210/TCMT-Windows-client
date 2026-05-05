@@ -35,18 +35,25 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
             _ipcService = new IPCService();
             _ipcService.DataReady += () =>
             {
-                if (_ipcService != null && _ipcService.IsMemoryOpen)
+                try
                 {
-                    var info = IPCSystemInfoMapper.Read(_ipcService);
-                    if (info != null)
+                    if (_ipcService != null && _ipcService.IsMemoryOpen)
                     {
-                        _consecutiveErrors = 0;
-                        IsConnected = true;
-                        ConnectionStatus = "已连接 (IPC)";
-                        WindowTitle = "系统硬件监视器";
-                        UpdateSystemData(info);
-                        LastUpdate = DateTime.Now;
+                        var info = IPCSystemInfoMapper.Read(_ipcService);
+                        if (info != null)
+                        {
+                            _consecutiveErrors = 0;
+                            IsConnected = true;
+                            ConnectionStatus = "已连接 (IPC)";
+                            WindowTitle = "系统硬件监视器";
+                            UpdateSystemData(info);
+                            LastUpdate = DateTime.Now;
+                        }
                     }
+                }
+                catch (Exception ex)
+                {
+                    Log.Error(ex, "IPC DataReady handler crashed");
                 }
             };
             _ipcService.ConnectionStateChanged += (connected, msg) =>
