@@ -45,21 +45,13 @@ public class SchemaHeader
     {
         return new SchemaHeader
         {
-            Magic           = ReadUInt32BE(data, offset + 0),
+            Magic           = BitConverter.ToUInt32(data, offset + 0),
             Version         = data[offset + 4],
             Flags           = data[offset + 5],
-            FieldCount      = (ushort)(data[offset + 6] | (data[offset + 7] << 8)),
-            TotalSize       = ReadUInt32BE(data, offset + 8),
-            StringBlockSize = ReadUInt32BE(data, offset + 12)
+            FieldCount      = BitConverter.ToUInt16(data, offset + 6),
+            TotalSize       = BitConverter.ToUInt32(data, offset + 8),
+            StringBlockSize = BitConverter.ToUInt32(data, offset + 12)
         };
-    }
-
-    private static uint ReadUInt32BE(byte[] data, int offset)
-    {
-        return ((uint)data[offset] << 24)
-             | ((uint)data[offset + 1] << 16)
-             | ((uint)data[offset + 2] << 8)
-             | data[offset + 3];
     }
 }
 
@@ -82,34 +74,20 @@ public class FieldDef
     {
         var def = new FieldDef
         {
-            Id         = ReadUInt32BE(data, baseOffset + 0),
+            Id         = BitConverter.ToUInt32(data, baseOffset + 0),
             Type       = data[baseOffset + 4],
             Reserved1  = data[baseOffset + 5],
-            Size       = (ushort)(data[baseOffset + 6] | (data[baseOffset + 7] << 8)),
-            Offset     = ReadUInt32BE(data, baseOffset + 8),
-            Count      = ReadUInt32BE(data, baseOffset + 12),
-            StrOffset  = ReadUInt32BE(data, baseOffset + 16),
-            Flags      = ReadUInt32BE(data, baseOffset + 20),
-            MinVal     = ReadFloat(data, baseOffset + 24),
-            MaxVal     = ReadFloat(data, baseOffset + 28),
+            Size       = BitConverter.ToUInt16(data, baseOffset + 6),
+            Offset     = BitConverter.ToUInt32(data, baseOffset + 8),
+            Count      = BitConverter.ToUInt32(data, baseOffset + 12),
+            StrOffset  = BitConverter.ToUInt32(data, baseOffset + 16),
+            Flags      = BitConverter.ToUInt32(data, baseOffset + 20),
+            MinVal     = BitConverter.ToSingle(data, baseOffset + 24),
+            MaxVal     = BitConverter.ToSingle(data, baseOffset + 28),
             Name       = ReadString(data, baseOffset + 32, IPCConstants.FieldNameLen),
             Units      = ReadString(data, baseOffset + 64, IPCConstants.FieldUnitsLen)
         };
         return def;
-    }
-
-    private static uint ReadUInt32BE(byte[] data, int offset)
-    {
-        return ((uint)data[offset] << 24)
-             | ((uint)data[offset + 1] << 16)
-             | ((uint)data[offset + 2] << 8)
-             | data[offset + 3];
-    }
-
-    private static float ReadFloat(byte[] data, int offset)
-    {
-        uint bits = ReadUInt32BE(data, offset);
-        return BitConverter.SingleToUInt32Bits(bits);
     }
 
     private static string ReadString(byte[] data, int offset, int maxLen)
