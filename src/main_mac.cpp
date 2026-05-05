@@ -595,8 +595,17 @@ int main(int argc, char* argv[]) {
                 // Temperatures
                 sysInfo.temperatures = data.temperatures;
 
+                static std::vector<PhysicalDiskSmartData> cachedSmart;
                 static bool smartDone = false;
-                if (!smartDone) { try { DiskInfo().CollectSmartData(sysInfo); smartDone = true; } catch (...) {} }
+                if (!smartDone) {
+                    try {
+                        SystemInfo tmpInfo;
+                        DiskInfo().CollectSmartData(tmpInfo);
+                        cachedSmart = std::move(tmpInfo.physicalDisks);
+                        smartDone = true;
+                    } catch (...) {}
+                }
+                sysInfo.physicalDisks = cachedSmart;
                 SharedMemoryManager::WriteToSharedMemory(sysInfo);
 
                 // Write to IPC shared memory (schema-driven, for C# Avalonia)
