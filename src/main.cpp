@@ -47,6 +47,7 @@ Please ignore this warning - the project structure doesn't support this scenario
 #include "core/DataStruct/DataStruct.h"
 #include "core/DataStruct/SharedMemoryManager.h"
 #include "core/IPC/NamedPipeServer.h"
+#include "core/history/HistoryLogger.h"
 #include "core/temperature/TemperatureWrapper.h"
 #include "tui/TuiApp.h"
 #include "core/Config/ConfigManager.h"
@@ -893,7 +894,29 @@ int main(int argc, char* argv[]) {
         tuiApp.SetLogBuffer(&Logger::GetTuiBuffer());
         tuiApp.Start();
         Logger::Info("TUI started");
-        
+
+        // History logger (SQLite)
+        HistoryLogger historyLogger;
+        historyLogger.SetRetentionDays(30);
+        {
+            char* appData = nullptr;
+            size_t sz = 0;
+            std::string dbPath = "/tmp/tcmt_history.db";
+#ifdef _WIN32
+            if (_dupenv_s(&appData, &sz, "APPDATA") == 0 && appData) {
+                dbPath = std::string(appData) + "\\TCMT\\history.db";
+                free(appData);
+            }
+#else
+            if (getenv("HOME"))
+                dbPath = std::string(getenv("HOME")) + "/.tcmt/history.db";
+#endif
+            if (historyLogger.Initialize(dbPath))
+                Logger::Info("HistoryLogger: " + dbPath);
+            else
+                Logger::Warn("HistoryLogger failed to initialize");
+        }
+
         int loopCounter = 1;
         bool isFirstRun = true;
         
@@ -1530,6 +1553,24 @@ int main(int argc, char* argv[]) {
                 
                 // Safely increment loop counter
                 try {
+                    // Push sensor history
+                    if (historyLogger.IsRunning()) {
+                        auto nowMs = std::chrono::duration_cast<std::chrono::milliseconds>(
+                            std::chrono::system_clock::now().time_since_epoch()).count();
+                        std::vector<SensorSnapshot> snapshots;
+                        snapshots.push_back({"cpu/usage", sysInfo.cpuUsage, "%", (uint64_t)nowMs});
+                        snapshots.push_back({"cpu/temperature", sysInfo.cpuTemperature, "C", (uint64_t)nowMs});
+                        snapshots.push_back({"gpu/usage", sysInfo.gpuUsage, "%", (uint64_t)nowMs});
+                        snapshots.push_back({"gpu/temperature", sysInfo.gpuTemperature, "C", (uint64_t)nowMs});
+                        if (sysInfo.totalMemory > 0) {
+                            double memPct = 100.0 * sysInfo.usedMemory / sysInfo.totalMemory;
+                            snapshots.push_back({"memory/percent", memPct, "%", (uint64_t)nowMs});
+                        }
+                        if (sysInfo.batteryPercent >= 0)
+                            snapshots.push_back({"battery/percent", (double)sysInfo.batteryPercent, "%", (uint64_t)nowMs});
+                        historyLogger.WriteBatch(snapshots);
+                    }
+
                     loopCounter++;
                     
                     if (loopCounter < 0 || loopCounter > 2000000000) {
@@ -1587,6 +1628,8 @@ int main(int argc, char* argv[]) {
             Logger::Error("Error stopping TUI: " + std::string(e.what()));
         }
         
+        historyLogger.Shutdown();
+        Logger::Info("HistoryLogger stopped");
         SafeExit(0);
     }
     catch (const std::exception& e) {
