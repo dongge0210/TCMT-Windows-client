@@ -161,7 +161,7 @@ void IPCServer::HandleClient(int clientFd) {
         if (ret == 0) continue;  // timeout, check running_
 
         n = read(clientFd, &msg, PIPE_MSG_HEADER_SIZE);
-        if (n <= 0) break;
+        if (n <= 0) { Logger::Debug("IPC: client pipe closed (n=" + std::to_string(n) + ")"); break; }
         if (msg.type == static_cast<uint8_t>(PipeMsgType::Ping)) {
             PipeMessage pong{};
             pong.type = static_cast<uint8_t>(PipeMsgType::Pong);
