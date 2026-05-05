@@ -151,6 +151,19 @@ struct IPCDataBlock {
     };
     TempSlot temperatures[10]        = {};
     uint8_t  tempCount               = 0;
+
+    // Physical disks + SMART (up to 2)
+    struct PhysDiskSlot {
+        char     model[64]           = {};
+        char     serial[64]          = {};
+        uint64_t capacity            = 0;
+        char     interfaceType[16]   = {};
+        float    temperature         = 0;
+        float    healthPercent       = 0;
+        bool     smartSupported      = false;
+    };
+    PhysDiskSlot physicalDisks[2]    = {};
+    uint8_t  physDiskCount           = 0;
 };
 
 #pragma pack(pop)

@@ -337,6 +337,19 @@ int main(int argc, char* argv[]) {
             addF((std::string(p)+"value").c_str(), base + offsetof(B::TempSlot, value));
         }
 
+        // Physical disks (up to 2)
+        for (int i = 0; i < 2; ++i) {
+            char p[32]; snprintf(p, sizeof(p), "phys/%d/", i);
+            uint32_t base = offsetof(B, physicalDisks) + i * sizeof(B::PhysDiskSlot);
+            addS((std::string(p)+"model").c_str(),       base + offsetof(B::PhysDiskSlot, model), 64);
+            addS((std::string(p)+"serial").c_str(),      base + offsetof(B::PhysDiskSlot, serial), 64);
+            addU64((std::string(p)+"capacity").c_str(),   base + offsetof(B::PhysDiskSlot, capacity));
+            addS((std::string(p)+"interface").c_str(),    base + offsetof(B::PhysDiskSlot, interfaceType), 16);
+            addF((std::string(p)+"temperature").c_str(),  base + offsetof(B::PhysDiskSlot, temperature));
+            addF((std::string(p)+"health").c_str(),       base + offsetof(B::PhysDiskSlot, healthPercent));
+            addB((std::string(p)+"smartSupported").c_str(), base + offsetof(B::PhysDiskSlot, smartSupported));
+        }
+
         ipcServer.UpdateSchema(schemaHdr, fields);
     }
     if (ipcServer.Start()) {
@@ -582,6 +595,7 @@ int main(int argc, char* argv[]) {
                 // Temperatures
                 sysInfo.temperatures = data.temperatures;
 
+                try { DiskInfo().CollectSmartData(sysInfo); } catch (...) {}
                 SharedMemoryManager::WriteToSharedMemory(sysInfo);
 
                 // Write to IPC shared memory (schema-driven, for C# Avalonia)
@@ -655,6 +669,26 @@ int main(int argc, char* argv[]) {
                             b->temperatures[ti].name[63] = '\0';
                             b->temperatures[ti].value = static_cast<float>(data.temperatures[ti].second);
                             b->tempCount++;
+                        }
+                        // Physical disks (SMART) — convert WCHAR→char for IPC
+                        b->physDiskCount = 0;
+                        for (size_t pi = 0; pi < std::min(sysInfo.physicalDisks.size(), size_t(2)); ++pi) {
+                            auto& pd = b->physicalDisks[pi];
+                            const auto& src = sysInfo.physicalDisks[pi];
+                            for (size_t k = 0; k < 63 && src.model[k] != u'\0'; ++k)
+                                pd.model[k] = static_cast<char>(src.model[k]);
+                            pd.model[63] = '\0';
+                            for (size_t k = 0; k < 63 && src.serialNumber[k] != u'\0'; ++k)
+                                pd.serial[k] = static_cast<char>(src.serialNumber[k]);
+                            pd.serial[63] = '\0';
+                            pd.capacity = src.capacity;
+                            for (size_t k = 0; k < 15 && src.interfaceType[k] != u'\0'; ++k)
+                                pd.interfaceType[k] = static_cast<char>(src.interfaceType[k]);
+                            pd.interfaceType[15] = '\0';
+                            pd.temperature = static_cast<float>(src.temperature);
+                            pd.healthPercent = static_cast<float>(src.healthPercentage);
+                            pd.smartSupported = src.smartSupported;
+                            b->physDiskCount++;
                         }
                     }
                 }

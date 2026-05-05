@@ -170,6 +170,37 @@ public static class IPCSystemInfoMapper
                 }
             }
 
+            // Physical disks (SMART)
+            if (reader.HasField("phys/0/model"))
+            {
+                int idx = 0;
+                while (reader.HasField($"phys/{idx}/model") && idx < 2)
+                {
+                    var model = reader.ReadString($"phys/{idx}/model") ?? "";
+                    var serial = reader.ReadString($"phys/{idx}/serial") ?? "";
+                    var capacity = reader.ReadUInt64($"phys/{idx}/capacity") ?? 0;
+                    var iface = reader.ReadString($"phys/{idx}/interface") ?? "";
+                    var temp = (double?)(reader.ReadFloat32($"phys/{idx}/temperature")) ?? 0;
+                    var health = (double?)(reader.ReadFloat32($"phys/{idx}/health")) ?? 0;
+                    var supported = reader.ReadBool($"phys/{idx}/smartSupported") ?? false;
+
+                    if (capacity > 0)
+                    {
+                        info.PhysicalDisks.Add(new PhysicalDiskSmartData
+                        {
+                            Model = model,
+                            SerialNumber = serial,
+                            Capacity = capacity,
+                            InterfaceType = iface,
+                            Temperature = temp,
+                            HealthPercentage = (byte)health,
+                            SmartSupported = supported
+                        });
+                    }
+                    idx++;
+                }
+            }
+
             return info;
         }
         catch (Exception ex)
