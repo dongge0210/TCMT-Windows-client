@@ -7,7 +7,7 @@ namespace tcmt::ipc {
 // === Protocol Constants ===
 constexpr uint32_t IPC_MAGIC          = 0x54434D54; // "TCMT"
 constexpr uint8_t  IPC_VERSION        = 1;
-constexpr uint32_t IPC_MAX_FIELDS     = 64;
+constexpr uint32_t IPC_MAX_FIELDS     = 80;
 constexpr uint32_t IPC_FIELD_NAME_LEN = 32;
 constexpr uint32_t IPC_FIELD_UNITS_LEN = 16;
 constexpr uint32_t IPC_SCHEMA_HEADER_SIZE = 16;
@@ -59,18 +59,22 @@ struct FieldDef {
     char     units[IPC_FIELD_UNITS_LEN] = {};
 };
 
-// IPC data block — shared via mmap file, read by C# AvaloniaUI
+// IPC data block -- shared via mmap file, read by C# AvaloniaUI
 struct IPCDataBlock {
     // CPU
     char     cpuName[64]             = {};
     uint8_t  physicalCores           = 0;
+    uint8_t  logicalCores            = 0;
     uint8_t  performanceCores        = 0;
     uint8_t  efficiencyCores         = 0;
     float    cpuUsage                = 0;
     float    pCoreFreq               = 0;
     float    eCoreFreq               = 0;
     float    cpuTemp                 = 0;
-    char     timestamp[16]           = {};
+    bool     hyperThreading          = false;
+    bool     virtualization          = false;
+    float    cpuSampleIntervalMs     = 500;
+    char     timestamp[20]           = {};
 
     // Memory
     uint64_t totalMemory             = 0;
@@ -78,32 +82,53 @@ struct IPCDataBlock {
     uint64_t availableMemory         = 0;
     uint64_t compressedMemory        = 0;
 
+    // Battery / power
+    int32_t  batteryPercent          = -1;
+    bool     acOnline                = false;
+
+    // OS
+    char     osVersion[128]          = {};
+
     // GPU
     char     gpuName[48]             = {};
+    char     gpuBrand[32]            = {};
     uint64_t gpuMemory               = 0;
+    float    gpuMemoryPercent        = 0;
     float    gpuUsage                = 0;
     float    gpuTemp                 = 0;
+    bool     gpuIsVirtual            = false;
 
-    // Disks (up to 2)
+    // Disks (up to 4)
     struct DiskSlot {
         char     label[32]           = {};
         uint64_t totalSize           = 0;
         uint64_t usedSpace           = 0;
+        uint64_t freeSpace           = 0;
         char     fs[16]              = {};
     };
-    DiskSlot disks[2]                = {};
+    DiskSlot disks[4]                = {};
     uint8_t  diskCount               = 0;
 
-    // Network adapters (up to 2)
+    // Network adapters (up to 4)
     struct NetSlot {
         char     name[32]            = {};
         char     ip[16]              = {};
         char     mac[18]             = {};
         char     type[16]            = {};
         uint64_t speed               = 0;
+        uint64_t downloadSpeed       = 0;
+        uint64_t uploadSpeed         = 0;
     };
-    NetSlot  adapters[2]             = {};
+    NetSlot  adapters[4]             = {};
     uint8_t  adapterCount            = 0;
+
+    // Temperatures (up to 10)
+    struct TempSlot {
+        char     name[64]            = {};
+        float    value               = 0;
+    };
+    TempSlot temperatures[10]        = {};
+    uint8_t  tempCount               = 0;
 };
 
 #pragma pack(pop)

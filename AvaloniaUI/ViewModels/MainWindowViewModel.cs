@@ -80,13 +80,22 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
     {
         try
         {
-            if (_sharedMemory.Initialize())
+            // Prefer IPC path first, then fall back to SharedMemory
+            if (_ipcService != null && _ipcService.IsMemoryOpen)
+            {
+                IsConnected = true;
+                ConnectionStatus = "已连接 (IPC)";
+                WindowTitle = "系统硬件监视器";
+                _timer.Start();
+                Log.Information("Started monitoring via IPC");
+            }
+            else if (_sharedMemory.Initialize())
             {
                 IsConnected = true;
                 ConnectionStatus = "已连接";
                 WindowTitle = "系统硬件监视器";
                 _timer.Start();
-                Log.Information("Started monitoring");
+                Log.Information("Started monitoring (SharedMemory fallback)");
             }
             else
             {
@@ -171,6 +180,26 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
     {
         try
         {
+            // Prefer IPC reader when available (schema-driven, auto-adapting)
+            if (_ipcService != null && _ipcService.IsMemoryOpen)
+            {
+                var ipcInfo = IPCSystemInfoMapper.Read(_ipcService);
+                if (ipcInfo != null)
+                {
+                    _consecutiveErrors = 0;
+                    if (!IsConnected)
+                    {
+                        IsConnected = true;
+                        ConnectionStatus = "已连接 (IPC)";
+                        WindowTitle = "系统硬件监视器";
+                    }
+                    UpdateSystemData(ipcInfo);
+                    LastUpdate = DateTime.Now;
+                    return;
+                }
+            }
+
+            // Fallback to fixed-layout SharedMemory
             var info = _sharedMemory.ReadSystemInfo();
             if (info != null)
             {
@@ -196,7 +225,7 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
                         WindowTitle = "系统硬件监视器 - 已断开";
                         ShowDisconnectedState();
                     }
-                    // Auto-reconnect: try to reinitialize shared memory
+                    // Auto-reconnect
                     try
                     {
                         _sharedMemory.Dispose();
