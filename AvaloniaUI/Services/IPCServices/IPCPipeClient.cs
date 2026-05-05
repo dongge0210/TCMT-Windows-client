@@ -87,37 +87,29 @@ public class IPCPipeClient : IAsyncDisposable
     private async Task ConnectUnixAsync(CancellationToken ct)
     {
         var socketPath = IPCConstants.UnixSocketPath;
-        Log.Debug("IPC: Connecting to Unix socket: {Path}", socketPath);
-
-        while (!ct.IsCancellationRequested)
+        try
         {
-            try
-            {
-                using var client = new Socket(AddressFamily.Unix, SocketType.Stream, ProtocolType.Unspecified);
-                var ep = new UnixDomainSocketEndPoint(socketPath);
-                using var cts = CancellationTokenSource.CreateLinkedTokenSource(ct);
-                cts.CancelAfter(TimeSpan.FromSeconds(5));
+            using var client = new Socket(AddressFamily.Unix, SocketType.Stream, ProtocolType.Unspecified);
+            var ep = new UnixDomainSocketEndPoint(socketPath);
+            using var cts = CancellationTokenSource.CreateLinkedTokenSource(ct);
+            cts.CancelAfter(TimeSpan.FromSeconds(5));
 
-                await client.ConnectAsync(ep, cts.Token);
+            await client.ConnectAsync(ep, cts.Token);
 
-                IsConnected = true;
-                OnConnectionChanged?.Invoke(true, "已连接");
-                Log.Information("IPC: Connected to Unix socket: {Path}", socketPath);
+            IsConnected = true;
+            OnConnectionChanged?.Invoke(true, "已连接");
+            Log.Information("IPC: Connected to Unix socket: {Path}", socketPath);
 
-                await using var ns = new NetworkStream(client, ownsSocket: false);
-                await ReceiveLoopAsync(ns, ct);
-            }
-            catch (OperationCanceledException) when (!ct.IsCancellationRequested)
-            {
-                await Task.Delay(500, ct);
-            }
-            catch (Exception ex)
-            {
-                Log.Debug("Unix socket connect failed: {Msg}, retrying...", ex.Message);
-                IsConnected = false;
-                OnConnectionChanged?.Invoke(false, ex.Message);
-                await Task.Delay(1000, ct);
-            }
+            await using var ns = new NetworkStream(client, ownsSocket: false);
+            await ReceiveLoopAsync(ns, ct);
+        }
+        catch (OperationCanceledException) when (!ct.IsCancellationRequested)
+        {
+            Log.Debug("IPC: Unix socket connect timeout");
+        }
+        catch (Exception ex)
+        {
+            Log.Debug("IPC: Unix socket connect failed: {Msg}", ex.Message);
         }
     }
 
