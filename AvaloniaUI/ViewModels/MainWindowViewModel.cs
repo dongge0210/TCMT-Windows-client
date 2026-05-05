@@ -9,7 +9,6 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Serilog;
 using AvaloniaUI.Models;
-using AvaloniaUI.Services;
 using AvaloniaUI.Services.IPC;
 
 namespace AvaloniaUI.ViewModels;
@@ -18,8 +17,7 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
 {
     public bool IsMacOS => OperatingSystem.IsMacOS();
     public bool IsNotMacOS => !OperatingSystem.IsMacOS();
-    private readonly SharedMemoryService _sharedMemory;
-    private readonly IPCService? _ipcService;
+    private IPCService? _ipcService;
     private readonly DispatcherTimer _timer;
     private bool _disposed = false;
     private const int MaxChartPoints = 60;
@@ -32,7 +30,6 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
 
     public MainWindowViewModel()
     {
-        _sharedMemory = new SharedMemoryService();
         try
         {
             _ipcService = new IPCService();
@@ -45,7 +42,7 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
                     {
                         _consecutiveErrors = 0;
                         IsConnected = true;
-                        ConnectionStatus = "已连接 (IPC)";
+                        ConnectionStatus = "已连接";
                         WindowTitle = "系统硬件监视器";
                         UpdateSystemData(info);
                         LastUpdate = DateTime.Now;
@@ -55,19 +52,17 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
             _ipcService.ConnectionStateChanged += (connected, msg) =>
             {
                 if (connected)
-                {
                     Log.Information("IPC connected: {Msg}", msg);
-                }
                 else
-                {
                     Log.Warning("IPC disconnected: {Msg}", msg);
-                }
             };
             _ipcService.Start();
         }
         catch (Exception ex)
         {
-            Log.Warning(ex, "IPC service init failed, falling back to SharedMemory");
+            Log.Error(ex, "IPC service init failed");
+            IsConnected = false;
+            ConnectionStatus = $"IPC 初始化失败: {ex.Message}";
         }
         _timer = new DispatcherTimer
         {
@@ -80,13 +75,10 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
     {
         try
         {
-            // Try shared memory init as fallback; IPC kicks in when pipe connects
-            // Timer always runs — it prefers IPC when available
-            _sharedMemory.Initialize();
             ConnectionStatus = "连接中...";
             WindowTitle = "系统硬件监视器";
             _timer.Start();
-            Log.Information("Started monitoring (IPC preferred, SharedMemory fallback)");
+            Log.Information("Started monitoring via IPC");
         }
         catch (Exception ex)
         {
@@ -115,21 +107,12 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
     private void Reconnect()
     {
         _consecutiveErrors = 0;
+        ConnectionStatus = "重新连接中...";
+        _ipcService?.Dispose();
         try
         {
-            _sharedMemory.Dispose();
-            if (_sharedMemory.Initialize())
-            {
-                IsConnected = true;
-                ConnectionStatus = "已连接";
-                WindowTitle = "系统硬件监视器";
-                Log.Information("Reconnected to shared memory");
-            }
-            else
-            {
-                IsConnected = false;
-                ConnectionStatus = $"重连失败: {_sharedMemory.LastError}";
-            }
+            _ipcService = new IPCService();
+            _ipcService.Start();
         }
         catch (Exception ex)
         {
@@ -163,68 +146,33 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
     {
         try
         {
-            // Prefer IPC reader when available (schema-driven, auto-adapting)
             if (_ipcService != null && _ipcService.IsMemoryOpen)
             {
-                var ipcInfo = IPCSystemInfoMapper.Read(_ipcService);
-                if (ipcInfo != null)
+                var info = IPCSystemInfoMapper.Read(_ipcService);
+                if (info != null)
                 {
                     _consecutiveErrors = 0;
                     if (!IsConnected)
                     {
                         IsConnected = true;
-                        ConnectionStatus = "已连接 (IPC)";
+                        ConnectionStatus = "已连接";
                         WindowTitle = "系统硬件监视器";
                     }
-                    UpdateSystemData(ipcInfo);
+                    UpdateSystemData(info);
                     LastUpdate = DateTime.Now;
                     return;
                 }
             }
 
-            // Fallback to fixed-layout SharedMemory
-            var info = _sharedMemory.ReadSystemInfo();
-            if (info != null)
+            _consecutiveErrors++;
+            if (_consecutiveErrors >= MaxConsecutiveErrors)
             {
-                _consecutiveErrors = 0;
-                if (!IsConnected)
+                if (IsConnected)
                 {
-                    IsConnected = true;
-                    ConnectionStatus = "已连接";
-                    WindowTitle = "系统硬件监视器";
-                }
-                UpdateSystemData(info);
-                LastUpdate = DateTime.Now;
-            }
-            else
-            {
-                _consecutiveErrors++;
-                if (_consecutiveErrors >= MaxConsecutiveErrors)
-                {
-                    if (IsConnected)
-                    {
-                        IsConnected = false;
-                        ConnectionStatus = "连接已断开";
-                        WindowTitle = "系统硬件监视器 - 已断开";
-                        ShowDisconnectedState();
-                    }
-                    // Auto-reconnect
-                    try
-                    {
-                        _sharedMemory.Dispose();
-                        if (_sharedMemory.Initialize())
-                        {
-                            _consecutiveErrors = 0;
-                            IsConnected = true;
-                            ConnectionStatus = "已连接";
-                            WindowTitle = "系统硬件监视器";
-                            Log.Information("Auto-reconnected to shared memory");
-                        }
-                    }
-                    catch (Exception ex)
-                    {
-                        Log.Debug("Auto-reconnect attempt failed: {Msg}", ex.Message);
-                    }
+                    IsConnected = false;
+                    ConnectionStatus = "连接已断开";
+                    WindowTitle = "系统硬件监视器 - 已断开";
+                    ShowDisconnectedState();
                 }
             }
         }
@@ -634,7 +582,6 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
     {
         if (_disposed) return;
         _timer.Stop();
-        _sharedMemory.Dispose();
         _ipcService?.Dispose();
         _disposed = true;
         GC.SuppressFinalize(this);
