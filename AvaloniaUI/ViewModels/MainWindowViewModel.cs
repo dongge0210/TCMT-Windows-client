@@ -54,7 +54,11 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
                 if (connected)
                     Log.Information("IPC connected: {Msg}", msg);
                 else
+                {
                     Log.Warning("IPC disconnected: {Msg}", msg);
+                    ConnectionStatus = "已断开 (" + msg + ")";
+                    IsConnected = false;
+                }
             };
             _ipcService.Start();
         }
