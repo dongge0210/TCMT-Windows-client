@@ -899,17 +899,29 @@ int main(int argc, char* argv[]) {
         HistoryLogger historyLogger;
         historyLogger.SetRetentionDays(30);
         {
-            char* appData = nullptr;
-            size_t sz = 0;
-            std::string dbPath = "/tmp/tcmt_history.db";
+            std::string dbPath;
 #ifdef _WIN32
-            if (_dupenv_s(&appData, &sz, "APPDATA") == 0 && appData) {
-                dbPath = std::string(appData) + "\\TCMT\\history.db";
-                free(appData);
-            }
+            char envBuf[MAX_PATH];
+            DWORD envLen = GetEnvironmentVariableA("APPDATA", envBuf, sizeof(envBuf));
+            if (envLen > 0 && envLen < sizeof(envBuf))
+                dbPath = std::string(envBuf) + "\\TCMT\\history.db";
+            else
+                dbPath = std::string(getenv("TEMP") ? getenv("TEMP") : "C:\\TEMP") + "\\tcmt_history.db";
+            // Create directory tree
+            std::string dir = dbPath.substr(0, dbPath.find_last_of('\\'));
+            for (size_t i = 0; i < dir.size(); i++)
+                if (dir[i] == '\\' || dir[i] == '/') {
+                    dir[i] = '\0';
+                    CreateDirectoryA(dir.c_str(), nullptr);
+                    dir[i] = '\\';
+                }
+            CreateDirectoryA(dir.c_str(), nullptr);
 #else
-            if (getenv("HOME"))
-                dbPath = std::string(getenv("HOME")) + "/.tcmt/history.db";
+            dbPath = getenv("HOME") ? std::string(getenv("HOME")) + "/.tcmt/history.db" : "/tmp/tcmt_history.db";
+            {
+                std::string dir = dbPath.substr(0, dbPath.find_last_of('/'));
+                mkdir(dir.c_str(), 0755);
+            }
 #endif
             if (historyLogger.Initialize(dbPath))
                 Logger::Info("HistoryLogger: " + dbPath);
