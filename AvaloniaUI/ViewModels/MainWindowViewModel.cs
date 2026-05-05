@@ -329,8 +329,15 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
                 if (!alive.Contains(PhysicalDiskList[i].Disk?.SerialNumber ?? ""))
                     PhysicalDiskList.RemoveAt(i);
             }
-            if (SelectedPhysicalDisk == null && PhysicalDiskList.Count > 0)
-                SelectedPhysicalDisk = PhysicalDiskList.First();
+            // Map logical volumes to first physical disk (APFS shares one device)
+            if (PhysicalDiskList.Count > 0)
+            {
+                var firstPhys = PhysicalDiskList[0];
+                firstPhys.Partitions.Clear();
+                foreach (var d in DiskList)
+                    firstPhys.Partitions.Add(d);
+                if (SelectedPhysicalDisk == null) SelectedPhysicalDisk = firstPhys;
+            }
         }
         catch (Exception ex)
         {
