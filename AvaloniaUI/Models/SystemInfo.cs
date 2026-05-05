@@ -251,10 +251,11 @@ namespace AvaloniaUI.Models
         public ObservableCollection<DiskData> Partitions { get; } = new();
         public string LettersDisplay {
         get {
-            if (Disk?.LogicalDriveLetters == null || Disk.LogicalDriveLetters.Count == 0)
-                return "无分区";
-            // 直接使用盘符，不再显示卷标名称
-            return string.Join(", ", Disk.LogicalDriveLetters.Select(l => l + ":"));
+            if (Partitions.Count > 0)
+                return "卷: " + string.Join(", ", Partitions.Select(p => p.Label));
+            if (Disk?.LogicalDriveLetters != null && Disk.LogicalDriveLetters.Count > 0)
+                return string.Join(", ", Disk.LogicalDriveLetters.Select(l => l + ":"));
+            return "";
         }
     }
         public string DisplayName => Disk == null ? "未知磁盘" : $"{Disk.Model} ({LettersDisplay})";

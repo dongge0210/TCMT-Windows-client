@@ -337,6 +337,7 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
                 foreach (var d in DiskList)
                     firstPhys.Partitions.Add(d);
                 if (SelectedPhysicalDisk == null) SelectedPhysicalDisk = firstPhys;
+                OnPropertyChanged(nameof(SelectedPhysicalDisk)); // refresh LettersDisplay
             }
         }
         catch (Exception ex)
