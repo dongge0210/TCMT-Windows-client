@@ -595,7 +595,8 @@ int main(int argc, char* argv[]) {
                 // Temperatures
                 sysInfo.temperatures = data.temperatures;
 
-                try { DiskInfo().CollectSmartData(sysInfo); } catch (...) {}
+                static bool smartDone = false;
+                if (!smartDone) { try { DiskInfo().CollectSmartData(sysInfo); smartDone = true; } catch (...) {} }
                 SharedMemoryManager::WriteToSharedMemory(sysInfo);
 
                 // Write to IPC shared memory (schema-driven, for C# Avalonia)
