@@ -489,18 +489,40 @@ void TuiApp::Run() {
         }
         if (ry > maxY) ry = maxY;
 
-        // === OS / System frame (always shown at bottom) ===
-        int osTop = rows - 3;
+        // === Bottom panels: Connections → Log → System ===
+        int sysTop = rows - 3;  // System frame
+        int connTop = sysTop - 2; // Connection info (1 row + separator)
         std::string logSep(cols - 2, '-');
 
-        // === Log panel (sacrificial — only if space between content and OS) ===
+        // === Connections panel ===
         int contentEnd = ly > ry ? ly : ry;
-        int logSpace = osTop - contentEnd - 2; // rows between content and OS frame
+        bool showConn = (connTop > contentEnd + 1) && data.connectionCount >= 0;
+        if (showConn) {
+            mvwprintw(stdscr, connTop - 1, 1, "%.*s", cols - 2, logSep.c_str());
+            wattron(stdscr, COLOR_PAIR(5) | A_BOLD);
+            mvwprintw(stdscr, connTop, 1, "Connections");
+            wattroff(stdscr, COLOR_PAIR(5) | A_BOLD);
+            if (data.connectionCount > 0) {
+                auto connStr = "IPC: " + std::to_string(data.connectionCount) + " client(s)";
+                if (!data.connectionSince.empty())
+                    connStr += ", since " + data.connectionSince;
+                int color = 2;
+                wattron(stdscr, COLOR_PAIR(color));
+                mvwprintw(stdscr, connTop, 14, "%.*s", cols - 16, connStr.c_str());
+                wattroff(stdscr, COLOR_PAIR(color));
+            } else {
+                mvwprintw(stdscr, connTop, 14, "no clients connected");
+            }
+        }
+
+        int logEnd = showConn ? connTop - 1 : sysTop;
+        int logSpace = logEnd - contentEnd - 2;
+        // === Log panel (sacrificial) ===
         if (logSpace > 1) {
             int logTop = contentEnd + 1;
             mvwprintw(stdscr, logTop - 1, 1, "%.*s", cols - 2, logSep.c_str());
             mvwprintw(stdscr, logTop, 1, "Log");
-            int logLinesAvail = std::max(0, osTop - logTop - 1);
+            int logLinesAvail = std::max(0, logEnd - logTop - 1);
             if (logLinesAvail > 0) {
                 auto logEntries = logBuf_->GetRecent(logLinesAvail);
                 for (size_t i = 0; i < logEntries.size() && static_cast<int>(i) < logLinesAvail; ++i) {
@@ -517,24 +539,21 @@ void TuiApp::Run() {
             }
         }
 
-        // OS frame separator
-        mvwprintw(stdscr, osTop - 1, 1, "%.*s", cols - 2, logSep.c_str());
-        // System label
+        // === OS / System frame ===
+        mvwprintw(stdscr, sysTop - 1, 1, "%.*s", cols - 2, logSep.c_str());
         wattron(stdscr, COLOR_PAIR(5) | A_BOLD);
-        mvwprintw(stdscr, osTop, 1, "System");
+        mvwprintw(stdscr, sysTop, 1, "System");
         wattroff(stdscr, COLOR_PAIR(5) | A_BOLD);
-        // OS version
         if (!data.osVersion.empty()) {
-            mvwprintw(stdscr, osTop, 10, "%.*s", cols - 30, data.osVersion.c_str());
+            mvwprintw(stdscr, sysTop, 10, "%.*s", cols - 30, data.osVersion.c_str());
         } else {
-            mvwprintw(stdscr, osTop, 10, "Unknown OS");
+            mvwprintw(stdscr, sysTop, 10, "Unknown OS");
         }
-        // Battery
         if (data.batteryPercent >= 0 && data.batteryPercent <= 100) {
             auto batStr = (data.acOnline ? "AC" : "BAT") + std::string(" ") + std::to_string(data.batteryPercent) + "%";
             int color = data.batteryPercent < 20 ? 4 : (data.batteryPercent < 50 ? 3 : 2);
             wattron(stdscr, COLOR_PAIR(color));
-            mvwprintw(stdscr, osTop, cols - static_cast<int>(batStr.size()) - 2, "%s", batStr.c_str());
+            mvwprintw(stdscr, sysTop, cols - static_cast<int>(batStr.size()) - 2, "%s", batStr.c_str());
             wattroff(stdscr, COLOR_PAIR(color));
         }
 

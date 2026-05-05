@@ -42,7 +42,7 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
                     {
                         _consecutiveErrors = 0;
                         IsConnected = true;
-                        ConnectionStatus = "已连接";
+                        ConnectionStatus = "已连接 (IPC)";
                         WindowTitle = "系统硬件监视器";
                         UpdateSystemData(info);
                         LastUpdate = DateTime.Now;
@@ -155,7 +155,7 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
                     if (!IsConnected)
                     {
                         IsConnected = true;
-                        ConnectionStatus = "已连接";
+                        ConnectionStatus = "已连接 (IPC)";
                         WindowTitle = "系统硬件监视器";
                     }
                     UpdateSystemData(info);

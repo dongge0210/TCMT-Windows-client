@@ -67,6 +67,10 @@ struct TuiData {
     int batteryPercent = -1;  // -1 = no battery
     bool acOnline = false;
 
+    // Connections
+    int connectionCount = 0;
+    std::string connectionSince;
+
     // TPM
     std::string tpmInfo;
 

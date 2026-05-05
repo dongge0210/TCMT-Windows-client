@@ -388,6 +388,20 @@ int main(int argc, char* argv[]) {
             // === Build TuiData snapshot ===
             tcmt::TuiData data;
             data.osVersion = os.GetVersion();
+            data.connectionCount = ipcServer.GetClientCount();
+            static bool hadConn = false;
+            static std::string connSinceStr;
+            if (data.connectionCount > 0 && !hadConn) {
+                auto t = std::time(nullptr);
+                char buf[16];
+                std::strftime(buf, sizeof(buf), "%H:%M:%S", std::localtime(&t));
+                connSinceStr = buf;
+                hadConn = true;
+            } else if (data.connectionCount == 0) {
+                hadConn = false;
+                connSinceStr.clear();
+            }
+            data.connectionSince = connSinceStr;
             data.batteryPercent = cachedBatteryPercent;
             data.acOnline = cachedAcOnline;
             data.cpuName = cachedCpuName;

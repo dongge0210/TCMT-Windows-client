@@ -305,7 +305,7 @@
                     <TextBlock Text="{Binding BatteryLabel, StringFormat=' {0}'}" Foreground="#FF666666" FontSize="11"/>
                 </StackPanel>
 
-                <TextBlock Grid.Column="3" Text="{Binding LastUpdate, StringFormat='更新时间: {0:HH:mm:ss}'}"
+                <TextBlock Grid.Column="3" Text="{Binding LastUpdate, StringFormat={}{0:HH:mm:ss}}"
                           Foreground="#FF666666" FontSize="11" VerticalAlignment="Center"/>
             </Grid>
         </Border>
