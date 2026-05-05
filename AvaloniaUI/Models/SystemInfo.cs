@@ -175,7 +175,8 @@ namespace AvaloniaUI.Models
         public int PhysicalDiskIndex { get => _physicalDiskIndex; set => SetProperty(ref _physicalDiskIndex, value); }
 
         public double UsagePercent => TotalSize > 0 ? (double)UsedSpace / TotalSize * 100 : 0;
-        public string DisplayName => Letter == '\0' ? "未知分区" : $"{Letter}: {Label}";
+        public string DisplayName => string.IsNullOrEmpty(Label) ? "未知分区"
+            : (Letter == '\0' ? Label : $"{Letter}: {Label}");
         public string TotalSizeDisplay => FormatUtil.FormatBytes(TotalSize);
         public string UsedSpaceDisplay => FormatUtil.FormatBytes(UsedSpace);
         public string FreeSpaceDisplay => FormatUtil.FormatBytes(FreeSpace);

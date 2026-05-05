@@ -140,7 +140,7 @@ public static class IPCSystemInfoMapper
                     {
                         info.Disks.Add(new DiskData
                         {
-                            Letter = idx < 26 ? (char)('A' + idx) : '\0',
+                            Letter = '\0', // no drive letters on macOS
                             Label = label,
                             FileSystem = fs,
                             TotalSize = total,
