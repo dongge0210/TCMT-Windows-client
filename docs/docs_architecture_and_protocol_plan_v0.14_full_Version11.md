@@ -1,7 +1,5 @@
 # TCMT Windows Client 架构 / 协议 / 共享内存 / 功能规划总文档（全量更新版）
-版本：v0.14  
-更新时间：2025-10-21  
-说明：本文件为"全量"文档。合并 Version9 和 Version7，包含原始章节 1~27 + 扩展 28(含 28.14) / 29 / 30 / 31，并补充所有关键缺失细节（结构字段、位标、哈希规范、刷新间隔、偏移生成、错误分类、并发/性能/版本策略等），并在第 4/8/18 章新增 4.5 / 8.5 / 18.4 说明。当前仅文档，不含任何实现代码；如需代码请发指令："要代码：模块名"。
+版本：v0.14
 
 ## 目录
 1. 目标与阶段路线总览  
@@ -17,23 +15,18 @@
 13. 插件系统最小 SDK 约定（占位）  
 14. SMART 复检指令占位与异步策略（含正常刷新间隔）  
 15. 进程控制与黑名单策略  
-16. 配置文件 core.json 草案（新增 agingWindow / agingThresholdScore 等）  
 17. 风险与回退策略  
 18. 验收与测试步骤总表（含自检分类 + 单元测试 TODO）  
-19. 原生温度采集（NVAPI / ADL / WMI / SMART 异步）  
-20. 迁移步骤（旧结构→新结构 + 温度过渡）  
+19. 原生温度采集（高优先级，NVAPI / ADL / WMI / SMART 异步）  
 21. FAQ / 常见坑提示  
-22. 实施批次任务分解（最新排序）  
 23. 后续扩展路线图（分析 / 安全 / 跨平台）  
-24. 未来跨平台抽象占位（Provider 接口）  
 25. 收尾与后续触发点  
-26. 附：偏移与结构校验章节（整块 SHA256 + diff 机制）  
-27. MCP 服务器构想（订阅过滤 + 限速行为）  
+27. MCP 服务器构想（高优先级，订阅过滤 + 限速行为）  
 28. 自检与扩展分析（sys.selftest / SMART 评分趋势 / sys.metrics / 性能优化 / LLM 预备 / critical 分类）  
 28. 14 SMART Aging Curve（老化曲线草图 + 配置化）  
 29. 事件回放模拟（命名/保留策略）  
 30. 硬件扩展补充（字段与无效值约定）  
-31. CLI 设计与实施（含 degradeMode 行为 & DATA_NOT_READY 格式）  
+31. TUI 设计与实施（含 degradeMode 行为 & DATA_NOT_READY 格式）  
 32. 单位与精度规范  
 33. 并发与线程安全模型  
 34. 版本与兼容策略（abiVersion 映射）  
@@ -198,59 +191,6 @@ UI 禁用 kill；后期高危操作需 ADMIN + 二次确认。
 
 ---
 
-## 16. 配置文件 core.json 草案
-```jsonc
-{
-  "refresh": { "cpuMs":1000, "gpuMs":2000, "memoryMs":1000, "diskMs":3000 },
-  "sequence": { "maxConsecutiveOdd":5, "alarmLog":true },
-  "usb": { "debounceMs":500, "smartAdjust":true },
-  "privacy": { "maskBaseboardSerial":false },
-  "process": { "blacklist":["System","Registry","WinInit","smss.exe","csrss.exe","explorer.exe"] },
-  "plugin": { "directory":"./plugins", "tickTimeoutMs":50 },
-  "trend": { "shortPoints":60, "longPoints":300, "pauseIfSnapshotFrozen":5 },
-  "logging": {
-    "rotateSizeMB":5,
-    "errorsDatePrefix":true,
-    "frontend": { "rateLimitDefault":20, "maxOverride":200 }
-  },
-  "temperature": {
-    "enableNativeTemperature": true,
-    "useSmartStorageQueryFirst": true,
-    "logDiffOnceBeforeRemoval": true,
-    "unsupportedValueRender": "N/A",
-    "asyncSmartRetry": true,
-    "smartRetryScheduleSeconds": [1,5,10],
-    "maxSmartRetries": 3,
-    "collectAllAmdGpus": true,
-    "event": {
-      "mergeEnabled": true,
-      "urgentJumpThresholdC": 5
-    }
-  },
-  "smart": {
-    "trendWindow": 5,
-    "wearRapidGrowthPercent": 1,
-    "refreshIntervalSeconds": 30,
-    "tempIntervalSeconds": 10,
-    "agingWindow": 10,
-    "agingThresholdScore": 50
-  },
-  "adaptiveRefresh": {
-    "enabled": true,
-    "cpuHighThresholdPercent": 15,
-    "cpuRecoverThresholdPercent": 10,
-    "consecutiveCount": 5
-  },
-  "mcp": {
-    "apiVersion": "mcp-0.14",
-    "temperatureChangeThreshold": 2,
-    "temperatureBroadcastIntervalMs": 1000,
-    "requestRateLimitPerSec": 30
-  }
-}
-```
-
----
 
 ## 17. 风险与回退策略
 | 风险 | 征兆 | 回退 |
@@ -305,7 +245,7 @@ UI 禁用 kill；后期高危操作需 ADMIN + 二次确认。
 - [ ] 列出需要测试的模块（sharedmem、hash、sequence、SMART refresh、温度合并）
 - [ ] 编写最小断言场景（结构 size、hash 重复计算一致性）
 - [ ] 添加失败路径测试（写线程阻塞 / SMART 重试）
-- [ ] 以后扩展：fuzz 指令解析 / CLI 参数解析
+- [ ] 以后扩展：fuzz 指令解析 / TUI 参数解析
 单元测试代码后续单独实现，不在本文中。
 
 ---
@@ -318,30 +258,6 @@ SMART 温度：异步 schedule 重试。
 
 ---
 
-## 20. 迁移步骤
-1. 新结构追加字段  
-2. 移除 CRITICAL_SECTION  
-3. writeSequence 奇偶协议  
-4. 主板信息采集  
-5. 原生温度加载 + diff  
-6. 移除托管桥  
-7. 环形日志缓冲  
-8. 偏移 JSON + debug 程序  
-9. 指令系统最小集  
-10. SMART 异步线程  
-11. 自检 sys.selftest  
-12. 温度事件合并 + urgent  
-13. SMART 寿命评分  
-14. Aging Curve  
-15. sys.metrics  
-16. 自适应刷新  
-17. LLM 接入预备  
-18. MCP MVP  
-19. Plugin Tick 统计  
-20. Event Replay  
-21. Extended Hardware 资源
-
----
 
 ## 21. FAQ / 常见坑提示
 | 问题 | 原因 | 解决 |
@@ -359,29 +275,6 @@ SMART 温度：异步 schedule 重试。
 
 ---
 
-## 22. 实施批次任务分解（最新排序）
-| 顺序 | 任务 | 描述 | 估时 | 依赖 | 可暂缓 | 备注 |
-|------|------|------|------|------|--------|------|
-| 1 | SharedMemory 扩展 + writeSequence | 基础结构与协议 | 1h | 无 | 否 | 基石 |
-| 2 | 原生温度迁移 | 核心温度采集 | 1.5h | 1 | 否 | 用户可见 |
-| 3 | 环形日志缓冲 | 日志结构 | 2h | 1 | 否 | 诊断基础 |
-| 3a | 偏移 JSON + SHA256 + debug | 自动校验 | 1h | 1 | 否 | 尽早发现错误 |
-| 4 | 指令系统最小集 | 操作入口 | 1h | 1 | 否 | 后续工具依赖 |
-| 5 | SMART 异步线程 | 属性刷新 | 1.5h | 1 | 否 | 评分前置 |
-| 6 | 自检 sys.selftest | 启动健康报告 | 1h | 3,3a,4,5 | 否 | 可信度 |
-| 7 | 温度事件合并 + urgent | 合并与跳变推送 | 0.8h | 2 | 否 | 体验提升 |
-| 8 | SMART 寿命评分 | 规则+趋势 | 1h | 5 | 否 | 健康分析 |
-| 8.1 | SMART Aging Curve | 斜率预测 | 0.8h | 8 | 是 | 可后移 |
-| 9 | sys.metrics | 指标聚合 | 0.8h | 2,3,5,8 | 是 | 后置 |
-| 10 | 自适应刷新 | 动态间隔 | 1h | 9 或 CPU% | 是 | CPU% 未完成可暂缓 |
-| 11 | LLM 接入预备 | 描述/最小化 | 0.5h | 9 | 是 | 文档占位 |
-| 12 | MCP MVP | list/get/sub | 2h | 3,4,6,7,8 | 是 | 后置 |
-| 13 | Plugin Tick 统计 | p95/avg | 1h | 插件框架 | 是 | 最低 |
-| 14 | Event Replay 基础 | 快照+重建占位 | 1h | 6,8 | 是 | 历史分析 |
-| 15 | Aging Curve 深化 | 多阈值/平滑 | 1h | 8.1 | 是 | 优化 |
-| 16 | Extended Hardware 资源 | nvme/memory/cpu_features | 2h | 1,5 | 是 | 诊断增强 |
-
----
 
 ## 23. 后续扩展路线图
 | 类别 | 扩展点 | 描述 |
@@ -398,21 +291,6 @@ SMART 温度：异步 schedule 重试。
 
 ---
 
-## 24. 未来跨平台抽象占位
-接口示意：
-```
-IHardwareProvider {
-  bool Init();
-  Snapshot GetSnapshot();
-  TemperatureVector GetTemperatures();
-  bool Refresh();
-  ProviderInfo GetInfo();
-}
-```
-Windows 实现 → 后续 Linux / macOS。  
-用 capability flags 表示支持差异（如是否支持 GPU 温度、SMART）。  
-
----
 
 ## 25. 收尾与后续触发点
 实施阶段变更 → 先改文档再写代码。  
@@ -421,46 +299,6 @@ Windows 实现 → 后续 Linux / macOS。
 
 ---
 
-## 26. 附：偏移与结构校验章节
-### 26.1 编译期校验
-`static_assert(sizeof(SharedMemoryBlock)==125818,"Size mismatch")`  
-
-### 26.2 运行期日志
-`INFO sharedmem_size=<sizeof>`  
-`INFO offset writeSequence=<off> baseboardManufacturer=<off>`  
-
-### 26.3 offsets JSON 结构
-```
-{
-  "abiVersion":"0x00010014",
-  "sizeof":125818,
-  "generatedTs":1697825000123,
-  "sharedmemSha256":"<64hex>",
-  "fields":[
-    {"name":"writeSequence","offset":124792,"size":4},
-    {"name":"baseboardManufacturer","offset":124836,"size":128}
-  ]
-}
-```
-
-### 26.4 debug 程序功能
-1. 校验尺寸 & 偏移  
-2. 差值展示  
-3. 生成 diff JSON  
-4. 写序列翻转测试  
-5. 退出码：0/1/2/3/4  
-
-### 26.5 降级模式 degradeMode
-条件：尺寸或哈希不匹配 → futureReserved bit 标记 → UI/MCP 仅读基础字段。  
-
-### 26.6 哈希差异处理
-abiVersion 相同但哈希不同：`WARN sharedmem_hash_mismatch` → 自检 fail。  
-abiVersion 不同且偏移文件未更新 → degradeMode + 提示升级。
-
-### 26.7 常见偏移错误
-未 pack(1) / bool 对齐差异 / 引入非 POD 类型 / 编译器差异（MSVC vs Clang）。  
-
----
 
 ## 27. MCP 服务器构想
 资源 + 工具 + 事件统一对接模型或外部 UI。  
@@ -514,8 +352,6 @@ NVMe wearPercent 获取失败 → 不扣。
 ### 28.8 温度事件结构
 批量与 urgent 两种 JSON 格式。  
 
-### 28.9 偏移 diff 与自检关系
-哈希不匹配 → fail + degradeMode。  
 
 ### 28.10 Plugin Tick 性能统计
 统计 p95/avg/max 等，占位。  
@@ -523,8 +359,6 @@ NVMe wearPercent 获取失败 → 不扣。
 ### 28.11 LLM 接入预备
 description / bundle / minimal / hint / 白名单。  
 
-### 28.12 扩展验收点
-覆盖哈希、自检 urgent、趋势递增、urgent 温度、sys.metrics pending 等。  
 
 ### 28.13 顺序确认
 扩展顺序已含 14~16 新阶段。  
@@ -563,7 +397,7 @@ description / bundle / minimal / hint / 白名单。
 
 ---
 
-## 31. CLI 设计与实施（含 degradeMode 行为 & DATA_NOT_READY 格式）
+## 31. TUI 设计与实施（含 degradeMode 行为 & DATA_NOT_READY 格式）
 
 ### 31.1 目标
 提供命令行工具 `tcm`：快速查看系统状态、偏移校验、刷新、SMART 与 Aging 相关信息；后续支持事件回放与硬件扩展显示。  
@@ -572,66 +406,8 @@ description / bundle / minimal / hint / 白名单。
 - 第一批：sys-status / offsets verify / temps / refresh（可占位） / smart / smart-aging（数据不足返回码 6）。  
 - 不含：交互式 REPL、复杂历史回放、日志注入（后续扩展）。
 
-### 31.3 目录规划（tcm/）
-```
-tcm/
-  README.md
-  include/
-    command_table.h
-    exit_codes.h
-    parsing.h
-    shared_memory_reader.h
-    offsets_verifier.h
-    json_writer.h
-  src/
-    main.cpp
-    command_table.cpp
-    cmd_sys_status.cpp
-    cmd_offsets_verify.cpp
-    cmd_temps.cpp
-    cmd_refresh.cpp
-    cmd_smart.cpp
-    cmd_smart_aging.cpp
-  scripts/
-    validate_offsets.ps1 (可选)
-  TCM_CLI.vcxproj
-  TCM_CLI.sln
-```
-偏移 JSON 默认读取：`docs/runtime/offsets_sharedmem_v0_14.json`（支持 `--file`）。
 
-### 31.4 共享内存访问
-默认名：`Global\TCMT_SharedMemory`  
-可通过环境变量覆盖：`TCM_SHM_NAME`。  
-流程：打开 → 校验尺寸 → 读 writeSequence → degradeMode 检测（若 true，sys-status 退出码=4）。  
 
-### 31.5 命令及退出码
-| 命令 | 描述 | 退出码特殊 |
-|------|------|-----------|
-| sys-status | 汇总 CPU/GPU/内存/温度 | degradeMode=4 |
-| offsets verify | 校验尺寸/哈希/偏移 | 差异=5 文件缺失=2 |
-| temps | 所有温度传感器 | degradeMode仍输出 |
-| refresh | 调用 refresh.hardware | 失败=3 |
-| smart --disk | SMART 评分 | 数据不足=6 |
-| smart-aging --disk | Aging 曲线预测 | 数据不足=6 |
-
-退出码集合：  
-0 成功 / 1 参数错误 / 2 资源不可用 / 3 指令执行失败 / 4 degradeMode / 5 偏移校验失败 / 6 数据不足。
-
-### 31.6 参数格式
-支持 `--key value` 与 `--key=value`。  
-通用参数：`--json` `--pretty` `--quiet` `--help` `--file <path>`（偏移 JSON）。  
-
-### 31.7 输出规范
-- sys-status：CPU 未实现显示 `(pending)` 而不是 -1。  
-- JSON：紧凑；`--pretty` 启用缩进。  
-- smart-aging 不足点时：`exitCode=6` + 文本 "Aging Curve 数据不足"。  
-
-### 31.8 偏移校验流程
-1. 读取指定或默认 offsets JSON。  
-2. 计算实际 sizeof 与整块 SHA256。  
-3. 对比字段偏移（使用编译期 offsetof 常量数组）。  
-4. 任一不符 → 列出差异 + exitCode=5。  
-5. 文件不存在 → exitCode=2。  
 
 ### 31.9 SMART / Aging 占位策略
 - SMART 异步未完成：smart 命令 exitCode=6（DATA_NOT_READY）。  
@@ -650,7 +426,7 @@ tcm/
 
 优先级：命令行 --file > TCM_OFFSETS_PATH > 默认路径。
 
-### 31.12 验收点（CLI）
+### 31.12 验收点（TUI）
 | 项目 | 条件 | 标准 |
 |------|------|------|
 | sys-status degrade | 模拟 degradeMode | 退出码=4 |
@@ -664,101 +440,25 @@ tcm/
 | 环境变量覆盖 | 设置 TCM_SHM_NAME | 使用新名成功 |
 | refresh 指令失败 | 模拟错误 | exitCode=3 |
 
-### 31.13 阶段划分（CLI 专属）
+### 31.13 阶段划分（TUI 专属）
 | 阶段 | 内容 | 备注 |
 |------|------|------|
-| CLI-A | sys-status + offsets verify | 基础读取与校验 |
-| CLI-B | temps + refresh | 温度与刷新入口 |
-| CLI-C | smart + smart-aging 占位 | 等 SMART 异步完成 |
-| CLI-D | 日志注入 (可选) | 环形日志测试 |
-| CLI-E | MCP 模式切换 | 待 MCP MVP |
-| CLI-F | replay / hw 扩展命令 | 高级功能 |
+| TUI-A | sys-status + offsets verify | 基础读取与校验 |
+| TUI-B | temps + refresh | 温度与刷新入口 |
+| TUI-C | smart + smart-aging 占位 | 等 SMART 异步完成 |
+| TUI-D | 日志注入 (可选) | 环形日志测试 |
+| TUI-E | MCP 模式切换 | 待 MCP MVP |
+| TUI-F | replay / hw 扩展命令 | 高级功能 |
 
 ### 31.14 与主程序协同
 - 偏移 JSON 必须在主程序启动时生成。  
-- CLI 的字段偏移数组与主程序结构保持同步（由公共头文件导出）。  
-- 结构升级时先更新偏移 JSON 和头文件，再编译 CLI。  
+- TUI 的字段偏移数组与主程序结构保持同步（由公共头文件导出）。  
+- 结构升级时先更新偏移 JSON 和头文件，再编译 TUI。  
 
-### 31.15 失败与降级策略
-- 共享内存不可用：退出码=2。  
-- degradeMode：sys-status 退出码=4 但仍输出。  
-- JSON 输出失败（极少见）：fallback 文本 + exitCode=3。  
 
 ### 31.16 未来扩展占位
 命令：`tcm replay` / `tcm hw nvme` / `tcm hw memory` / `tcm hw cpu-features` / `tcm log --level INFO "..."` / `tcm trend export` / `tcm diag dump`。
 
-### 31.17 集成 CPP-parsers 附录（使用统一解析库）
-
-#### 31.17.1 目标
-将你的仓库 [CPP-parsers] 中统一解析接口用于读取配置（如 core.json），并保留 offsets JSON 使用更复杂结构解析（nlohmann/json 直接或原生）。达到：多格式配置支持（JSON/TOML/YAML/XML/INI）无需修改 CLI 调用逻辑。
-
-#### 31.17.2 为什么两条路径并存
-| 文件类型 | 解析方式 | 原因 |
-|---------|---------|------|
-| core.(json|yaml|toml|ini|xml) | IConfigParser + createParser | 只需简单键值存取 |
-| offsets_sharedmem_v0_14.json | 直接 nlohmann/json | 需要数组与偏移字段精确遍历 |
-| 复杂结构资源导出 | nlohmann/json | 涉及对象/数组/嵌套 |
-| 简单 kv 配置文件 | IConfigParser | 跨格式统一接口 |
-
-#### 31.17.3 引入步骤（VS 2022）
-1. 添加子模块（若未克隆）：  
-   - `git submodule add https://github.com/dongge0210/CPP-parsers extern/CPP-parsers`  
-   - 或在外部已克隆情况下直接引用其 include/src。  
-2. 在解决方案中添加现有解析库头路径：  
-   - 项目属性 → C/C++ → 常规 → 附加包含目录：`extern/CPP-parsers/include` `extern/CPP-parsers/src`（视实际结构）。  
-3. 仅使用 JSON 时可裁剪：删除（或不编译）YAML/XML/TOML/INI 的解析实现文件，保留 JsonConfigParser。  
-4. 在需要读取 core.json 的源文件中：  
-   - 包含 `#include "ConfigParserFactory.h"`（它内部会包含各具体解析器头）。  
-5. 调用流程（伪逻辑，不放真实代码）：  
-   - `parser = createParser("core.json")` → 判空  
-   - `parser->load("core.json")` → 失败则 fallback 默认配置  
-   - `parser->get("refresh.cpuMs")` → 转换为整数（需要你在调用侧手动 `stoi`）  
-6. 写回：  
-   - 修改参数 → `parser->set("refresh.cpuMs","1200")` → `parser->save("core.json")`  
-   - 注意：不保证保留原注释或格式（尤其 YAML/TOML）。  
-7. 错误处理增强（建议）：  
-   - 扩展接口：增加 `getOrDefault(key, defaultValue)`（在你仓库中实现后再使用）  
-   - 增加 `bool has(key)`，减少 get 空字符串歧义。  
-
-#### 31.17.4 引入步骤（VS Code + CMake 可选）
-（如果你后来需要 VS Code 构建）  
-1. 在顶层 CMakeLists.txt 增加：  
-   - `add_subdirectory(extern/CPP-parsers)`（如果该仓库自含 CMake）  
-   - 或手工 `target_include_directories(tcm PRIVATE extern/CPP-parsers/include)`  
-2. 把 CLI 可执行 target 与解析库实现文件一起编译；若只要 JSON，添加 `JsonConfigParser.cpp` 与 `IConfigParser.h` 等文件。  
-3. VS Code `c_cpp_properties.json` 中添加 `includePath`：`"${workspaceFolder}/extern/CPP-parsers/include"`。  
-
-#### 31.17.5 限制与注意
-| 项 | 说明 |
-|----|------|
-| 类型单一 | IConfigParser 当前只处理字符串，复杂类型需自己转换 |
-| 无错误描述 | load 失败无法返回原因（建议扩展接口） |
-| 注释/格式丢失 | save 后可能丢失原文件注释与缩进风格 |
-| 线程安全 | 未声明线程安全，跨线程访问需外层锁 |
-| 未测试声明 | README 标注"未经过测试"，生产前需补单测 |
-| 数组/对象 | offsets JSON 中的 fields 数组无法用简单 get 处理 |
-
-#### 31.17.6 推荐改进（后续）
-- 在 CPP-parsers 增加：`virtual std::string getRaw()` 或 `virtual std::map<std::string,std::string> dumpAll()`。  
-- 增加多类型接口：`getInt / getBool / getArrayKeys`。  
-- 加错误获取：`std::string lastError()`。  
-- 支持只读模式（避免无意 save 覆盖）。  
-
-#### 31.17.7 验收点（集成后）
-| 项目 | 条件 | 标准 |
-|------|------|------|
-| JSON 加载正常 | core.json 存在 | load 返回 true |
-| 多格式支持 | 改名 core.yaml | createParser 返回非空 |
-| 缺失文件 | rename 文件暂时不存在 | load=false → fallback 默认配置 |
-| 修改保存 | set 后 save | 文件产生新内容 |
-| 错误行为 | 传入不支持扩展 | createParser 返回 nullptr |
-| 并发访问 | 两次快速读写 | 不崩溃（人工测试） |
-
-#### 31.17.8 当前决策总结
-- CLI 第一阶段仍用 nlohmann/json 解析复杂结构（偏移与趋势等）。  
-- 简单键值配置（core.*）可使用 IConfigParser 增强可移植性与格式灵活性。  
-- 不对偏移 JSON 强行套 IConfigParser，避免功能不足。  
-- 后期视需要完善统一接口并逐步替换直接 JSON 访问。
 
 ---
 
@@ -775,7 +475,7 @@ tcm/
 - 单写多读依赖 writeSequence 奇偶
 - 自检遇奇数用旧快照
 - SMART 异步独立线程
-- CLI 只读映射
+- TUI 只读映射
 
 ---
 
@@ -805,19 +505,6 @@ tcm/
 - verify_sharedmem.exe
 - selftest_dump.exe
 - release_pack.ps1
-
----
-
-## 更新总摘要
-- 合并 Version9 和 Version7 的所有内容
-- 新增章节：32-37（单位精度、并发模型、版本策略、历史保留、安全权限、构建工具）
-- 保留 Version7 第 31.17 节的 CPP-parsers 集成详细附录
-- 确认偏移校验前移、温度事件合并提前于 SMART 评分
-- 自检输出包含 urgentJumpThresholdC；偏移 diff 使用整块哈希
-- 增加 CLI 退出码与命令规划；集成多格式解析库的附录步骤
-- 配置文件合并所有字段，确保完整性
-
----
 
 ## 38. 开发路线图（源自 plan.md 合并，状态未更新）
 
