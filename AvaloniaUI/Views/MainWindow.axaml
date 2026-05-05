@@ -41,9 +41,15 @@
             </Grid>
         </Border>
 
-        <!-- 主内容区域 -->
-        <ScrollViewer Grid.Row="1" 
-                    VerticalScrollBarVisibility="Auto" 
+        <!-- 主内容区域 — 断开时显示等待状态 -->
+        <StackPanel Grid.Row="1" HorizontalAlignment="Center" VerticalAlignment="Center"
+                    IsVisible="{Binding IsConnected, Converter={StaticResource BoolInvertConverter}}">
+            <TextBlock Text="等待连接..." FontSize="18" Foreground="#FF666666"
+                       HorizontalAlignment="Center" VerticalAlignment="Center"/>
+        </StackPanel>
+
+        <ScrollViewer Grid.Row="1" IsVisible="{Binding IsConnected}"
+                    VerticalScrollBarVisibility="Auto"
                     Padding="10,5,10,5">
             <StackPanel>
                 <!-- CPU和内存信息行 -->

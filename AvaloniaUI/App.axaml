@@ -16,6 +16,7 @@
 
   <Application.Resources>
     <converters:BoolToColorConverter x:Key="BoolToColorConverter"/>
+    <converters:BoolInvertConverter x:Key="BoolInvertConverter"/>
     <converters:PercentToWarningColorConverter x:Key="PercentToWarningColorConverter"/>
     <converters:TemperatureToWarningColorConverter x:Key="TemperatureToWarningColorConverter"/>
   </Application.Resources>
