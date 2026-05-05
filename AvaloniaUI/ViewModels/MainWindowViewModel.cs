@@ -83,7 +83,6 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
             // Try shared memory init as fallback; IPC kicks in when pipe connects
             // Timer always runs — it prefers IPC when available
             _sharedMemory.Initialize();
-            IsConnected = true;
             ConnectionStatus = "连接中...";
             WindowTitle = "系统硬件监视器";
             _timer.Start();
