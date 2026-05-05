@@ -26,6 +26,7 @@
 #include "core/os/OSInfo.h"
 #include "core/power/PowerInfo.h"
 #include "core/disk/DiskInfo.h"
+#include "core/history/HistoryLogger.h"
 #include "core/DataStruct/DataStruct.h"
 #include "core/DataStruct/SharedMemoryManager.h"
 #include "core/IPC/IPCServer.h"
@@ -362,6 +363,16 @@ int main(int argc, char* argv[]) {
     tcmt::TuiApp tuiApp;
     tuiApp.SetLogBuffer(&Logger::GetTuiBuffer());
     tuiApp.Start();
+
+    // Start history logger (SQLite)
+    HistoryLogger historyLogger;
+    historyLogger.SetRetentionDays(30);
+    std::string dbPath = getenv("HOME") ? std::string(getenv("HOME")) + "/.tcmt/history.db" : "/tmp/tcmt_history.db";
+    if (historyLogger.Initialize(dbPath)) {
+        Logger::Info("HistoryLogger started: " + dbPath);
+    } else {
+        Logger::Warn("HistoryLogger failed to initialize");
+    }
     Logger::Info("TUI started");
 
     // Static info caching
@@ -713,6 +724,25 @@ int main(int argc, char* argv[]) {
             for (int s = 0; s < 10 && !g_shouldExit.load(); ++s) {
                 std::this_thread::sleep_for(std::chrono::milliseconds(50));
             }
+            // Push sensor snapshots to history logger
+            if (historyLogger.IsRunning()) {
+                auto nowMs = std::chrono::duration_cast<std::chrono::milliseconds>(
+                    std::chrono::system_clock::now().time_since_epoch()).count();
+                std::vector<SensorSnapshot> snapshots;
+                snapshots.push_back({"cpu/usage", data.cpuUsage, "%", (uint64_t)nowMs});
+                snapshots.push_back({"cpu/temperature", data.cpuTemp, "C", (uint64_t)nowMs});
+                snapshots.push_back({"gpu/usage", data.gpuUsage, "%", (uint64_t)nowMs});
+                snapshots.push_back({"gpu/temperature", data.gpuTemp, "C", (uint64_t)nowMs});
+                if (data.totalMemory > 0) {
+                    double memPct = 100.0 * data.usedMemory / data.totalMemory;
+                    snapshots.push_back({"memory/percent", memPct, "%", (uint64_t)nowMs});
+                }
+                if (data.batteryPercent >= 0) {
+                    snapshots.push_back({"battery/percent", (double)data.batteryPercent, "%", (uint64_t)nowMs});
+                }
+                historyLogger.WriteBatch(snapshots);
+            }
+
             loopCounter++;
         }
         catch (const std::exception& e) {
@@ -728,6 +758,8 @@ int main(int argc, char* argv[]) {
     Logger::Info("Exiting, cleaning up...");
     tuiApp.Stop();
     TemperatureWrapper::Cleanup();
+    historyLogger.Shutdown();
+    Logger::Info("HistoryLogger stopped");
     ipcServer.Stop();
     Logger::Info("IPC server stopped");
     SharedMemoryManager::CleanupSharedMemory();

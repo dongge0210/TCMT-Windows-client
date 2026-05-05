@@ -44,6 +44,9 @@ public:
     /// True while the background thread is running.
     bool IsRunning() const;
 
+    /// Set retention in days (call before Initialize).
+    void SetRetentionDays(int days) { retentionDays_ = days; }
+
     /// Enqueue one or more snapshots.  If the internal pending queue exceeds
     /// maxPending_, the background thread is woken immediately.
     void WriteBatch(const std::vector<SensorSnapshot>& batch);
