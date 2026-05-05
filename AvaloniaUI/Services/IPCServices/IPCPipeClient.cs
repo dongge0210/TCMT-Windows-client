@@ -213,6 +213,12 @@ public class IPCPipeClient : IAsyncDisposable
             catch (IOException) { break; }
             catch (OperationCanceledException) { break; }
         }
+        // Keep-alive ended — treat as disconnect (SHUTDOWN, EOF, or crash)
+        if (!_serverShutdown)
+        {
+            Log.Warning("IPC: Connection lost (timeout/eof)");
+            OnConnectionChanged?.Invoke(false, "连接已断开");
+        }
         Log.Debug("IPC: Keep-alive loop ended");
     }
 
