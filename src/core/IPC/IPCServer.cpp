@@ -74,6 +74,17 @@ bool IPCServer::Start() {
 
 void IPCServer::Stop() {
     running_ = false;
+
+    // Notify all clients of shutdown
+    {
+        std::lock_guard<std::mutex> lock(clientsMutex_);
+        PipeMessage shutdown{};
+        shutdown.type = static_cast<uint8_t>(PipeMsgType::Shutdown);
+        for (int fd : clients_) {
+            write(fd, &shutdown, PIPE_MSG_HEADER_SIZE);
+        }
+    }
+
     if (serverThread_.joinable())
         serverThread_.join();
 
@@ -109,9 +120,61 @@ void IPCServer::AcceptLoop() {
 }
 
 void IPCServer::HandleClient(int clientFd) {
-    // Send schema, keep connection alive for future updates
+    // Protocol: wait for HELLO → send HELLO_ACK + SCHEMA → wait for ACK → keep-alive loop
+    PipeMessage msg;
+    ssize_t n = read(clientFd, &msg, PIPE_MSG_HEADER_SIZE);
+    if (n <= 0 || msg.type != static_cast<uint8_t>(PipeMsgType::Hello)) {
+        Logger::Debug("IPC: client sent invalid HELLO, closing");
+        close(clientFd);
+        return;
+    }
+
+    // Send HELLO ACK
+    PipeMessage ack{};
+    ack.type = static_cast<uint8_t>(PipeMsgType::HelloAck);
+    ack.version = IPC_VERSION;
+    write(clientFd, &ack, PIPE_MSG_HEADER_SIZE);
+
+    // Send schema
     SendSchema(clientFd);
+
+    // Wait for client ACK (or BYE)
+    n = read(clientFd, &msg, PIPE_MSG_HEADER_SIZE);
+    if (n <= 0 || msg.type != static_cast<uint8_t>(PipeMsgType::Ack)) {
+        Logger::Debug("IPC: client didn't ACK schema, closing");
+        close(clientFd);
+        {
+            std::lock_guard<std::mutex> lock(clientsMutex_);
+            auto it = std::find(clients_.begin(), clients_.end(), clientFd);
+            if (it != clients_.end()) clients_.erase(it);
+        }
+        return;
+    }
+
     Logger::Info("IPC: client connected, " + std::to_string(GetClientCount()) + " client(s) total");
+
+    // Keep-alive loop: handle PING/PONG/BYE
+    while (running_) {
+        n = read(clientFd, &msg, PIPE_MSG_HEADER_SIZE);
+        if (n <= 0) break;
+        if (msg.type == static_cast<uint8_t>(PipeMsgType::Ping)) {
+            PipeMessage pong{};
+            pong.type = static_cast<uint8_t>(PipeMsgType::Pong);
+            write(clientFd, &pong, PIPE_MSG_HEADER_SIZE);
+        } else if (msg.type == static_cast<uint8_t>(PipeMsgType::Bye)) {
+            Logger::Info("IPC: client sent BYE, disconnecting");
+            break;
+        }
+    }
+
+    // Cleanup
+    close(clientFd);
+    {
+        std::lock_guard<std::mutex> lock(clientsMutex_);
+        auto it = std::find(clients_.begin(), clients_.end(), clientFd);
+        if (it != clients_.end()) clients_.erase(it);
+    }
+    Logger::Info("IPC: client disconnected, " + std::to_string(GetClientCount()) + " client(s) total");
 }
 
 int IPCServer::GetClientCount() const {

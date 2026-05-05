@@ -110,75 +110,107 @@ public class IPCPipeClient : IAsyncDisposable
         }
     }
 
+    private const int MsgHeaderSize = 4;  // PipeMessage: type(1) + version(1) + payloadSize(2)
+
     private async Task ReceiveLoopAsync(Stream stream, CancellationToken ct)
     {
-        int headerSize = IPCConstants.SchemaHeaderSize;
+        // === Phase 1: Send HELLO ===
+        var hello = new byte[MsgHeaderSize];
+        hello[0] = 0x01; // Hello
+        hello[1] = IPCConstants.CurrentVersion;
+        await stream.WriteAsync(hello, ct);
+        await stream.FlushAsync(ct);
+        Log.Debug("IPC: HELLO sent");
+
+        // === Phase 2: Receive HELLO_ACK + SCHEMA ===
+        var msgBuf = new byte[MsgHeaderSize];
+        int n = await ReadFullAsync(stream, msgBuf, MsgHeaderSize, ct);
+        if (n == 0 || msgBuf[0] != 0x02) // HelloAck
+        {
+            Log.Warning("IPC: Expected HELLO_ACK, got type={Type}", msgBuf[0]);
+            return;
+        }
+        Log.Debug("IPC: HELLO_ACK received");
+
+        // Read schema header
+        int schemaHeaderSize = IPCConstants.SchemaHeaderSize;
         int maxFields = IPCConstants.MaxFields;
         int fieldDefSize = IPCConstants.FieldDefSize;
+        var headerBuf = new byte[schemaHeaderSize];
+        n = await ReadFullAsync(stream, headerBuf, schemaHeaderSize, ct);
+        if (n < schemaHeaderSize) { Log.Warning("IPC: Incomplete schema header"); return; }
 
-        var headerBuf = new byte[headerSize];
-        var fieldBuf = new byte[maxFields * fieldDefSize];
+        ushort fieldCount = BitConverter.ToUInt16(headerBuf, 6);
+        uint totalSize = BitConverter.ToUInt32(headerBuf, 8);
+        int fieldsSize = Math.Min(fieldCount, maxFields) * fieldDefSize;
+        var fieldBuf = new byte[fieldsSize];
+        if (fieldsSize > 0)
+            await ReadFullAsync(stream, fieldBuf, fieldsSize, ct);
 
+        var raw = new byte[schemaHeaderSize + fieldsSize];
+        Buffer.BlockCopy(headerBuf, 0, raw, 0, schemaHeaderSize);
+        if (fieldsSize > 0) Buffer.BlockCopy(fieldBuf, 0, raw, schemaHeaderSize, fieldsSize);
+        var schema = SchemaMessage.Parse(raw);
+
+        if (schema.Header.Magic != IPCConstants.Magic)
+        {
+            Log.Warning("IPC: Invalid magic 0x{Actual:X}", schema.Header.Magic);
+            return;
+        }
+        Log.Information("IPC: Schema received: {Count} fields, totalSize={Size}", schema.Header.FieldCount, schema.Header.TotalSize);
+
+        if (!(OnSchemaReceived?.Invoke(schema) ?? true))
+        {
+            Log.Warning("IPC: Schema rejected");
+            return;
+        }
+
+        // === Phase 3: Send ACK ===
+        var ack = new byte[MsgHeaderSize];
+        ack[0] = 0x03; // Ack
+        ack[1] = IPCConstants.CurrentVersion;
+        await stream.WriteAsync(ack, ct);
+        await stream.FlushAsync(ct);
+        Log.Debug("IPC: ACK sent");
+
+        // === Phase 4: Keep-alive loop ===
         while (!ct.IsCancellationRequested)
         {
             try
             {
-                int n = await ReadFullAsync(stream, headerBuf, headerSize, ct);
+                n = await ReadFullAsync(stream, msgBuf, MsgHeaderSize, ct);
                 if (n == 0) break;
-
-                ushort fieldCount = BitConverter.ToUInt16(headerBuf, 6);
-                uint totalSize = BitConverter.ToUInt32(headerBuf, 8);
-
-                int fieldsSize = Math.Min(fieldCount, maxFields) * fieldDefSize;
-                if (fieldsSize > 0)
+                byte msgType = msgBuf[0];
+                if (msgType == 0x05) // Pong
                 {
-                    await ReadFullAsync(stream, fieldBuf, fieldsSize, ct);
+                    Log.Debug("IPC: PONG received");
                 }
-
-                var raw = new byte[headerSize + fieldsSize];
-                Buffer.BlockCopy(headerBuf, 0, raw, 0, headerSize);
-                if (fieldsSize > 0)
-                    Buffer.BlockCopy(fieldBuf, 0, raw, headerSize, fieldsSize);
-
-                var schema = SchemaMessage.Parse(raw);
-
-                if (schema.Header.Magic != IPCConstants.Magic)
+                else if (msgType == 0x07) // Shutdown
                 {
-                    Log.Warning("IPC: Invalid magic: 0x{Actual:X}, expected 0x{Expected:X}", schema.Header.Magic, IPCConstants.Magic);
-                    continue;
+                    Log.Information("IPC: Server shutting down");
+                    OnConnectionChanged?.Invoke(false, "服务器已关闭");
+                    break;
                 }
-
-                if (schema.Header.Version != IPCConstants.CurrentVersion)
+                else if (msgType == 0x08) // SchemaUpdate
                 {
-                    Log.Warning("IPC: Schema version mismatch: {Actual} vs {Expected}", schema.Header.Version, IPCConstants.CurrentVersion);
-                    OnConnectionChanged?.Invoke(false, $"Schema 版本不匹配: {schema.Header.Version} vs {IPCConstants.CurrentVersion}");
-                    continue;
-                }
-
-                Log.Information("IPC: Schema received: {Count} fields, totalSize={Size}", schema.Header.FieldCount, schema.Header.TotalSize);
-                foreach (var f in schema.Fields)
-                    Log.Debug("  - [{Id}] {Name}: {Type}@{Offset}[{Size}] {Units}", f.Id, f.Name, f.Type, f.Offset, f.Size, f.Units);
-
-                bool accepted = OnSchemaReceived?.Invoke(schema) ?? true;
-                if (!accepted)
-                {
-                    Log.Warning("IPC: Schema rejected by handler");
-                    OnConnectionChanged?.Invoke(false, "Schema 被拒绝");
-                }
-                else
-                {
-                    var ack = new byte[] { 4, 0, 0, 1, schema.Header.Version, 0, 0, 0 };
-                    await stream.WriteAsync(ack, ct);
-                    await stream.FlushAsync(ct);
-                    // Schema received, connection stays open for future updates
+                    Log.Information("IPC: Schema update — re-reading...");
+                    n = await ReadFullAsync(stream, headerBuf, schemaHeaderSize, ct);
+                    if (n < schemaHeaderSize) break;
+                    fieldCount = BitConverter.ToUInt16(headerBuf, 6);
+                    fieldsSize = Math.Min(fieldCount, maxFields) * fieldDefSize;
+                    if (fieldsSize > 0) await ReadFullAsync(stream, fieldBuf, fieldsSize, ct);
+                    raw = new byte[schemaHeaderSize + fieldsSize];
+                    Buffer.BlockCopy(headerBuf, 0, raw, 0, schemaHeaderSize);
+                    if (fieldsSize > 0) Buffer.BlockCopy(fieldBuf, 0, raw, schemaHeaderSize, fieldsSize);
+                    var newSchema = SchemaMessage.Parse(raw);
+                    if (newSchema.IsValid)
+                        OnSchemaReceived?.Invoke(newSchema);
                 }
             }
             catch (IOException) { break; }
             catch (OperationCanceledException) { break; }
         }
-
-        // Pipe disconnection after schema handshake is expected.
-        Log.Debug("IPC: Pipe disconnected, schema handshake complete — data now via shared memory");
+        Log.Debug("IPC: Keep-alive loop ended");
     }
 
     private static async Task<int> ReadFullAsync(Stream stream, byte[] buf, int len, CancellationToken ct)

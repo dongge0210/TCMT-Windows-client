@@ -16,6 +16,28 @@ constexpr int      IPC_MAX_CLIENTS    = 8;
 constexpr const char* IPC_SHM_PATH   = "/tcmt_ipc_shm";
 constexpr const char* IPC_SOCK_PATH  = "/tmp/tcmt_ipc.sock";
 
+// === Pipe message types (after schema handshake) ===
+enum class PipeMsgType : uint8_t {
+    Hello      = 0x01,  // C# → C++: client intro
+    HelloAck   = 0x02,  // C++ → C#:  server intro + schema follows
+    Ack        = 0x03,  // C# → C++:  schema accepted
+    Ping       = 0x04,  // C# → C++:  keep-alive
+    Pong       = 0x05,  // C++ → C#:  keep-alive response
+    Bye        = 0x06,  // C# → C++:  client disconnecting
+    Shutdown   = 0x07,  // C++ → C#:  server shutting down (SIGINT/SIGTERM)
+    SchemaUpdate = 0x08, // C++ → C#: schema changed, re-open shared memory
+};
+
+#pragma pack(push, 1)
+struct PipeMessage {
+    uint8_t  type = 0;       // PipeMsgType
+    uint8_t  version = IPC_VERSION;
+    uint16_t payloadSize = 0; // Size of payload after header
+    // Followed by payload
+};
+static constexpr uint32_t PIPE_MSG_HEADER_SIZE = 4;
+#pragma pack(pop)
+
 // === Wire Types ===
 enum class FieldType : uint8_t {
     UInt8   = 1,
