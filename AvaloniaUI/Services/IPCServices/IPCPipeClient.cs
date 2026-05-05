@@ -134,8 +134,8 @@ public class IPCPipeClient : IAsyncDisposable
                 int n = await ReadFullAsync(stream, headerBuf, headerSize, ct);
                 if (n == 0) break;
 
-                byte fieldCount = headerBuf[3];
-                uint totalSize = BitConverter.ToUInt32(headerBuf, 4);
+                ushort fieldCount = BitConverter.ToUInt16(headerBuf, 6);
+                uint totalSize = BitConverter.ToUInt32(headerBuf, 8);
 
                 int fieldsSize = Math.Min(fieldCount, maxFields) * fieldDefSize;
                 if (fieldsSize > 0)
@@ -179,13 +179,16 @@ public class IPCPipeClient : IAsyncDisposable
                     await stream.WriteAsync(ack, ct);
                     await stream.FlushAsync(ct);
                 }
+                // Schema received — done with pipe. Data flows via shared memory.
+                break;
             }
             catch (IOException) { break; }
             catch (OperationCanceledException) { break; }
         }
 
-        IsConnected = false;
-        OnConnectionChanged?.Invoke(false, "连接已断开");
+        // Pipe disconnection after schema handshake is expected — data flows via shared memory.
+        // Keep IsConnected=true so the caller knows the schema was received successfully.
+        Log.Debug("IPC: Pipe disconnected, schema handshake complete — data now via shared memory");
     }
 
     private static async Task<int> ReadFullAsync(Stream stream, byte[] buf, int len, CancellationToken ct)

@@ -108,8 +108,14 @@ void IPCServer::AcceptLoop() {
 }
 
 void IPCServer::HandleClient(int clientFd) {
-    // Send schema immediately on connect
+    // Send schema immediately on connect, then close
     SendSchema(clientFd);
+    close(clientFd);
+    {
+        std::lock_guard<std::mutex> lock(clientsMutex_);
+        auto it = std::find(clients_.begin(), clients_.end(), clientFd);
+        if (it != clients_.end()) clients_.erase(it);
+    }
 }
 
 void IPCServer::SendSchema(int fd) {
