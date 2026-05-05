@@ -51,6 +51,11 @@ public class IPCService : IDisposable
 
         _pipeClient.OnConnectionChanged = (connected, msg) =>
         {
+            if (!connected)
+            {
+                // Server shutdown → close memory reader so timer stops reading stale data
+                _memoryReader.Close();
+            }
             Dispatcher.UIThread.Post(() =>
             {
                 ConnectionStateChanged?.Invoke(connected, msg);

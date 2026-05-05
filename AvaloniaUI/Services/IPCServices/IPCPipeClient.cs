@@ -17,6 +17,7 @@ public class IPCPipeClient : IAsyncDisposable
 {
     private CancellationTokenSource? _cts;
     private bool _disposed;
+    private bool _serverShutdown;
 
     /// <summary>
     /// 收到 Schema 时的回调。返回 true 表示接受，false 表示拒绝（版本不匹配等）
@@ -38,6 +39,7 @@ public class IPCPipeClient : IAsyncDisposable
 
         while (!_cts.Token.IsCancellationRequested)
         {
+            if (_serverShutdown) break;
             try
             {
                 if (OperatingSystem.IsWindows())
@@ -189,6 +191,7 @@ public class IPCPipeClient : IAsyncDisposable
                 {
                     Log.Information("IPC: Server shutting down");
                     OnConnectionChanged?.Invoke(false, "服务器已关闭");
+                    _serverShutdown = true;
                     break;
                 }
                 else if (msgType == 0x08) // SchemaUpdate
